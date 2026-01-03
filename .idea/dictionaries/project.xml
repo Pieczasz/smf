@@ -2,6 +2,8 @@
   <dictionary name="project">
     <words>
       <w>mcpk</w>
+      <w>quicklz</w>
+      <w>zstd</w>
     </words>
   </dictionary>
 </component>

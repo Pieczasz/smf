@@ -21,6 +21,55 @@ type Table struct {
 	Collate       string
 	Engine        string
 	AutoIncrement uint64
+
+	RowFormat        string
+	AvgRowLength     uint64
+	KeyBlockSize     uint64
+	MaxRows          uint64
+	MinRows          uint64
+	Checksum         uint64
+	DelayKeyWrite    uint64
+	Tablespace       string
+	Compression      string
+	Encryption       string
+	PackKeys         string
+	DataDirectory    string
+	IndexDirectory   string
+	InsertMethod     string
+	StorageMedia     string
+	StatsPersistent  string
+	StatsAutoRecalc  string
+	StatsSamplePages string
+	Union            []string
+
+	AutoIdCache              uint64
+	AutoRandomBase           uint64
+	ShardRowID               uint64
+	PreSplitRegion           uint64
+	Connection               string
+	Password                 string
+	Nodegroup                uint64
+	SecondaryEngine          string
+	TableChecksum            uint64
+	TTL                      string
+	TTLEnable                bool
+	TTLJobInterval           string
+	EngineAttribute          string
+	SecondaryEngineAttribute string
+	AutoextendSize           string
+	PageChecksum             uint64
+	PageCompressed           bool
+	PageCompressionLevel     uint64
+	Transactional            uint64
+	IetfQuotes               bool
+	Sequence                 bool
+	Affinity                 string
+	PlacementPolicy          string
+	StatsBuckets             uint64
+	StatsTopN                uint64
+	StatsColsChoice          string
+	StatsColList             string
+	StatsSampleRate          float64
 }
 
 type Column struct {
@@ -39,6 +88,12 @@ type Column struct {
 	IsGenerated          bool
 	GenerationExpression string
 	GenerationStorage    string
+
+	ColumnFormat string
+	Storage      string
+	AutoRandom   uint64
+
+	SecondaryEngineAttribute string
 }
 
 type Constraint struct {

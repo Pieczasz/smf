@@ -2,6 +2,7 @@ package mysql
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"schemift/internal/core"
@@ -64,55 +65,179 @@ func (p *Parser) convertCreateTable(stmt *ast.CreateTableStmt) (*core.Table, err
 			table.Engine = opt.StrValue
 		case ast.TableOptionAutoIncrement:
 			table.AutoIncrement = opt.UintValue
+		case ast.TableOptionAvgRowLength:
+			table.AvgRowLength = opt.UintValue
+		case ast.TableOptionCheckSum:
+			table.Checksum = opt.UintValue
+		case ast.TableOptionCompression:
+			table.Compression = opt.StrValue
+		case ast.TableOptionKeyBlockSize:
+			table.KeyBlockSize = opt.UintValue
+		case ast.TableOptionMaxRows:
+			table.MaxRows = opt.UintValue
+		case ast.TableOptionMinRows:
+			table.MinRows = opt.UintValue
+		case ast.TableOptionDelayKeyWrite:
+			table.DelayKeyWrite = opt.UintValue
+		case ast.TableOptionRowFormat:
+			switch opt.UintValue {
+			case ast.RowFormatFixed:
+				table.RowFormat = "FIXED"
+			case ast.RowFormatDynamic:
+				table.RowFormat = "DYNAMIC"
+			case ast.RowFormatCompressed:
+				table.RowFormat = "COMPRESSED"
+			case ast.RowFormatRedundant:
+				table.RowFormat = "REDUNDANT"
+			case ast.RowFormatCompact:
+				table.RowFormat = "COMPACT"
+			case ast.RowFormatDefault:
+				table.RowFormat = "DEFAULT"
+			case ast.TokuDBRowFormatDefault:
+				table.RowFormat = "TOKUDB_DEFAULT"
+			case ast.TokuDBRowFormatFast:
+				table.RowFormat = "TOKUDB_FAST"
+			case ast.TokuDBRowFormatSmall:
+				table.RowFormat = "TOKUDB_SMALL"
+			case ast.TokuDBRowFormatZlib:
+				table.RowFormat = "TOKUDB_ZLIB"
+			case ast.TokuDBRowFormatQuickLZ:
+				table.RowFormat = "TOKUDB_QUICKLZ"
+			case ast.TokuDBRowFormatLzma:
+				table.RowFormat = "TOKUDB_LZMA"
+			case ast.TokuDBRowFormatSnappy:
+				table.RowFormat = "TOKUDB_SNAPPY"
+			case ast.TokuDBRowFormatUncompressed:
+				table.RowFormat = "TOKUDB_UNCOMPRESSED"
+			case ast.TokuDBRowFormatZstd:
+				table.RowFormat = "TOKUDB_ZSTD"
+			}
+		case ast.TableOptionTablespace:
+			table.Tablespace = opt.StrValue
+		case ast.TableOptionDataDirectory:
+			table.DataDirectory = opt.StrValue
+		case ast.TableOptionIndexDirectory:
+			table.IndexDirectory = opt.StrValue
+		case ast.TableOptionEncryption:
+			table.Encryption = opt.StrValue
+		case ast.TableOptionPackKeys:
+			// Known TiDB parser limitation: The value for PACK_KEYS is parsed but not stored in the AST.
+			// It always returns Default=false and UintValue=0 regardless of the input (0, 1, or DEFAULT).
+			if opt.Default {
+				table.PackKeys = "DEFAULT"
+			} else if opt.UintValue == 1 {
+				table.PackKeys = "1"
+			} else {
+				table.PackKeys = "0"
+			}
+		case ast.TableOptionStatsPersistent:
+			// Known TiDB parser limitation: The value for STATS_PERSISTENT is parsed but not stored in the AST.
+			// It always returns Default=false and UintValue=0 regardless of the input (0, 1, or DEFAULT).
+			if opt.Default {
+				table.StatsPersistent = "DEFAULT"
+			} else {
+				table.StatsPersistent = strconv.FormatUint(opt.UintValue, 10)
+			}
+		case ast.TableOptionStatsAutoRecalc:
+			if opt.Default {
+				table.StatsAutoRecalc = "DEFAULT"
+			} else {
+				table.StatsAutoRecalc = strconv.FormatUint(opt.UintValue, 10)
+			}
+		case ast.TableOptionStatsSamplePages:
+			if opt.Default {
+				table.StatsSamplePages = "DEFAULT"
+			} else {
+				table.StatsSamplePages = strconv.FormatUint(opt.UintValue, 10)
+			}
+		case ast.TableOptionStorageMedia:
+			table.StorageMedia = opt.StrValue
+		case ast.TableOptionInsertMethod:
+			table.InsertMethod = opt.StrValue
 		case ast.TableOptionNone:
 		case ast.TableOptionAutoIdCache:
+			table.AutoIdCache = opt.UintValue
 		case ast.TableOptionAutoRandomBase:
-		case ast.TableOptionAvgRowLength:
-		case ast.TableOptionCheckSum:
-		case ast.TableOptionCompression:
+			table.AutoRandomBase = opt.UintValue
 		case ast.TableOptionConnection:
+			table.Connection = opt.StrValue
 		case ast.TableOptionPassword:
-		case ast.TableOptionKeyBlockSize:
-		case ast.TableOptionMaxRows:
-		case ast.TableOptionMinRows:
-		case ast.TableOptionDelayKeyWrite:
-		case ast.TableOptionRowFormat:
-		case ast.TableOptionStatsPersistent:
-		case ast.TableOptionStatsAutoRecalc:
+			table.Password = opt.StrValue
 		case ast.TableOptionShardRowID:
+			table.ShardRowID = opt.UintValue
 		case ast.TableOptionPreSplitRegion:
-		case ast.TableOptionPackKeys:
-		case ast.TableOptionTablespace:
+			table.PreSplitRegion = opt.UintValue
 		case ast.TableOptionNodegroup:
-		case ast.TableOptionDataDirectory:
-		case ast.TableOptionIndexDirectory:
-		case ast.TableOptionStorageMedia:
-		case ast.TableOptionStatsSamplePages:
+			table.Nodegroup = opt.UintValue
 		case ast.TableOptionSecondaryEngine:
+			table.SecondaryEngine = opt.StrValue
 		case ast.TableOptionSecondaryEngineNull:
-		case ast.TableOptionInsertMethod:
+			table.SecondaryEngine = "NULL"
 		case ast.TableOptionTableCheckSum:
+			table.TableChecksum = opt.UintValue
 		case ast.TableOptionUnion:
-		case ast.TableOptionEncryption:
+			table.Union = make([]string, 0, len(opt.TableNames))
+			for _, tn := range opt.TableNames {
+				table.Union = append(table.Union, tn.Name.O)
+			}
 		case ast.TableOptionTTL:
+			if opt.ColumnName != nil && opt.TimeUnitValue != nil {
+				val := ""
+				if opt.Value != nil {
+					if s := p.exprToString(opt.Value); s != nil {
+						val = *s
+					}
+				}
+				table.TTL = fmt.Sprintf("`%s` + INTERVAL %s %s", opt.ColumnName.Name.O, val, opt.TimeUnitValue.Unit.String())
+			}
 		case ast.TableOptionTTLEnable:
+			table.TTLEnable = opt.BoolValue
+			if !table.TTLEnable && (strings.EqualFold(opt.StrValue, "ON") || strings.EqualFold(opt.StrValue, "1")) {
+				table.TTLEnable = true
+			}
 		case ast.TableOptionTTLJobInterval:
+			table.TTLJobInterval = opt.StrValue
 		case ast.TableOptionEngineAttribute:
+			table.EngineAttribute = opt.StrValue
 		case ast.TableOptionSecondaryEngineAttribute:
+			table.SecondaryEngineAttribute = opt.StrValue
 		case ast.TableOptionAutoextendSize:
+			table.AutoextendSize = opt.StrValue
 		case ast.TableOptionPageChecksum:
+			table.PageChecksum = opt.UintValue
 		case ast.TableOptionPageCompressed:
+			table.PageCompressed = opt.BoolValue
 		case ast.TableOptionPageCompressionLevel:
+			table.PageCompressionLevel = opt.UintValue
 		case ast.TableOptionTransactional:
+			table.Transactional = opt.UintValue
 		case ast.TableOptionIetfQuotes:
+			table.IetfQuotes = opt.BoolValue
+			if !table.IetfQuotes && (strings.EqualFold(opt.StrValue, "ON") || strings.EqualFold(opt.StrValue, "1")) {
+				table.IetfQuotes = true
+			}
 		case ast.TableOptionSequence:
+			table.Sequence = opt.BoolValue
 		case ast.TableOptionAffinity:
+			table.Affinity = opt.StrValue
 		case ast.TableOptionPlacementPolicy:
+			table.PlacementPolicy = opt.StrValue
 		case ast.TableOptionStatsBuckets:
+			table.StatsBuckets = opt.UintValue
 		case ast.TableOptionStatsTopN:
+			table.StatsTopN = opt.UintValue
 		case ast.TableOptionStatsColsChoice:
+			table.StatsColsChoice = opt.StrValue
 		case ast.TableOptionStatsColList:
+			table.StatsColList = opt.StrValue
 		case ast.TableOptionStatsSampleRate:
+			if opt.Value != nil {
+				if s := p.exprToString(opt.Value); s != nil {
+					if f, err := strconv.ParseFloat(*s, 64); err == nil {
+						table.StatsSampleRate = f
+					}
+				}
+			}
 		}
 	}
 
@@ -201,7 +326,15 @@ func (p *Parser) convertCreateTable(stmt *ast.CreateTableStmt) (*core.Table, err
 				} else {
 					col.GenerationStorage = "VIRTUAL"
 				}
-			case ast.ColumnOptionColumnFormat, ast.ColumnOptionStorage, ast.ColumnOptionAutoRandom, ast.ColumnOptionSecondaryEngineAttribute, ast.ColumnOptionNoOption:
+			case ast.ColumnOptionColumnFormat:
+				col.ColumnFormat = opt.StrValue
+			case ast.ColumnOptionStorage:
+				col.Storage = opt.StrValue
+			case ast.ColumnOptionAutoRandom:
+				col.AutoRandom = uint64(opt.AutoRandOpt.ShardBits)
+			case ast.ColumnOptionSecondaryEngineAttribute:
+				col.SecondaryEngineAttribute = opt.StrValue
+			case ast.ColumnOptionNoOption:
 			}
 		}
 		table.Columns = append(table.Columns, col)
