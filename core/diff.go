@@ -64,15 +64,8 @@ type TableOptionChange struct {
 func Diff(oldDB, newDB *Database) *SchemaDiff {
 	d := &SchemaDiff{}
 
-	oldTables := map[string]*Table{}
-	newTables := map[string]*Table{}
-
-	for _, t := range oldDB.Tables {
-		oldTables[strings.ToLower(t.Name)] = t
-	}
-	for _, t := range newDB.Tables {
-		newTables[strings.ToLower(t.Name)] = t
-	}
+	oldTables := mapByLowerName(oldDB.Tables, func(t *Table) string { return t.Name })
+	newTables := mapByLowerName(newDB.Tables, func(t *Table) string { return t.Name })
 
 	for name, nt := range newTables {
 		ot, ok := oldTables[name]
@@ -93,15 +86,9 @@ func Diff(oldDB, newDB *Database) *SchemaDiff {
 		}
 	}
 
-	sort.Slice(d.AddedTables, func(i, j int) bool {
-		return strings.ToLower(d.AddedTables[i].Name) < strings.ToLower(d.AddedTables[j].Name)
-	})
-	sort.Slice(d.RemovedTables, func(i, j int) bool {
-		return strings.ToLower(d.RemovedTables[i].Name) < strings.ToLower(d.RemovedTables[j].Name)
-	})
-	sort.Slice(d.ModifiedTables, func(i, j int) bool {
-		return strings.ToLower(d.ModifiedTables[i].Name) < strings.ToLower(d.ModifiedTables[j].Name)
-	})
+	sortByNameCI(d.AddedTables, func(t *Table) string { return t.Name })
+	sortByNameCI(d.RemovedTables, func(t *Table) string { return t.Name })
+	sortByNameCI(d.ModifiedTables, func(td *TableDiff) string { return td.Name })
 
 	return d
 }
@@ -109,14 +96,8 @@ func Diff(oldDB, newDB *Database) *SchemaDiff {
 func compareTable(oldT, newT *Table) *TableDiff {
 	td := &TableDiff{Name: newT.Name}
 
-	oldCols := map[string]*Column{}
-	newCols := map[string]*Column{}
-	for _, c := range oldT.Columns {
-		oldCols[strings.ToLower(c.Name)] = c
-	}
-	for _, c := range newT.Columns {
-		newCols[strings.ToLower(c.Name)] = c
-	}
+	oldCols := mapByLowerName(oldT.Columns, func(c *Column) string { return c.Name })
+	newCols := mapByLowerName(newT.Columns, func(c *Column) string { return c.Name })
 
 	for name, nc := range newCols {
 		if oc, ok := oldCols[name]; !ok {
@@ -131,14 +112,8 @@ func compareTable(oldT, newT *Table) *TableDiff {
 		}
 	}
 
-	oldCons := map[string]*Constraint{}
-	newCons := map[string]*Constraint{}
-	for _, c := range oldT.Constraints {
-		oldCons[constraintKey(c)] = c
-	}
-	for _, c := range newT.Constraints {
-		newCons[constraintKey(c)] = c
-	}
+	oldCons := mapByKey(oldT.Constraints, constraintKey)
+	newCons := mapByKey(newT.Constraints, constraintKey)
 	for name, nc := range newCons {
 		oc, ok := oldCons[name]
 		if !ok {
@@ -155,14 +130,8 @@ func compareTable(oldT, newT *Table) *TableDiff {
 		}
 	}
 
-	oldIdx := map[string]*Index{}
-	newIdx := map[string]*Index{}
-	for _, i := range oldT.Indexes {
-		oldIdx[indexKey(i)] = i
-	}
-	for _, i := range newT.Indexes {
-		newIdx[indexKey(i)] = i
-	}
+	oldIdx := mapByKey(oldT.Indexes, indexKey)
+	newIdx := mapByKey(newT.Indexes, indexKey)
 	for name, ni := range newIdx {
 		oi, ok := oldIdx[name]
 		if !ok {
@@ -194,36 +163,16 @@ func compareTable(oldT, newT *Table) *TableDiff {
 		return nil
 	}
 
-	sort.Slice(td.AddedColumns, func(i, j int) bool {
-		return strings.ToLower(td.AddedColumns[i].Name) < strings.ToLower(td.AddedColumns[j].Name)
-	})
-	sort.Slice(td.RemovedColumns, func(i, j int) bool {
-		return strings.ToLower(td.RemovedColumns[i].Name) < strings.ToLower(td.RemovedColumns[j].Name)
-	})
-	sort.Slice(td.ModifiedColumns, func(i, j int) bool {
-		return strings.ToLower(td.ModifiedColumns[i].Name) < strings.ToLower(td.ModifiedColumns[j].Name)
-	})
-	sort.Slice(td.AddedConstraints, func(i, j int) bool {
-		return strings.ToLower(td.AddedConstraints[i].Name) < strings.ToLower(td.AddedConstraints[j].Name)
-	})
-	sort.Slice(td.RemovedConstraints, func(i, j int) bool {
-		return strings.ToLower(td.RemovedConstraints[i].Name) < strings.ToLower(td.RemovedConstraints[j].Name)
-	})
-	sort.Slice(td.ModifiedConstraints, func(i, j int) bool {
-		return strings.ToLower(td.ModifiedConstraints[i].Name) < strings.ToLower(td.ModifiedConstraints[j].Name)
-	})
-	sort.Slice(td.AddedIndexes, func(i, j int) bool {
-		return strings.ToLower(td.AddedIndexes[i].Name) < strings.ToLower(td.AddedIndexes[j].Name)
-	})
-	sort.Slice(td.RemovedIndexes, func(i, j int) bool {
-		return strings.ToLower(td.RemovedIndexes[i].Name) < strings.ToLower(td.RemovedIndexes[j].Name)
-	})
-	sort.Slice(td.ModifiedIndexes, func(i, j int) bool {
-		return strings.ToLower(td.ModifiedIndexes[i].Name) < strings.ToLower(td.ModifiedIndexes[j].Name)
-	})
-	sort.Slice(td.ModifiedOptions, func(i, j int) bool {
-		return strings.ToLower(td.ModifiedOptions[i].Name) < strings.ToLower(td.ModifiedOptions[j].Name)
-	})
+	sortByNameCI(td.AddedColumns, func(c *Column) string { return c.Name })
+	sortByNameCI(td.RemovedColumns, func(c *Column) string { return c.Name })
+	sortByNameCI(td.ModifiedColumns, func(ch *ColumnChange) string { return ch.Name })
+	sortByNameCI(td.AddedConstraints, func(c *Constraint) string { return c.Name })
+	sortByNameCI(td.RemovedConstraints, func(c *Constraint) string { return c.Name })
+	sortByNameCI(td.ModifiedConstraints, func(ch *ConstraintChange) string { return ch.Name })
+	sortByNameCI(td.AddedIndexes, func(i *Index) string { return i.Name })
+	sortByNameCI(td.RemovedIndexes, func(i *Index) string { return i.Name })
+	sortByNameCI(td.ModifiedIndexes, func(ch *IndexChange) string { return ch.Name })
+	sortByNameCI(td.ModifiedOptions, func(o *TableOptionChange) string { return o.Name })
 
 	return td
 }
@@ -403,66 +352,85 @@ func u64(v uint64) string {
 }
 
 func columnFieldChanges(oldC, newC *Column) []*FieldChange {
-	var changes []*FieldChange
-	add := func(field, oldV, newV string) {
-		if oldV == newV {
-			return
-		}
-		changes = append(changes, &FieldChange{Field: field, Old: oldV, New: newV})
-	}
+	c := newFieldChangeCollector()
 
 	if !strings.EqualFold(oldC.TypeRaw, newC.TypeRaw) {
-		add("type", oldC.TypeRaw, newC.TypeRaw)
+		c.Add("type", oldC.TypeRaw, newC.TypeRaw)
 	}
-	add("nullable", strconv.FormatBool(oldC.Nullable), strconv.FormatBool(newC.Nullable))
-	add("primary_key", strconv.FormatBool(oldC.PrimaryKey), strconv.FormatBool(newC.PrimaryKey))
-	add("auto_increment", strconv.FormatBool(oldC.AutoIncrement), strconv.FormatBool(newC.AutoIncrement))
-	add("charset", strings.TrimSpace(oldC.Charset), strings.TrimSpace(newC.Charset))
-	add("collate", strings.TrimSpace(oldC.Collate), strings.TrimSpace(newC.Collate))
-	add("comment", oldC.Comment, newC.Comment)
-	add("default", optString(oldC.DefaultValue), optString(newC.DefaultValue))
-	add("on_update", optString(oldC.OnUpdate), optString(newC.OnUpdate))
-	add("generated", strconv.FormatBool(oldC.IsGenerated), strconv.FormatBool(newC.IsGenerated))
-	add("generation_expression", strings.TrimSpace(oldC.GenerationExpression), strings.TrimSpace(newC.GenerationExpression))
-	add("generation_storage", strings.TrimSpace(oldC.GenerationStorage), strings.TrimSpace(newC.GenerationStorage))
+	c.Add("nullable", strconv.FormatBool(oldC.Nullable), strconv.FormatBool(newC.Nullable))
+	c.Add("primary_key", strconv.FormatBool(oldC.PrimaryKey), strconv.FormatBool(newC.PrimaryKey))
+	c.Add("auto_increment", strconv.FormatBool(oldC.AutoIncrement), strconv.FormatBool(newC.AutoIncrement))
+	c.Add("charset", strings.TrimSpace(oldC.Charset), strings.TrimSpace(newC.Charset))
+	c.Add("collate", strings.TrimSpace(oldC.Collate), strings.TrimSpace(newC.Collate))
+	c.Add("comment", oldC.Comment, newC.Comment)
+	c.Add("default", optString(oldC.DefaultValue), optString(newC.DefaultValue))
+	c.Add("on_update", optString(oldC.OnUpdate), optString(newC.OnUpdate))
+	c.Add("generated", strconv.FormatBool(oldC.IsGenerated), strconv.FormatBool(newC.IsGenerated))
+	c.Add("generation_expression", strings.TrimSpace(oldC.GenerationExpression), strings.TrimSpace(newC.GenerationExpression))
+	c.Add("generation_storage", strings.TrimSpace(oldC.GenerationStorage), strings.TrimSpace(newC.GenerationStorage))
 
-	return changes
+	return c.Changes
 }
 
 func constraintFieldChanges(oldC, newC *Constraint) []*FieldChange {
-	var changes []*FieldChange
-	add := func(field, oldV, newV string) {
-		if oldV == newV {
-			return
-		}
-		changes = append(changes, &FieldChange{Field: field, Old: oldV, New: newV})
-	}
+	c := newFieldChangeCollector()
 
-	add("type", string(oldC.Type), string(newC.Type))
-	add("columns", formatNameList(oldC.Columns), formatNameList(newC.Columns))
-	add("referenced_table", oldC.ReferencedTable, newC.ReferencedTable)
-	add("referenced_columns", formatNameList(oldC.ReferencedColumns), formatNameList(newC.ReferencedColumns))
-	add("on_delete", strings.TrimSpace(oldC.OnDelete), strings.TrimSpace(newC.OnDelete))
-	add("on_update", strings.TrimSpace(oldC.OnUpdate), strings.TrimSpace(newC.OnUpdate))
-	add("check_expression", strings.TrimSpace(oldC.CheckExpression), strings.TrimSpace(newC.CheckExpression))
+	c.Add("type", string(oldC.Type), string(newC.Type))
+	c.Add("columns", formatNameList(oldC.Columns), formatNameList(newC.Columns))
+	c.Add("referenced_table", oldC.ReferencedTable, newC.ReferencedTable)
+	c.Add("referenced_columns", formatNameList(oldC.ReferencedColumns), formatNameList(newC.ReferencedColumns))
+	c.Add("on_delete", strings.TrimSpace(oldC.OnDelete), strings.TrimSpace(newC.OnDelete))
+	c.Add("on_update", strings.TrimSpace(oldC.OnUpdate), strings.TrimSpace(newC.OnUpdate))
+	c.Add("check_expression", strings.TrimSpace(oldC.CheckExpression), strings.TrimSpace(newC.CheckExpression))
 
-	return changes
+	return c.Changes
 }
 
 func indexFieldChanges(oldI, newI *Index) []*FieldChange {
-	var changes []*FieldChange
-	add := func(field, oldV, newV string) {
-		if oldV == newV {
-			return
-		}
-		changes = append(changes, &FieldChange{Field: field, Old: oldV, New: newV})
+	c := newFieldChangeCollector()
+
+	c.Add("unique", strconv.FormatBool(oldI.Unique), strconv.FormatBool(newI.Unique))
+	c.Add("type", strings.TrimSpace(oldI.Type), strings.TrimSpace(newI.Type))
+	c.Add("columns", formatNameList(oldI.Columns), formatNameList(newI.Columns))
+
+	return c.Changes
+}
+
+type fieldChangeCollector struct {
+	Changes []*FieldChange
+}
+
+func newFieldChangeCollector() *fieldChangeCollector {
+	return &fieldChangeCollector{}
+}
+
+func (c *fieldChangeCollector) Add(field, oldV, newV string) {
+	if oldV == newV {
+		return
 	}
+	c.Changes = append(c.Changes, &FieldChange{Field: field, Old: oldV, New: newV})
+}
 
-	add("unique", strconv.FormatBool(oldI.Unique), strconv.FormatBool(newI.Unique))
-	add("type", strings.TrimSpace(oldI.Type), strings.TrimSpace(newI.Type))
-	add("columns", formatNameList(oldI.Columns), formatNameList(newI.Columns))
+func sortByNameCI[T any](items []T, name func(T) string) {
+	sort.Slice(items, func(i, j int) bool {
+		return strings.ToLower(name(items[i])) < strings.ToLower(name(items[j]))
+	})
+}
 
-	return changes
+func mapByLowerName[T any](items []T, name func(T) string) map[string]T {
+	m := make(map[string]T, len(items))
+	for _, item := range items {
+		m[strings.ToLower(name(item))] = item
+	}
+	return m
+}
+
+func mapByKey[T any](items []T, key func(T) string) map[string]T {
+	m := make(map[string]T, len(items))
+	for _, item := range items {
+		m[key(item)] = item
+	}
+	return m
 }
 
 func optString(v *string) string {

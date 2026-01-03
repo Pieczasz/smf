@@ -16,33 +16,6 @@ func main() {
 		Short: "Database migration tool",
 	}
 
-	parseCmd := &cobra.Command{
-		Use:   "parse <schema.sql>",
-		Short: "Parse and display schema",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			data, err := os.ReadFile(args[0])
-			if err != nil {
-				return fmt.Errorf("failed to read file: %w", err)
-			}
-
-			p := parser.NewSQLParser()
-			db, err := p.ParseSchema(string(data))
-			if err != nil {
-				return fmt.Errorf("parse error: %w", err)
-			}
-
-			fmt.Printf("Tables found: %d\n", len(db.Tables))
-			for _, t := range db.Tables {
-				fmt.Printf("- %s (%d columns)\n", t.Name, len(t.Columns))
-				for _, c := range t.Columns {
-					fmt.Printf("  - %s: %s\n", c.Name, c.TypeRaw)
-				}
-			}
-			return nil
-		},
-	}
-
 	var diffOutFile string
 	diffCmd := &cobra.Command{
 		Use:   "diff <old.sql> <new.sql>",
@@ -68,12 +41,12 @@ func main() {
 				return fmt.Errorf("parse new schema error: %w", err)
 			}
 
-			sd := core.Diff(oldDB, newDB)
+			schemaDiff := core.Diff(oldDB, newDB)
 			if diffOutFile == "" {
-				fmt.Print(sd.String())
+				fmt.Print(schemaDiff.String())
 				return nil
 			}
-			if err := sd.SaveToFile(diffOutFile); err != nil {
+			if err := schemaDiff.SaveToFile(diffOutFile); err != nil {
 				return fmt.Errorf("failed to write output: %w", err)
 			}
 			fmt.Printf("Output saved to %s\n", diffOutFile)
@@ -85,7 +58,7 @@ func main() {
 
 	var fromDialect string
 	var toDialect string
-	var outFile string
+	var migrationOutFile string
 
 	migrateCmd := &cobra.Command{
 		Use:   "migrate <old.sql> <new.sql>",
@@ -117,7 +90,7 @@ You can specify the source and target database dialects using the --from and --t
 				return fmt.Errorf("failed to read new schema: %w", err)
 			}
 
-			// TODO: Use appropriate parser based on fromDialect
+			// TODO: Use appropriate parser based on fromDialect and toDialect
 			p := parser.NewSQLParser()
 			oldDB, err := p.ParseSchema(string(oldData))
 			if err != nil {
@@ -128,30 +101,31 @@ You can specify the source and target database dialects using the --from and --t
 				return fmt.Errorf("failed to parse new schema: %w", err)
 			}
 
-			// TODO: diff := core.Diff(oldDB, newDB)
+			schemaDiff := core.Diff(oldDB, newDB)
 			fmt.Printf("Detected changes between schemas (old: %d tables, new: %d tables)\n",
 				len(oldDB.Tables), len(newDB.Tables))
 
-			// TODO: migration := migration.Generate(diff, toDialect)
+			migration := core.Migrate(schemaDiff)
 
-			if outFile != "" {
-				// TODO: os.WriteFile(outFile, []byte(migration), 0644)
-			} else {
-				// os.WriteFile('schemiftMigration.sql', []byte(migration), 0644)
+			if migrationOutFile == "" {
+				fmt.Print(schemaDiff.String())
+				return nil
 			}
-
+			if err := migration.SaveToFile(migrationOutFile); err != nil {
+				return fmt.Errorf("failed to write output: %w", err)
+			}
+			fmt.Printf("Output saved to %s\n", migrationOutFile)
 			return nil
 		},
 	}
 
 	migrateCmd.Flags().StringVarP(&fromDialect, "from", "f", "", "Source database dialect (e.g., mysql, postgres, sqlite)")
 	migrateCmd.Flags().StringVarP(&toDialect, "to", "t", "", "Target database dialect (e.g., mysql, postgres, sqlite)")
-	migrateCmd.Flags().StringVarP(&outFile, "output", "o", "", "Output file for the generated migration SQL")
+	migrateCmd.Flags().StringVarP(&migrationOutFile, "output", "o", "", "Output file for the generated migration SQL")
 
 	//_ = migrateCmd.MarkFlagRequired("from")
 	//_ = migrateCmd.MarkFlagRequired("to")
 
-	rootCmd.AddCommand(parseCmd)
 	rootCmd.AddCommand(diffCmd)
 	rootCmd.AddCommand(migrateCmd)
 
