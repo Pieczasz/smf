@@ -9,6 +9,7 @@ import (
 	"github.com/pingcap/tidb/pkg/parser"
 	"github.com/pingcap/tidb/pkg/parser/ast"
 	"github.com/pingcap/tidb/pkg/parser/format"
+	_ "github.com/pingcap/tidb/pkg/parser/test_driver"
 )
 
 type Parser struct {
