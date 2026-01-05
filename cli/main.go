@@ -74,7 +74,7 @@ You can specify the source and target database dialects using the --from and --t
 
 			fmt.Printf("Migrating from %s (%s) to %s (%s)\n", oldPath, fromDialect, newPath, toDialect)
 
-			supported := map[string]bool{"mysql": true, "psql": true, "sqlite": true}
+			supported := map[string]bool{"mysql": true}
 			if !supported[strings.ToLower(fromDialect)] {
 				return fmt.Errorf("unsupported source dialect: %s", fromDialect)
 			}
@@ -121,8 +121,8 @@ You can specify the source and target database dialects using the --from and --t
 		},
 	}
 
-	migrateCmd.Flags().StringVarP(&fromDialect, "from", "f", "", "Source database dialect (e.g., mysql, postgres, sqlite)")
-	migrateCmd.Flags().StringVarP(&toDialect, "to", "t", "", "Target database dialect (e.g., mysql, postgres, sqlite)")
+	migrateCmd.Flags().StringVarP(&fromDialect, "from", "f", "mysql", "Source database dialect (e.g., mysql)")
+	migrateCmd.Flags().StringVarP(&toDialect, "to", "t", "mysql", "Target database dialect (e.g., mysql)")
 	migrateCmd.Flags().StringVarP(&migrationOutFile, "output", "o", "", "Output file for the generated migration SQL")
 
 	//_ = migrateCmd.MarkFlagRequired("from")

@@ -2,6 +2,7 @@ package dialect
 
 import (
 	"fmt"
+	"regexp"
 	"schemift/core"
 	"schemift/parser/mysql"
 	"strconv"
@@ -74,8 +75,9 @@ func (g *MySQLGenerator) GenerateMigration(diff *core.SchemaDiff) *core.Migratio
 		if td == nil {
 			continue
 		}
-		stmts := g.GenerateAlterTable(td)
+		stmts, fkAdds := g.generateAlterTable(td)
 		m.Statements = append(m.Statements, stmts...)
+		pendingFKs = append(pendingFKs, fkAdds...)
 	}
 
 	if len(pendingFKs) > 0 {
@@ -307,8 +309,14 @@ func (g *MySQLGenerator) GenerateDropTable(t *core.Table) string {
 }
 
 func (g *MySQLGenerator) GenerateAlterTable(td *core.TableDiff) []string {
+	stmts, fkAdds := g.generateAlterTable(td)
+	return append(stmts, fkAdds...)
+}
+
+func (g *MySQLGenerator) generateAlterTable(td *core.TableDiff) ([]string, []string) {
 	table := g.QuoteIdentifier(td.Name)
 	var stmts []string
+	var fkAdds []string
 
 	for _, ch := range td.ModifiedConstraints {
 		if ch == nil {
@@ -317,11 +325,7 @@ func (g *MySQLGenerator) GenerateAlterTable(td *core.TableDiff) []string {
 		if drop := g.dropConstraint(table, ch.Old); drop != "" {
 			stmts = append(stmts, drop)
 		}
-		if add := g.addConstraint(table, ch.New); add != "" {
-			stmts = append(stmts, add)
-		}
 	}
-
 	for _, rc := range td.RemovedConstraints {
 		if drop := g.dropConstraint(table, rc); drop != "" {
 			stmts = append(stmts, drop)
@@ -329,13 +333,11 @@ func (g *MySQLGenerator) GenerateAlterTable(td *core.TableDiff) []string {
 	}
 
 	for _, mi := range td.ModifiedIndexes {
-		if mi == nil || strings.TrimSpace(mi.Old.Name) == "" {
+		if mi == nil || mi.Old == nil || strings.TrimSpace(mi.Old.Name) == "" {
 			continue
 		}
 		stmts = append(stmts, fmt.Sprintf("DROP INDEX %s ON %s;", g.QuoteIdentifier(mi.Old.Name), table))
-		stmts = append(stmts, g.createIndex(table, mi.New))
 	}
-
 	for _, ri := range td.RemovedIndexes {
 		if ri == nil || strings.TrimSpace(ri.Name) == "" {
 			continue
@@ -349,32 +351,17 @@ func (g *MySQLGenerator) GenerateAlterTable(td *core.TableDiff) []string {
 		}
 		stmts = append(stmts, fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s;", table, g.columnDefinition(c)))
 	}
-
 	for _, ch := range td.ModifiedColumns {
 		if ch == nil || ch.New == nil {
 			continue
 		}
 		stmts = append(stmts, fmt.Sprintf("ALTER TABLE %s MODIFY COLUMN %s;", table, g.columnDefinition(ch.New)))
 	}
-
 	for _, c := range td.RemovedColumns {
 		if c == nil {
 			continue
 		}
 		stmts = append(stmts, fmt.Sprintf("ALTER TABLE %s DROP COLUMN %s;", table, g.QuoteIdentifier(c.Name)))
-	}
-
-	for _, ac := range td.AddedConstraints {
-		if add := g.addConstraint(table, ac); add != "" {
-			stmts = append(stmts, add)
-		}
-	}
-
-	for _, ai := range td.AddedIndexes {
-		if ai == nil {
-			continue
-		}
-		stmts = append(stmts, g.createIndex(table, ai))
 	}
 
 	for _, mo := range td.ModifiedOptions {
@@ -386,7 +373,49 @@ func (g *MySQLGenerator) GenerateAlterTable(td *core.TableDiff) []string {
 		}
 	}
 
-	return stmts
+	for _, mi := range td.ModifiedIndexes {
+		if mi == nil {
+			continue
+		}
+		stmts = append(stmts, g.createIndex(table, mi.New))
+	}
+	for _, ai := range td.AddedIndexes {
+		if ai == nil {
+			continue
+		}
+		stmts = append(stmts, g.createIndex(table, ai))
+	}
+
+	for _, ch := range td.ModifiedConstraints {
+		if ch == nil {
+			continue
+		}
+		if ch.New != nil && ch.New.Type == core.ConstraintForeignKey {
+			if add := g.addConstraint(table, ch.New); add != "" {
+				fkAdds = append(fkAdds, add)
+			}
+			continue
+		}
+		if add := g.addConstraint(table, ch.New); add != "" {
+			stmts = append(stmts, add)
+		}
+	}
+	for _, ac := range td.AddedConstraints {
+		if ac == nil {
+			continue
+		}
+		if ac.Type == core.ConstraintForeignKey {
+			if add := g.addConstraint(table, ac); add != "" {
+				fkAdds = append(fkAdds, add)
+			}
+			continue
+		}
+		if add := g.addConstraint(table, ac); add != "" {
+			stmts = append(stmts, add)
+		}
+	}
+
+	return stmts, fkAdds
 }
 
 func (g *MySQLGenerator) QuoteIdentifier(name string) string {
@@ -403,7 +432,7 @@ func (g *MySQLGenerator) QuoteString(value string) string {
 
 func (g *MySQLGenerator) columnDefinition(c *core.Column) string {
 	var parts []string
-	parts = append(parts, g.QuoteIdentifier(c.Name), strings.TrimSpace(c.TypeRaw))
+	parts = append(parts, g.QuoteIdentifier(c.Name), sanitizeMySQLTypeRaw(strings.TrimSpace(c.TypeRaw)))
 
 	if c.IsGenerated {
 		expr := strings.TrimSpace(c.GenerationExpression)
@@ -430,12 +459,13 @@ func (g *MySQLGenerator) columnDefinition(c *core.Column) string {
 		parts = append(parts, fmt.Sprintf("AUTO_RANDOM(%d)", c.AutoRandom))
 	}
 
-	if cs := strings.TrimSpace(c.Charset); cs != "" {
-		parts = append(parts, "CHARACTER SET", cs)
-	}
-
-	if coll := strings.TrimSpace(c.Collate); coll != "" {
-		parts = append(parts, "COLLATE", coll)
+	if supportsCharsetCollation(c.TypeRaw) {
+		if cs := strings.TrimSpace(c.Charset); cs != "" {
+			parts = append(parts, "CHARACTER SET", cs)
+		}
+		if coll := strings.TrimSpace(c.Collate); coll != "" {
+			parts = append(parts, "COLLATE", coll)
+		}
 	}
 
 	if c.DefaultValue != nil {
@@ -459,6 +489,44 @@ func (g *MySQLGenerator) columnDefinition(c *core.Column) string {
 	}
 
 	return strings.Join(parts, " ")
+}
+
+var reBaseType = regexp.MustCompile(`(?i)^\s*([a-z0-9_]+)\b`)
+
+func supportsCharsetCollation(typeRaw string) bool {
+	m := reBaseType.FindStringSubmatch(typeRaw)
+	if len(m) < 2 {
+		return false
+	}
+	base := strings.ToLower(strings.TrimSpace(m[1]))
+	switch base {
+	case "char", "varchar", "tinytext", "text", "mediumtext", "longtext", "enum", "set":
+		return true
+	default:
+		return false
+	}
+}
+
+func sanitizeMySQLTypeRaw(typeRaw string) string {
+	tr := strings.TrimSpace(typeRaw)
+	if tr == "" {
+		return tr
+	}
+
+	m := reBaseType.FindStringSubmatch(tr)
+	if len(m) < 2 {
+		return tr
+	}
+	base := strings.ToLower(strings.TrimSpace(m[1]))
+
+	if base == "varbinary" || base == "binary" {
+		toks := strings.Fields(tr)
+		if len(toks) >= 2 && strings.EqualFold(toks[len(toks)-1], "BINARY") {
+			return strings.Join(toks[:len(toks)-1], " ")
+		}
+	}
+
+	return tr
 }
 
 func (g *MySQLGenerator) constraintDefinition(c *core.Constraint) string {

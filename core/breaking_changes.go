@@ -224,6 +224,17 @@ func (a *BreakingChangeAnalyzer) analyzeModifiedColumns(table string, changes []
 
 func (a *BreakingChangeAnalyzer) analyzeTypeChange(table string, ch *ColumnChange) {
 	oldType, newType := ch.Old.TypeRaw, ch.New.TypeRaw
+
+	if oldBase, oldLen, okOld := parseTypeLength(oldType); okOld {
+		if newBase, newLen, okNew := parseTypeLength(newType); okNew {
+			if strings.EqualFold(oldBase, newBase) && oldLen != newLen {
+				switch strings.ToLower(strings.TrimSpace(oldBase)) {
+				case "varchar", "char":
+					return
+				}
+			}
+		}
+	}
 	if strings.EqualFold(oldType, newType) {
 		return
 	}
@@ -534,6 +545,9 @@ func (a *BreakingChangeAnalyzer) analyzeRemovedConstraints(table string, constra
 func (a *BreakingChangeAnalyzer) analyzeModifiedConstraints(table string, changes []*ConstraintChange) {
 	for _, ch := range changes {
 		if ch == nil {
+			continue
+		}
+		if ch.RebuildOnly {
 			continue
 		}
 		name := ch.Name

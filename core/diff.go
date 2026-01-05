@@ -36,10 +36,12 @@ type ColumnChange struct {
 }
 
 type ConstraintChange struct {
-	Name    string
-	Old     *Constraint
-	New     *Constraint
-	Changes []*FieldChange
+	Name          string
+	Old           *Constraint
+	New           *Constraint
+	Changes       []*FieldChange
+	RebuildOnly   bool
+	RebuildReason string
 }
 
 type IndexChange struct {
@@ -98,6 +100,7 @@ func compareTable(oldT, newT *Table) *TableDiff {
 
 	compareColumns(oldT.Columns, newT.Columns, td)
 	compareConstraints(oldT.Constraints, newT.Constraints, td)
+	markConstraintsForRebuild(oldT.Constraints, newT.Constraints, td)
 	compareIndexes(oldT.Indexes, newT.Indexes, td)
 	compareOptions(oldT, newT, td)
 
@@ -107,6 +110,86 @@ func compareTable(oldT, newT *Table) *TableDiff {
 
 	td.sort()
 	return td
+}
+
+func markConstraintsForRebuild(oldItems, newItems []*Constraint, td *TableDiff) {
+	if td == nil {
+		return
+	}
+	if len(td.ModifiedColumns) == 0 {
+		return
+	}
+
+	affectedCols := make(map[string]struct{}, len(td.ModifiedColumns))
+	for _, ch := range td.ModifiedColumns {
+		if ch == nil {
+			continue
+		}
+		name := strings.ToLower(strings.TrimSpace(ch.Name))
+		if name == "" {
+			continue
+		}
+		affectedCols[name] = struct{}{}
+	}
+	if len(affectedCols) == 0 {
+		return
+	}
+
+	oldMap := mapByKey(oldItems, constraintKey)
+	newMap := mapByKey(newItems, constraintKey)
+
+	already := make(map[string]struct{}, len(td.ModifiedConstraints))
+	for _, ch := range td.ModifiedConstraints {
+		if ch == nil {
+			continue
+		}
+		if ch.New != nil {
+			already[constraintKey(ch.New)] = struct{}{}
+		} else if ch.Old != nil {
+			already[constraintKey(ch.Old)] = struct{}{}
+		}
+	}
+
+	for key, oldC := range oldMap {
+		newC, ok := newMap[key]
+		if !ok {
+			continue
+		}
+		if _, ok := already[key]; ok {
+			continue
+		}
+		// Only rebuild constraints whose definition didn't change.
+		if !equalConstraint(oldC, newC) {
+			continue
+		}
+		if !constraintTouchesColumns(newC, affectedCols) {
+			continue
+		}
+		td.ModifiedConstraints = append(td.ModifiedConstraints, &ConstraintChange{
+			Name:          newC.Name,
+			Old:           oldC,
+			New:           newC,
+			Changes:       nil,
+			RebuildOnly:   true,
+			RebuildReason: "dependent column modified",
+		})
+	}
+}
+
+func constraintTouchesColumns(c *Constraint, cols map[string]struct{}) bool {
+	if c == nil || len(cols) == 0 {
+		return false
+	}
+	for _, col := range c.Columns {
+		name := strings.ToLower(strings.TrimSpace(col))
+		if name == "" {
+			continue
+		}
+		if _, ok := cols[name]; ok {
+			return true
+		}
+	}
+	return false
 }
 
 func compareColumns(oldItems, newItems []*Column, td *TableDiff) {
