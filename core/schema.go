@@ -268,13 +268,15 @@ func NormalizeDataType(rawType string) DataType {
 	switch {
 	case containsAny(rawType, "char", "text", "string", "enum", "set"):
 		return DataTypeString
+	case strings.Contains(rawType, "bool") || strings.Contains(rawType, "tinyint(1)"):
+		return DataTypeBoolean
 	case strings.Contains(rawType, "int"):
 		return DataTypeInt
 	case containsAny(rawType, "float", "double", "decimal", "numeric", "real"):
 		return DataTypeFloat
-	case strings.Contains(rawType, "bool"), rawType == "tinyint(1)":
-		return DataTypeBoolean
-	case containsAny(rawType, "date", "time", "timestamp"):
+	case strings.Contains(rawType, "timestamp"):
+		return DataTypeDatetime
+	case containsAny(rawType, "date", "time"):
 		return DataTypeDatetime
 	case strings.Contains(rawType, "json"):
 		return DataTypeJSON

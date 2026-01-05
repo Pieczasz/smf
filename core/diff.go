@@ -758,9 +758,19 @@ func (d *SchemaDiff) writeTableDiff(sb *strings.Builder, mt *TableDiff) {
 	if len(mt.ModifiedConstraints) > 0 {
 		sb.WriteString("    Modified constraints:\n")
 		for _, ch := range mt.ModifiedConstraints {
+			if ch == nil {
+				continue
+			}
 			name := ch.Name
 			if name == "" {
-				name = string(ch.New.Type)
+				switch {
+				case ch.New != nil:
+					name = string(ch.New.Type)
+				case ch.Old != nil:
+					name = string(ch.Old.Type)
+				default:
+					name = "(unnamed)"
+				}
 			}
 			sb.WriteString(fmt.Sprintf("      - %s:\n", name))
 			for _, fc := range ch.Changes {

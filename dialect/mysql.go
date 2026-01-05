@@ -694,17 +694,25 @@ func (g *MySQLGenerator) dropConstraint(table string, c *core.Constraint) string
 		if name := strings.TrimSpace(c.Name); name != "" {
 			return fmt.Sprintf("ALTER TABLE %s DROP FOREIGN KEY %s;", table, g.QuoteIdentifier(name))
 		}
-		return ""
+		cols := strings.Join(c.Columns, ",")
+		if cols != "" {
+			cols = " (" + cols + ")"
+		}
+		return fmt.Sprintf("-- cannot drop unnamed FOREIGN KEY%s on %s", cols, table)
 	case core.ConstraintUnique:
 		if name := strings.TrimSpace(c.Name); name != "" {
 			return fmt.Sprintf("ALTER TABLE %s DROP INDEX %s;", table, g.QuoteIdentifier(name))
 		}
-		return ""
+		cols := strings.Join(c.Columns, ",")
+		if cols != "" {
+			cols = " (" + cols + ")"
+		}
+		return fmt.Sprintf("-- cannot drop unnamed UNIQUE%s on %s", cols, table)
 	case core.ConstraintCheck:
 		if name := strings.TrimSpace(c.Name); name != "" {
 			return fmt.Sprintf("ALTER TABLE %s DROP CHECK %s;", table, g.QuoteIdentifier(name))
 		}
-		return ""
+		return fmt.Sprintf("-- cannot drop unnamed CHECK on %s", table)
 	default:
 		return ""
 	}
