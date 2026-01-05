@@ -55,6 +55,8 @@ func (g *MySQLGenerator) GenerateMigration(diff *core.SchemaDiff) *core.Migratio
 			m.Notes = append(m.Notes, fmt.Sprintf("[WARNING] %s.%s: %s", bc.Table, bc.Object, bc.Description))
 		case core.SeverityInfo:
 		}
+
+		m.Notes = append(m.Notes, migrationRecommendations(bc)...)
 	}
 
 	var pendingFKs []string
@@ -88,10 +90,168 @@ func (g *MySQLGenerator) GenerateMigration(diff *core.SchemaDiff) *core.Migratio
 		m.Statements = append(m.Statements, g.GenerateDropTable(t))
 	}
 
+	if hasPotentiallyLockingStatements(m.Statements) {
+		m.Notes = append(m.Notes, "Lock-time warning: ALTER TABLE / index changes may lock or rebuild tables; for large tables consider online schema change tools and off-peak execution.")
+	}
+
+	rollback := g.rollbackSuggestions(diff)
+	if len(rollback) > 0 {
+		m.Notes = append(m.Notes, "Suggested rollback (best-effort; review carefully):")
+		for _, stmt := range rollback {
+			m.Notes = append(m.Notes, "ROLLBACK: "+stmt)
+		}
+	}
+
 	m.Notes = dedupeStable(m.Notes)
 	m.Breaking = dedupeStable(m.Breaking)
 
 	return m
+}
+
+func hasPotentiallyLockingStatements(stmts []string) bool {
+	for _, s := range stmts {
+		u := strings.ToUpper(strings.TrimSpace(s))
+		if strings.HasPrefix(u, "ALTER TABLE") || strings.HasPrefix(u, "CREATE INDEX") || strings.HasPrefix(u, "DROP INDEX") {
+			return true
+		}
+	}
+	return false
+}
+
+func migrationRecommendations(bc core.BreakingChange) []string {
+	// Keep these short: they end up as "-- - ..." comments.
+	msg := strings.ToLower(bc.Description)
+	var out []string
+
+	switch {
+	case strings.Contains(msg, "column rename detected"):
+		out = append(out, fmt.Sprintf("Data migration tip: use an explicit rename (e.g. CHANGE COLUMN) for %s.%s to preserve data.", bc.Table, bc.Object))
+	case strings.Contains(msg, "becomes not null"):
+		out = append(out, fmt.Sprintf("Data migration tip: backfill %s.%s (UPDATE NULLs) before enforcing NOT NULL.", bc.Table, bc.Object))
+	case strings.Contains(msg, "adding not null column without default"):
+		out = append(out, fmt.Sprintf("Data migration tip: add %s.%s as NULL first, backfill, then ALTER to NOT NULL.", bc.Table, bc.Object))
+	case strings.Contains(msg, "type changes"):
+		out = append(out, fmt.Sprintf("Data migration tip: validate cast/backfill for %s.%s before applying the type change.", bc.Table, bc.Object))
+	case strings.Contains(msg, "length shrinks"):
+		out = append(out, fmt.Sprintf("Data migration tip: check max length in %s.%s before shrinking (e.g. MAX(CHAR_LENGTH(col))).", bc.Table, bc.Object))
+	case strings.Contains(msg, "table will be dropped"):
+		out = append(out, fmt.Sprintf("Safety tip: take a backup or copy data out of %s before DROP TABLE.", bc.Table))
+	case strings.Contains(msg, "column will be dropped"):
+		out = append(out, fmt.Sprintf("Safety tip: take a backup or copy data out of %s.%s before DROP COLUMN.", bc.Table, bc.Object))
+	}
+
+	return out
+}
+
+func (g *MySQLGenerator) rollbackSuggestions(diff *core.SchemaDiff) []string {
+	if diff == nil {
+		return nil
+	}
+	var out []string
+
+	for _, t := range diff.AddedTables {
+		if t == nil {
+			continue
+		}
+		out = append(out, g.GenerateDropTable(t))
+	}
+
+	for _, t := range diff.RemovedTables {
+		if t == nil {
+			continue
+		}
+		out = append(out, fmt.Sprintf("-- cannot auto-rollback DROP TABLE %s (restore from backup)", g.QuoteIdentifier(t.Name)))
+	}
+
+	for _, td := range diff.ModifiedTables {
+		if td == nil {
+			continue
+		}
+		table := g.QuoteIdentifier(td.Name)
+
+		for _, ac := range td.AddedColumns {
+			if ac == nil {
+				continue
+			}
+			out = append(out, fmt.Sprintf("ALTER TABLE %s DROP COLUMN %s;", table, g.QuoteIdentifier(ac.Name)))
+		}
+		for _, rc := range td.RemovedColumns {
+			if rc == nil {
+				continue
+			}
+			out = append(out, fmt.Sprintf("-- data not restored; best-effort column re-add\nALTER TABLE %s ADD COLUMN %s;", table, g.columnDefinition(rc)))
+		}
+		for _, mc := range td.ModifiedColumns {
+			if mc == nil || mc.Old == nil {
+				continue
+			}
+			out = append(out, fmt.Sprintf("ALTER TABLE %s MODIFY COLUMN %s;", table, g.columnDefinition(mc.Old)))
+		}
+
+		for _, ac := range td.AddedConstraints {
+			if drop := g.dropConstraint(table, ac); drop != "" {
+				out = append(out, drop)
+			}
+		}
+		for _, rc := range td.RemovedConstraints {
+			if add := g.addConstraint(table, rc); add != "" {
+				out = append(out, add)
+			}
+		}
+		for _, mc := range td.ModifiedConstraints {
+			if mc == nil {
+				continue
+			}
+			if drop := g.dropConstraint(table, mc.New); drop != "" {
+				out = append(out, drop)
+			}
+			if add := g.addConstraint(table, mc.Old); add != "" {
+				out = append(out, add)
+			}
+		}
+
+		for _, ai := range td.AddedIndexes {
+			if ai == nil || strings.TrimSpace(ai.Name) == "" {
+				continue
+			}
+			out = append(out, fmt.Sprintf("DROP INDEX %s ON %s;", g.QuoteIdentifier(ai.Name), table))
+		}
+		for _, ri := range td.RemovedIndexes {
+			if ri == nil {
+				continue
+			}
+			out = append(out, g.createIndex(table, ri))
+		}
+		for _, mi := range td.ModifiedIndexes {
+			if mi == nil {
+				continue
+			}
+			if mi.New != nil && strings.TrimSpace(mi.New.Name) != "" {
+				out = append(out, fmt.Sprintf("DROP INDEX %s ON %s;", g.QuoteIdentifier(mi.New.Name), table))
+			}
+			out = append(out, g.createIndex(table, mi.Old))
+		}
+
+		for _, mo := range td.ModifiedOptions {
+			if mo == nil {
+				continue
+			}
+			// Reverse the change.
+			if stmt := g.alterOption(table, &core.TableOptionChange{Name: mo.Name, New: mo.Old}); stmt != "" {
+				out = append(out, stmt)
+			}
+		}
+	}
+
+	var cleaned []string
+	for _, s := range out {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			continue
+		}
+		cleaned = append(cleaned, s)
+	}
+	return cleaned
 }
 
 func (g *MySQLGenerator) GenerateCreateTable(t *core.Table) (string, []string) {

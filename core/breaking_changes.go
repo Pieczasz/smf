@@ -2,6 +2,8 @@ package core
 
 import (
 	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -76,6 +78,7 @@ func (a *BreakingChangeAnalyzer) analyzeModifiedTables(tables []*TableDiff) {
 		if td == nil {
 			continue
 		}
+		a.analyzeColumnRenames(td.Name, td.RemovedColumns, td.AddedColumns)
 		a.analyzeRemovedColumns(td.Name, td.RemovedColumns)
 		a.analyzeModifiedColumns(td.Name, td.ModifiedColumns)
 		a.analyzeAddedColumns(td.Name, td.AddedColumns)
@@ -83,8 +86,107 @@ func (a *BreakingChangeAnalyzer) analyzeModifiedTables(tables []*TableDiff) {
 		a.analyzeModifiedConstraints(td.Name, td.ModifiedConstraints)
 		a.analyzeAddedConstraints(td.Name, td.AddedConstraints)
 		a.analyzeRemovedIndexes(td.Name, td.RemovedIndexes)
+		a.analyzeModifiedIndexes(td.Name, td.ModifiedIndexes)
+		a.analyzeAddedIndexes(td.Name, td.AddedIndexes)
 		a.analyzeModifiedOptions(td.Name, td.ModifiedOptions)
 	}
+}
+
+func (a *BreakingChangeAnalyzer) analyzeColumnRenames(table string, removed []*Column, added []*Column) {
+	if len(removed) == 0 || len(added) == 0 {
+		return
+	}
+
+	usedAdded := make(map[int]struct{}, len(added))
+	for _, oldC := range removed {
+		if oldC == nil {
+			continue
+		}
+		bestIdx := -1
+		bestScore := -1
+		for j, newC := range added {
+			if newC == nil {
+				continue
+			}
+			if _, ok := usedAdded[j]; ok {
+				continue
+			}
+			score := renameSimilarityScore(oldC, newC)
+			if score > bestScore {
+				bestScore = score
+				bestIdx = j
+			}
+		}
+		if bestIdx >= 0 && bestScore >= 9 {
+			newC := added[bestIdx]
+			usedAdded[bestIdx] = struct{}{}
+			a.add(BreakingChange{
+				Severity:    SeverityBreaking,
+				Description: fmt.Sprintf("Column rename detected: %s -> %s (currently appears as DROP+ADD; use CHANGE/RENAME COLUMN to preserve data)", oldC.Name, newC.Name),
+				Table:       table,
+				Object:      fmt.Sprintf("%s->%s", oldC.Name, newC.Name),
+				ObjectType:  "COLUMN_RENAME",
+			})
+		}
+	}
+}
+
+func renameSimilarityScore(oldC, newC *Column) int {
+	if oldC == nil || newC == nil {
+		return 0
+	}
+	score := 0
+	if strings.EqualFold(oldC.TypeRaw, newC.TypeRaw) {
+		score += 4
+	}
+	if oldC.Type == newC.Type {
+		score += 2
+	}
+	if oldC.Nullable == newC.Nullable {
+		score += 1
+	}
+	if oldC.AutoIncrement == newC.AutoIncrement {
+		score += 1
+	}
+	if oldC.PrimaryKey == newC.PrimaryKey {
+		score += 1
+	}
+	if ptrEqString(oldC.DefaultValue, newC.DefaultValue) {
+		score += 1
+	}
+	if strings.EqualFold(strings.TrimSpace(oldC.Charset), strings.TrimSpace(newC.Charset)) {
+		score += 1
+	}
+	if strings.EqualFold(strings.TrimSpace(oldC.Collate), strings.TrimSpace(newC.Collate)) {
+		score += 1
+	}
+	if oldC.IsGenerated == newC.IsGenerated {
+		score += 1
+	}
+	if strings.TrimSpace(oldC.GenerationExpression) == strings.TrimSpace(newC.GenerationExpression) {
+		score += 1
+	}
+	if strings.EqualFold(string(oldC.GenerationStorage), string(newC.GenerationStorage)) {
+		score += 1
+	}
+	if strings.EqualFold(oldC.Comment, newC.Comment) {
+		score += 1
+	}
+
+	if strings.EqualFold(oldC.Name, newC.Name) {
+		return 0
+	}
+	return score
+}
+
+func ptrEqString(a, b *string) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return *a == *b
 }
 
 func (a *BreakingChangeAnalyzer) analyzeRemovedColumns(table string, columns []*Column) {
@@ -109,11 +211,14 @@ func (a *BreakingChangeAnalyzer) analyzeModifiedColumns(table string, changes []
 		}
 
 		a.analyzeTypeChange(table, ch)
+		a.analyzeColumnLengthChange(table, ch)
 		a.analyzeNullabilityChange(table, ch)
 		a.analyzeAutoIncrementChange(table, ch)
 		a.analyzePrimaryKeyChange(table, ch)
 		a.analyzeGeneratedColumnChange(table, ch)
 		a.analyzeCharsetCollateChange(table, ch)
+		a.analyzeDefaultValueChange(table, ch)
+		a.analyzeCommentChange(table, ch)
 	}
 }
 
@@ -132,6 +237,62 @@ func (a *BreakingChangeAnalyzer) analyzeTypeChange(table string, ch *ColumnChang
 		Object:      ch.Name,
 		ObjectType:  "COLUMN",
 	})
+}
+
+var reTypeLen = regexp.MustCompile(`(?i)^\s*([a-z0-9_]+)\s*\(\s*(\d+)\s*\)`) // e.g. varchar(255)
+
+func (a *BreakingChangeAnalyzer) analyzeColumnLengthChange(table string, ch *ColumnChange) {
+	oldBase, oldLen, okOld := parseTypeLength(ch.Old.TypeRaw)
+	newBase, newLen, okNew := parseTypeLength(ch.New.TypeRaw)
+	if !okOld || !okNew {
+		return
+	}
+	if !strings.EqualFold(oldBase, newBase) {
+		return
+	}
+	if oldLen == newLen {
+		return
+	}
+
+	if oldLen > newLen {
+		a.add(BreakingChange{
+			Severity:    SeverityBreaking,
+			Description: fmt.Sprintf("Column length shrinks from %s(%d) to %s(%d) - existing values may be truncated", oldBase, oldLen, newBase, newLen),
+			Table:       table,
+			Object:      ch.Name,
+			ObjectType:  "COLUMN",
+		})
+		return
+	}
+
+	a.add(BreakingChange{
+		Severity:    SeverityInfo,
+		Description: fmt.Sprintf("Column length increases from %s(%d) to %s(%d)", oldBase, oldLen, newBase, newLen),
+		Table:       table,
+		Object:      ch.Name,
+		ObjectType:  "COLUMN",
+	})
+}
+
+func parseTypeLength(typeRaw string) (base string, length int, ok bool) {
+	typeRaw = strings.TrimSpace(typeRaw)
+	m := reTypeLen.FindStringSubmatch(typeRaw)
+	if len(m) != 3 {
+		return "", 0, false
+	}
+	base = strings.ToLower(strings.TrimSpace(m[1]))
+	// Only length-sensitive types for now.
+	switch base {
+	case "varchar", "char", "varbinary", "binary":
+		// ok
+	default:
+		return "", 0, false
+	}
+	n, err := strconv.Atoi(m[2])
+	if err != nil {
+		return "", 0, false
+	}
+	return base, n, true
 }
 
 func (a *BreakingChangeAnalyzer) determineTypeMigrationSeverity(oldType, newType string) ChangeSeverity {
@@ -282,6 +443,34 @@ func (a *BreakingChangeAnalyzer) analyzeCharsetCollateChange(table string, ch *C
 	}
 }
 
+func (a *BreakingChangeAnalyzer) analyzeDefaultValueChange(table string, ch *ColumnChange) {
+	oldV := ptrStr(ch.Old.DefaultValue)
+	newV := ptrStr(ch.New.DefaultValue)
+	if oldV == newV {
+		return
+	}
+	a.add(BreakingChange{
+		Severity:    SeverityWarning,
+		Description: fmt.Sprintf("Default value changes from %q to %q", oldV, newV),
+		Table:       table,
+		Object:      ch.Name,
+		ObjectType:  "COLUMN",
+	})
+}
+
+func (a *BreakingChangeAnalyzer) analyzeCommentChange(table string, ch *ColumnChange) {
+	if strings.TrimSpace(ch.Old.Comment) == strings.TrimSpace(ch.New.Comment) {
+		return
+	}
+	a.add(BreakingChange{
+		Severity:    SeverityInfo,
+		Description: "Column comment changed",
+		Table:       table,
+		Object:      ch.Name,
+		ObjectType:  "COLUMN",
+	})
+}
+
 func (a *BreakingChangeAnalyzer) analyzeAddedColumns(table string, columns []*Column) {
 	for _, c := range columns {
 		if c == nil {
@@ -414,6 +603,51 @@ func (a *BreakingChangeAnalyzer) analyzeRemovedIndexes(table string, indexes []*
 			Description: "Index will be dropped - queries may become slower",
 			Table:       table,
 			Object:      idx.Name,
+			ObjectType:  "INDEX",
+		})
+	}
+}
+
+func (a *BreakingChangeAnalyzer) analyzeAddedIndexes(table string, indexes []*Index) {
+	for _, idx := range indexes {
+		if idx == nil {
+			continue
+		}
+		if idx.Unique {
+			a.add(BreakingChange{
+				Severity:    SeverityBreaking,
+				Description: "Unique index added - will fail if duplicates exist",
+				Table:       table,
+				Object:      idx.Name,
+				ObjectType:  "INDEX",
+			})
+			continue
+		}
+		a.add(BreakingChange{
+			Severity:    SeverityInfo,
+			Description: "Index added - may improve query performance but can slow writes",
+			Table:       table,
+			Object:      idx.Name,
+			ObjectType:  "INDEX",
+		})
+	}
+}
+
+func (a *BreakingChangeAnalyzer) analyzeModifiedIndexes(table string, changes []*IndexChange) {
+	for _, ch := range changes {
+		if ch == nil || ch.Old == nil || ch.New == nil {
+			continue
+		}
+		severity := SeverityWarning
+		// If index becomes unique, existing duplicates will break.
+		if !ch.Old.Unique && ch.New.Unique {
+			severity = SeverityBreaking
+		}
+		a.add(BreakingChange{
+			Severity:    severity,
+			Description: "Index modified - may rebuild index and affect query plans",
+			Table:       table,
+			Object:      ch.Name,
 			ObjectType:  "INDEX",
 		})
 	}
