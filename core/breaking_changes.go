@@ -78,7 +78,7 @@ func (a *BreakingChangeAnalyzer) analyzeModifiedTables(tables []*TableDiff) {
 		if td == nil {
 			continue
 		}
-		a.analyzeColumnRenames(td.Name, td.RemovedColumns, td.AddedColumns)
+		a.analyzeRenamedColumns(td.Name, td.RenamedColumns)
 		a.analyzeRemovedColumns(td.Name, td.RemovedColumns)
 		a.analyzeModifiedColumns(td.Name, td.ModifiedColumns)
 		a.analyzeAddedColumns(td.Name, td.AddedColumns)
@@ -92,91 +92,19 @@ func (a *BreakingChangeAnalyzer) analyzeModifiedTables(tables []*TableDiff) {
 	}
 }
 
-func (a *BreakingChangeAnalyzer) analyzeColumnRenames(table string, removed []*Column, added []*Column) {
-	if len(removed) == 0 || len(added) == 0 {
-		return
-	}
-
-	usedAdded := make(map[int]struct{}, len(added))
-	for _, oldC := range removed {
-		if oldC == nil {
+func (a *BreakingChangeAnalyzer) analyzeRenamedColumns(table string, renames []*ColumnRename) {
+	for _, r := range renames {
+		if r == nil || r.Old == nil || r.New == nil {
 			continue
 		}
-		bestIdx := -1
-		bestScore := -1
-		for j, newC := range added {
-			if newC == nil {
-				continue
-			}
-			if _, ok := usedAdded[j]; ok {
-				continue
-			}
-			score := renameSimilarityScore(oldC, newC)
-			if score > bestScore {
-				bestScore = score
-				bestIdx = j
-			}
-		}
-		if bestIdx >= 0 && bestScore >= 9 {
-			newC := added[bestIdx]
-			usedAdded[bestIdx] = struct{}{}
-			a.add(BreakingChange{
-				Severity:    SeverityBreaking,
-				Description: fmt.Sprintf("Column rename detected: %s -> %s (currently appears as DROP+ADD; use CHANGE/RENAME COLUMN to preserve data)", oldC.Name, newC.Name),
-				Table:       table,
-				Object:      fmt.Sprintf("%s->%s", oldC.Name, newC.Name),
-				ObjectType:  "COLUMN_RENAME",
-			})
-		}
+		a.add(BreakingChange{
+			Severity:    SeverityBreaking,
+			Description: fmt.Sprintf("Column rename detected: %s -> %s (currently appears as DROP+ADD; use CHANGE/RENAME COLUMN to preserve data)", r.Old.Name, r.New.Name),
+			Table:       table,
+			Object:      fmt.Sprintf("%s->%s", r.Old.Name, r.New.Name),
+			ObjectType:  "COLUMN_RENAME",
+		})
 	}
-}
-
-func renameSimilarityScore(oldC, newC *Column) int {
-	if oldC == nil || newC == nil {
-		return 0
-	}
-	score := 0
-	if strings.EqualFold(oldC.TypeRaw, newC.TypeRaw) {
-		score += 4
-	}
-	if oldC.Type == newC.Type {
-		score += 2
-	}
-	if oldC.Nullable == newC.Nullable {
-		score += 1
-	}
-	if oldC.AutoIncrement == newC.AutoIncrement {
-		score += 1
-	}
-	if oldC.PrimaryKey == newC.PrimaryKey {
-		score += 1
-	}
-	if ptrEqString(oldC.DefaultValue, newC.DefaultValue) {
-		score += 1
-	}
-	if strings.EqualFold(strings.TrimSpace(oldC.Charset), strings.TrimSpace(newC.Charset)) {
-		score += 1
-	}
-	if strings.EqualFold(strings.TrimSpace(oldC.Collate), strings.TrimSpace(newC.Collate)) {
-		score += 1
-	}
-	if oldC.IsGenerated == newC.IsGenerated {
-		score += 1
-	}
-	if strings.TrimSpace(oldC.GenerationExpression) == strings.TrimSpace(newC.GenerationExpression) {
-		score += 1
-	}
-	if strings.EqualFold(string(oldC.GenerationStorage), string(newC.GenerationStorage)) {
-		score += 1
-	}
-	if strings.EqualFold(oldC.Comment, newC.Comment) {
-		score += 1
-	}
-
-	if strings.EqualFold(oldC.Name, newC.Name) {
-		return 0
-	}
-	return score
 }
 
 func ptrEqString(a, b *string) bool {

@@ -6,6 +6,7 @@ import (
 
 type Generator interface {
 	GenerateMigration(diff *core.SchemaDiff) *core.Migration
+	GenerateMigrationWithOptions(diff *core.SchemaDiff, opts core.MigrationOptions) *core.Migration
 	GenerateCreateTable(table *core.Table) (statement string, fkStatements []string)
 	GenerateDropTable(table *core.Table) string
 	GenerateAlterTable(diff *core.TableDiff) []string

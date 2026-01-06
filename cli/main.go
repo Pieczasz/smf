@@ -60,6 +60,8 @@ func main() {
 	var fromDialect string
 	var toDialect string
 	var migrationOutFile string
+	var rollbackOutFile string
+	var unsafe bool
 
 	migrateCmd := &cobra.Command{
 		Use:   "migrate <old.sql> <new.sql>",
@@ -107,14 +109,22 @@ You can specify the source and target database dialects using the --from and --t
 				len(oldDB.Tables), len(newDB.Tables))
 
 			d := dialect.NewMySQLDialect()
-			migration := d.Generator().GenerateMigration(schemaDiff)
+			opts := core.DefaultMigrationOptions(core.DialectMySQL)
+			opts.IncludeUnsafe = unsafe
+			migration := d.Generator().GenerateMigrationWithOptions(schemaDiff, opts)
 
 			if migrationOutFile == "" {
-				fmt.Print(schemaDiff.String())
+				fmt.Print(migration.String())
 				return nil
 			}
 			if err := migration.SaveToFile(migrationOutFile); err != nil {
 				return fmt.Errorf("failed to write output: %w", err)
+			}
+			if rollbackOutFile != "" {
+				if err := migration.SaveRollbackToFile(rollbackOutFile); err != nil {
+					return fmt.Errorf("failed to write rollback output: %w", err)
+				}
+				fmt.Printf("Rollback saved to %s\n", rollbackOutFile)
 			}
 			fmt.Printf("Output saved to %s\n", migrationOutFile)
 			return nil
@@ -124,6 +134,8 @@ You can specify the source and target database dialects using the --from and --t
 	migrateCmd.Flags().StringVarP(&fromDialect, "from", "f", "mysql", "Source database dialect (e.g., mysql)")
 	migrateCmd.Flags().StringVarP(&toDialect, "to", "t", "mysql", "Target database dialect (e.g., mysql)")
 	migrateCmd.Flags().StringVarP(&migrationOutFile, "output", "o", "", "Output file for the generated migration SQL")
+	migrateCmd.Flags().StringVar(&rollbackOutFile, "rollback-output", "", "Output file for generated rollback SQL (run separately)")
+	migrateCmd.Flags().BoolVarP(&unsafe, "unsafe", "u", false, "Generate unsafe migration (may drop/overwrite data); safe mode by default")
 
 	//_ = migrateCmd.MarkFlagRequired("from")
 	//_ = migrateCmd.MarkFlagRequired("to")
