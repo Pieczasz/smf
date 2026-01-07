@@ -103,23 +103,52 @@ func (g *MySQLGenerator) GenerateMigrationWithOptions(diff *core.SchemaDiff, opt
 			continue
 		}
 		stmts, rollback, fkAdds, fkRollback := g.generateAlterTableWithOptions(td, opts)
-		for i := range stmts {
+		
+		// Pair forward and rollback statements to preserve their relationship.
+		pairCount := len(stmts)
+		if len(rollback) < pairCount {
+			pairCount = len(rollback)
+		}
+		for i := 0; i < pairCount; i++ {
+			m.AddStatementWithRollback(stmts[i], rollback[i])
+		}
+		
+		// Preserve any extra forward-only statements.
+		for i := pairCount; i < len(stmts); i++ {
 			m.AddStatement(stmts[i])
 		}
-		for i := range rollback {
+		
+		// Preserve any extra rollback-only statements.
+		for i := pairCount; i < len(rollback); i++ {
 			m.AddRollbackStatement(rollback[i])
 		}
+		
 		pendingFKs = append(pendingFKs, fkAdds...)
 		pendingFKRollback = append(pendingFKRollback, fkRollback...)
 	}
 
 	if len(pendingFKs) > 0 {
 		m.AddNote("Foreign keys added after table creation to avoid dependency issues.")
-		for _, stmt := range pendingFKs {
+		
+		// Pair FK forward and rollback operations to maintain clear correspondence.
+		for i, stmt := range pendingFKs {
+			if i < len(pendingFKRollback) {
+				rb := pendingFKRollback[i]
+				if strings.TrimSpace(rb) != "" {
+					m.AddStatementWithRollback(stmt, rb)
+					continue
+				}
+			}
+			// Fallback if no matching or non-empty rollback is available.
 			m.AddStatement(stmt)
 		}
-		for _, rb := range pendingFKRollback {
-			m.AddRollbackStatement(rb)
+		
+		// Emit any remaining rollback-only FK operations, if present.
+		for i := len(pendingFKs); i < len(pendingFKRollback); i++ {
+			rb := pendingFKRollback[i]
+			if strings.TrimSpace(rb) != "" {
+				m.AddRollbackStatement(rb)
+			}
 		}
 	}
 
