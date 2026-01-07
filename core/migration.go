@@ -285,13 +285,9 @@ func (m *Migration) Dedupe() {
 
 		switch op.Kind {
 		case OperationSQL:
-			// Skip operations with no content.
 			if op.SQL == "" && op.RollbackSQL == "" {
 				continue
 			}
-			// Deduplicate rollback statements to avoid executing the same rollback multiple times.
-			// This is safe because rollback statements are idempotent operations (like DROP TABLE IF EXISTS).
-			// If multiple forward operations need the same rollback, we only need to execute it once.
 			if op.RollbackSQL != "" {
 				if _, ok := seenRollback[op.RollbackSQL]; ok {
 					op.RollbackSQL = ""
@@ -299,8 +295,6 @@ func (m *Migration) Dedupe() {
 					seenRollback[op.RollbackSQL] = struct{}{}
 				}
 			}
-			// Preserve rollback-only operations (operations with rollback but no forward SQL).
-			// This can occur when we want to track rollback capability without a forward migration step.
 			out = append(out, op)
 		case OperationNote:
 			if op.SQL == "" {
@@ -351,5 +345,3 @@ func writeRollbackAsComments(sb *strings.Builder, rollback []string) {
 		}
 	}
 }
-
-// NOTE: legacy string-dedupe helper removed in favor of Operation-based Dedupe.
