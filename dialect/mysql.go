@@ -84,8 +84,6 @@ func (g *MySQLGenerator) GenerateMigrationWithOptions(diff *core.SchemaDiff, opt
 		m.AddStatementWithRollback(create, g.GenerateDropTable(t))
 		pendingFKs = append(pendingFKs, fks...)
 
-		// Ensure rollback symmetry for FK statements added after CREATE TABLE.
-		// Even though DROP TABLE would remove them, we keep explicit rollback steps for consistency.
 		table := g.QuoteIdentifier(t.Name)
 		for _, c := range t.Constraints {
 			if c == nil || c.Type != core.ConstraintForeignKey {
@@ -104,7 +102,6 @@ func (g *MySQLGenerator) GenerateMigrationWithOptions(diff *core.SchemaDiff, opt
 		}
 		stmts, rollback, fkAdds, fkRollback := g.generateAlterTableWithOptions(td, opts)
 		
-		// Pair forward and rollback statements to preserve their relationship.
 		pairCount := len(stmts)
 		if len(rollback) < pairCount {
 			pairCount = len(rollback)
@@ -113,12 +110,10 @@ func (g *MySQLGenerator) GenerateMigrationWithOptions(diff *core.SchemaDiff, opt
 			m.AddStatementWithRollback(stmts[i], rollback[i])
 		}
 		
-		// Preserve any extra forward-only statements.
 		for i := pairCount; i < len(stmts); i++ {
 			m.AddStatement(stmts[i])
 		}
 		
-		// Preserve any extra rollback-only statements.
 		for i := pairCount; i < len(rollback); i++ {
 			m.AddRollbackStatement(rollback[i])
 		}
@@ -130,7 +125,6 @@ func (g *MySQLGenerator) GenerateMigrationWithOptions(diff *core.SchemaDiff, opt
 	if len(pendingFKs) > 0 {
 		m.AddNote("Foreign keys added after table creation to avoid dependency issues.")
 		
-		// Pair FK forward and rollback operations to maintain clear correspondence.
 		for i, stmt := range pendingFKs {
 			if i < len(pendingFKRollback) {
 				rb := pendingFKRollback[i]
@@ -139,11 +133,9 @@ func (g *MySQLGenerator) GenerateMigrationWithOptions(diff *core.SchemaDiff, opt
 					continue
 				}
 			}
-			// Fallback if no matching or non-empty rollback is available.
 			m.AddStatement(stmt)
 		}
 		
-		// Emit any remaining rollback-only FK operations, if present.
 		for i := len(pendingFKs); i < len(pendingFKRollback); i++ {
 			rb := pendingFKRollback[i]
 			if strings.TrimSpace(rb) != "" {
@@ -559,7 +551,6 @@ const backupSuffixPrefix = "__schemift_backup_"
 
 func safeBackupName(name string) string {
 	base := strings.TrimSpace(name)
-	// Use FNV-1a 64-bit hash to reduce collision probability for backup names.
 	h := fnv.New64a()
 	_, _ = h.Write([]byte(base))
 	suffix := fmt.Sprintf("%s%016x", backupSuffixPrefix, h.Sum64())
@@ -576,9 +567,6 @@ func safeBackupName(name string) string {
 	}
 
 	if base == "" {
-		// Base can be empty if the original name is whitespace-only or fully truncated to
-		// satisfy MySQL's identifier length limit. In that case, just return the suffix
-		// (which already starts with backupSuffixPrefix) to avoid confusing double prefixes.
 		return suffix
 	}
 	return base + suffix
