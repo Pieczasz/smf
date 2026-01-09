@@ -6,23 +6,6 @@ import (
 	"strings"
 )
 
-func hasPotentiallyLockingStatements(plan []core.Operation) bool {
-	for _, op := range plan {
-		if op.Kind != core.OperationSQL {
-			continue
-		}
-		s := strings.TrimSpace(op.SQL)
-		if s == "" {
-			continue
-		}
-		u := strings.ToUpper(strings.TrimSpace(s))
-		if strings.HasPrefix(u, "ALTER TABLE") || strings.HasPrefix(u, "CREATE INDEX") || strings.HasPrefix(u, "DROP INDEX") {
-			return true
-		}
-	}
-	return false
-}
-
 func migrationRecommendations(bc core.BreakingChange) []string {
 	msg := strings.ToLower(bc.Description)
 	var out []string
@@ -179,18 +162,18 @@ func (g *Generator) generateAlterTableWithOptions(td *core.TableDiff, opts core.
 		add(up, down)
 	}
 
-	for _, ch := range td.ModifiedConstraints {
-		if ch == nil || ch.New == nil {
+	for _, mc := range td.ModifiedConstraints {
+		if mc == nil || mc.New == nil {
 			continue
 		}
-		if ch.New.Type == core.ConstraintForeignKey {
-			if addStmt := g.addConstraint(table, ch.New); addStmt != "" {
-				addFK(addStmt, g.dropConstraint(table, ch.New))
+		if mc.New.Type == core.ConstraintForeignKey {
+			if addStmt := g.addConstraint(table, mc.New); addStmt != "" {
+				addFK(addStmt, g.dropConstraint(table, mc.New))
 			}
 			continue
 		}
-		if addStmt := g.addConstraint(table, ch.New); addStmt != "" {
-			add(addStmt, g.dropConstraint(table, ch.New))
+		if addStmt := g.addConstraint(table, mc.New); addStmt != "" {
+			add(addStmt, g.dropConstraint(table, mc.New))
 		}
 	}
 	for _, ac := range td.AddedConstraints {
@@ -216,11 +199,11 @@ func (g *Generator) generateAlterTable(td *core.TableDiff) ([]string, []string) 
 	var stmts []string
 	var fkAdds []string
 
-	for _, ch := range td.ModifiedConstraints {
-		if ch == nil {
+	for _, mc := range td.ModifiedConstraints {
+		if mc == nil {
 			continue
 		}
-		if drop := g.dropConstraint(table, ch.Old); drop != "" {
+		if drop := g.dropConstraint(table, mc.Old); drop != "" {
 			stmts = append(stmts, drop)
 		}
 	}
@@ -234,32 +217,37 @@ func (g *Generator) generateAlterTable(td *core.TableDiff) ([]string, []string) 
 		if mi == nil || mi.Old == nil || strings.TrimSpace(mi.Old.Name) == "" {
 			continue
 		}
-		stmts = append(stmts, fmt.Sprintf("DROP INDEX %s ON %s;", g.QuoteIdentifier(mi.Old.Name), table))
+		stmts = append(stmts, fmt.Sprintf(
+			"DROP INDEX %s ON %s;", g.QuoteIdentifier(mi.Old.Name), table))
 	}
 	for _, ri := range td.RemovedIndexes {
 		if ri == nil || strings.TrimSpace(ri.Name) == "" {
 			continue
 		}
-		stmts = append(stmts, fmt.Sprintf("DROP INDEX %s ON %s;", g.QuoteIdentifier(ri.Name), table))
+		stmts = append(stmts, fmt.Sprintf(
+			"DROP INDEX %s ON %s;", g.QuoteIdentifier(ri.Name), table))
 	}
 
-	for _, c := range td.AddedColumns {
-		if c == nil {
+	for _, ac := range td.AddedColumns {
+		if ac == nil {
 			continue
 		}
-		stmts = append(stmts, fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s;", table, g.columnDefinition(c)))
+		stmts = append(stmts, fmt.Sprintf(
+			"ALTER TABLE %s ADD COLUMN %s;", table, g.columnDefinition(ac)))
 	}
-	for _, ch := range td.ModifiedColumns {
-		if ch == nil || ch.New == nil {
+	for _, mc := range td.ModifiedColumns {
+		if mc == nil || mc.New == nil {
 			continue
 		}
-		stmts = append(stmts, fmt.Sprintf("ALTER TABLE %s MODIFY COLUMN %s;", table, g.columnDefinition(ch.New)))
+		stmts = append(stmts, fmt.Sprintf(
+			"ALTER TABLE %s MODIFY COLUMN %s;", table, g.columnDefinition(mc.New)))
 	}
-	for _, c := range td.RemovedColumns {
-		if c == nil {
+	for _, rc := range td.RemovedColumns {
+		if rc == nil {
 			continue
 		}
-		stmts = append(stmts, fmt.Sprintf("ALTER TABLE %s DROP COLUMN %s;", table, g.QuoteIdentifier(c.Name)))
+		stmts = append(stmts, fmt.Sprintf(
+			"ALTER TABLE %s DROP COLUMN %s;", table, g.QuoteIdentifier(rc.Name)))
 	}
 
 	for _, mo := range td.ModifiedOptions {
@@ -284,17 +272,17 @@ func (g *Generator) generateAlterTable(td *core.TableDiff) ([]string, []string) 
 		stmts = append(stmts, g.createIndex(table, ai))
 	}
 
-	for _, ch := range td.ModifiedConstraints {
-		if ch == nil {
+	for _, mc := range td.ModifiedConstraints {
+		if mc == nil {
 			continue
 		}
-		if ch.New != nil && ch.New.Type == core.ConstraintForeignKey {
-			if add := g.addConstraint(table, ch.New); add != "" {
+		if mc.New != nil && mc.New.Type == core.ConstraintForeignKey {
+			if add := g.addConstraint(table, mc.New); add != "" {
 				fkAdds = append(fkAdds, add)
 			}
 			continue
 		}
-		if add := g.addConstraint(table, ch.New); add != "" {
+		if add := g.addConstraint(table, mc.New); add != "" {
 			stmts = append(stmts, add)
 		}
 	}

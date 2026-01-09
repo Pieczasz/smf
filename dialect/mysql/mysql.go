@@ -266,3 +266,20 @@ func (g *Generator) safeBackupName(name string) string {
 	}
 	return base + suffix
 }
+
+func hasPotentiallyLockingStatements(plan []core.Operation) bool {
+	for _, op := range plan {
+		if op.Kind != core.OperationSQL {
+			continue
+		}
+		s := strings.TrimSpace(op.SQL)
+		if s == "" {
+			continue
+		}
+		u := strings.ToUpper(strings.TrimSpace(s))
+		if strings.HasPrefix(u, "ALTER TABLE") || strings.HasPrefix(u, "CREATE INDEX") || strings.HasPrefix(u, "DROP INDEX") {
+			return true
+		}
+	}
+	return false
+}

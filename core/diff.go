@@ -10,7 +10,7 @@ import (
 
 const (
 	renameDetectionScoreThreshold = 9
-	renameSharedTokenMinLen = 3
+	renameSharedTokenMinLen       = 3
 )
 
 type SchemaDiff struct {
@@ -133,11 +133,11 @@ func markConstraintsForRebuild(oldItems, newItems []*Constraint, td *TableDiff) 
 	}
 
 	affectedCols := make(map[string]struct{}, len(td.ModifiedColumns))
-	for _, ch := range td.ModifiedColumns {
-		if ch == nil {
+	for _, mc := range td.ModifiedColumns {
+		if mc == nil {
 			continue
 		}
-		name := strings.ToLower(strings.TrimSpace(ch.Name))
+		name := strings.ToLower(strings.TrimSpace(mc.Name))
 		if name == "" {
 			continue
 		}
@@ -151,14 +151,14 @@ func markConstraintsForRebuild(oldItems, newItems []*Constraint, td *TableDiff) 
 	newMap := mapByKey(newItems, constraintKey)
 
 	already := make(map[string]struct{}, len(td.ModifiedConstraints))
-	for _, ch := range td.ModifiedConstraints {
-		if ch == nil {
+	for _, mc := range td.ModifiedConstraints {
+		if mc == nil {
 			continue
 		}
-		if ch.New != nil {
-			already[constraintKey(ch.New)] = struct{}{}
-		} else if ch.Old != nil {
-			already[constraintKey(ch.Old)] = struct{}{}
+		if mc.New != nil {
+			already[constraintKey(mc.New)] = struct{}{}
+		} else if mc.Old != nil {
+			already[constraintKey(mc.Old)] = struct{}{}
 		}
 	}
 
