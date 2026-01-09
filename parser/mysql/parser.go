@@ -150,11 +150,11 @@ func (p *Parser) parseTableOptions(opts []*ast.TableOption, table *core.Table) {
 		case ast.TableOptionSecondaryEngineAttribute:
 			table.Options.MySQL.SecondaryEngineAttribute = opt.StrValue
 		case ast.TableOptionPageCompressed:
-			table.Options.MySQL.PageCompressed = optionTruthy(opt.BoolValue, opt.StrValue)
+			table.Options.MySQL.PageCompressed = optionTruthy(opt.BoolValue, opt.StrValue, opt.UintValue)
 		case ast.TableOptionPageCompressionLevel:
 			table.Options.MySQL.PageCompressionLevel = opt.UintValue
 		case ast.TableOptionIetfQuotes:
-			table.Options.MySQL.IetfQuotes = optionTruthy(opt.BoolValue, opt.StrValue)
+			table.Options.MySQL.IetfQuotes = optionTruthy(opt.BoolValue, opt.StrValue, opt.UintValue)
 		case ast.TableOptionNodegroup:
 			table.Options.MySQL.Nodegroup = opt.UintValue
 
@@ -177,7 +177,7 @@ func (p *Parser) parseTableOptions(opts []*ast.TableOption, table *core.Table) {
 				table.Options.TiDB.TTL = fmt.Sprintf("`%s` + INTERVAL %s %s", opt.ColumnName.Name.O, val, opt.TimeUnitValue.Unit.String())
 			}
 		case ast.TableOptionTTLEnable:
-			table.Options.TiDB.TTLEnable = optionTruthy(opt.BoolValue, opt.StrValue)
+			table.Options.TiDB.TTLEnable = optionTruthy(opt.BoolValue, opt.StrValue, opt.UintValue)
 		case ast.TableOptionTTLJobInterval:
 			table.Options.TiDB.TTLJobInterval = opt.StrValue
 		case ast.TableOptionSequence:
@@ -463,8 +463,11 @@ func isSQLStringIntroducer(prefix string) bool {
 	return true
 }
 
-func optionTruthy(boolValue bool, strValue string) bool {
+func optionTruthy(boolValue bool, strValue string, uintValue uint64) bool {
 	if boolValue {
+		return true
+	}
+	if uintValue == 1 {
 		return true
 	}
 	s := strings.TrimSpace(strValue)

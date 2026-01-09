@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestBreakingChangeAnalyzer_ComprehensiveCoverage(t *testing.T) {
+func TestBreakingChangeAnalyzer(t *testing.T) {
 	t.Run("all severities and types", func(t *testing.T) {
 		oldDB := &core.Database{Tables: []*core.Table{
 			{
