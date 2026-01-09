@@ -101,7 +101,7 @@ func (g *MySQLGenerator) GenerateMigrationWithOptions(diff *core.SchemaDiff, opt
 			continue
 		}
 		stmts, rollback, fkAdds, fkRollback := g.generateAlterTableWithOptions(td, opts)
-		
+
 		pairCount := len(stmts)
 		if len(rollback) < pairCount {
 			pairCount = len(rollback)
@@ -109,22 +109,22 @@ func (g *MySQLGenerator) GenerateMigrationWithOptions(diff *core.SchemaDiff, opt
 		for i := 0; i < pairCount; i++ {
 			m.AddStatementWithRollback(stmts[i], rollback[i])
 		}
-		
+
 		for i := pairCount; i < len(stmts); i++ {
 			m.AddStatement(stmts[i])
 		}
-		
+
 		for i := pairCount; i < len(rollback); i++ {
 			m.AddRollbackStatement(rollback[i])
 		}
-		
+
 		pendingFKs = append(pendingFKs, fkAdds...)
 		pendingFKRollback = append(pendingFKRollback, fkRollback...)
 	}
 
 	if len(pendingFKs) > 0 {
 		m.AddNote("Foreign keys added after table creation to avoid dependency issues.")
-		
+
 		for i, stmt := range pendingFKs {
 			if i < len(pendingFKRollback) {
 				rb := pendingFKRollback[i]
@@ -135,7 +135,7 @@ func (g *MySQLGenerator) GenerateMigrationWithOptions(diff *core.SchemaDiff, opt
 			}
 			m.AddStatement(stmt)
 		}
-		
+
 		for i := len(pendingFKs); i < len(pendingFKRollback); i++ {
 			rb := pendingFKRollback[i]
 			if strings.TrimSpace(rb) != "" {
@@ -1087,21 +1087,4 @@ func (g *MySQLGenerator) formatValue(v string) string {
 func looksNumeric(s string) bool {
 	_, err := strconv.ParseFloat(s, 64)
 	return err == nil
-}
-
-func dedupeStable(items []string) []string {
-	seen := make(map[string]struct{}, len(items))
-	var out []string
-	for _, item := range items {
-		item = strings.TrimSpace(item)
-		if item == "" {
-			continue
-		}
-		if _, ok := seen[item]; ok {
-			continue
-		}
-		seen[item] = struct{}{}
-		out = append(out, item)
-	}
-	return out
 }
