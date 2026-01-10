@@ -12,7 +12,7 @@ import (
 const backupSuffixPrefix = "__schemift_backup_"
 
 func init() {
-	dialect.RegisterDialect(core.DialectMySQL, func() dialect.Dialect {
+	dialect.RegisterDialect(dialect.MySQL, func() dialect.Dialect {
 		return NewMySQLDialect()
 	})
 }
@@ -29,8 +29,8 @@ func NewMySQLDialect() *Dialect {
 	}
 }
 
-func (d *Dialect) Name() core.Dialect {
-	return core.DialectMySQL
+func (d *Dialect) Name() dialect.Type {
+	return dialect.MySQL
 }
 
 func (d *Dialect) Generator() dialect.Generator {
@@ -48,12 +48,12 @@ func NewMySQLGenerator() *Generator {
 }
 
 func (g *Generator) GenerateMigration(diff *core.SchemaDiff) *core.Migration {
-	opts := core.DefaultMigrationOptions(core.DialectMySQL)
+	opts := dialect.DefaultMigrationOptions(dialect.MySQL)
 	opts.IncludeUnsafe = true
 	return g.GenerateMigrationWithOptions(diff, opts)
 }
 
-func (g *Generator) GenerateMigrationWithOptions(diff *core.SchemaDiff, opts core.MigrationOptions) *core.Migration {
+func (g *Generator) GenerateMigrationWithOptions(diff *core.SchemaDiff, opts dialect.MigrationOptions) *core.Migration {
 	m := &core.Migration{}
 	if diff == nil {
 		m.AddNote("No diff provided; nothing to migrate.")

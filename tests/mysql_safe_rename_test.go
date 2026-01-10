@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"schemift/dialect"
 	"schemift/dialect/mysql"
 	"testing"
 
@@ -25,7 +26,7 @@ func TestMySQLSafeMode_UsesChangeColumnForRename(t *testing.T) {
 	require.NotNil(t, d)
 
 	gen := mysql.NewMySQLDialect().Generator()
-	opts := core.DefaultMigrationOptions(core.DialectMySQL)
+	opts := dialect.DefaultMigrationOptions(dialect.MySQL)
 	opts.IncludeUnsafe = false
 
 	mig := gen.GenerateMigrationWithOptions(d, opts)

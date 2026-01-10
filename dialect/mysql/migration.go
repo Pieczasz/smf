@@ -3,6 +3,7 @@ package mysql
 import (
 	"fmt"
 	"schemift/core"
+	"schemift/dialect"
 	"strings"
 )
 
@@ -30,7 +31,7 @@ func migrationRecommendations(bc core.BreakingChange) []string {
 	return out
 }
 
-func (g *Generator) generateAlterTableWithOptions(td *core.TableDiff, opts core.MigrationOptions) ([]string, []string, []string, []string) {
+func (g *Generator) generateAlterTableWithOptions(td *core.TableDiff, opts dialect.MigrationOptions) ([]string, []string, []string, []string) {
 	table := g.QuoteIdentifier(td.Name)
 	var stmts []string
 	var rollback []string

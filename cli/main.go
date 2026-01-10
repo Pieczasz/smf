@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"schemift/core"
+	"schemift/dialect"
 	"schemift/dialect/mysql"
 	"schemift/parser"
 	"strings"
@@ -109,7 +110,7 @@ You can specify the source and target database dialects using the --from and --t
 				len(oldDB.Tables), len(newDB.Tables))
 
 			d := mysql.NewMySQLDialect()
-			opts := core.DefaultMigrationOptions(core.DialectMySQL)
+			opts := dialect.DefaultMigrationOptions(dialect.MySQL)
 			opts.IncludeUnsafe = unsafe
 			migration := d.Generator().GenerateMigrationWithOptions(schemaDiff, opts)
 

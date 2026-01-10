@@ -1,12 +1,20 @@
 package dialect
 
-import (
-	"schemift/core"
+import "schemift/core"
+
+type Type string
+
+const (
+	MySQL      Type = "mysql"
+	PostgreSQL Type = "postgresql"
+	SQLite     Type = "sqlite"
+	MSSQL      Type = "mssql"
+	Oracle     Type = "oracle"
 )
 
 type Generator interface {
 	GenerateMigration(diff *core.SchemaDiff) *core.Migration
-	GenerateMigrationWithOptions(diff *core.SchemaDiff, opts core.MigrationOptions) *core.Migration
+	GenerateMigrationWithOptions(diff *core.SchemaDiff, opts MigrationOptions) *core.Migration
 	GenerateCreateTable(table *core.Table) (statement string, fkStatements []string)
 	GenerateDropTable(table *core.Table) string
 	GenerateAlterTable(diff *core.TableDiff) []string
@@ -19,23 +27,55 @@ type Parser interface {
 }
 
 type Dialect interface {
-	Name() core.Dialect
+	Name() Type
 	Generator() Generator
 	Parser() Parser
 }
 
-var registry = map[core.Dialect]func() Dialect{}
+var registry = map[Type]func() Dialect{}
 
-func RegisterDialect(d core.Dialect, ctor func() Dialect) {
+func RegisterDialect(d Type, ctor func() Dialect) {
 	registry[d] = ctor
 }
 
-func GetDialect(d core.Dialect) Dialect {
+func GetDialect(d Type) Dialect {
 	if ctor, ok := registry[d]; ok {
 		return ctor()
 	}
-	if ctor, ok := registry[core.DialectMySQL]; ok {
+	if ctor, ok := registry[MySQL]; ok {
 		return ctor()
 	}
 	return nil
+}
+
+type BreakingChangeDetector interface {
+	DetectBreakingChanges(diff *core.SchemaDiff) []core.BreakingChange
+}
+
+type MigrationOptions struct {
+	Dialect              Type
+	IncludeDrops         bool
+	IncludeUnsafe        bool
+	TransactionMode      TransactionMode
+	PreserveForeignKeys  bool
+	DeferForeignKeyCheck bool
+}
+
+type TransactionMode int
+
+const (
+	TransactionNone TransactionMode = iota
+	TransactionSingle
+	TransactionPerStatement
+)
+
+func DefaultMigrationOptions(dialect Type) MigrationOptions {
+	return MigrationOptions{
+		Dialect:              dialect,
+		IncludeDrops:         true,
+		IncludeUnsafe:        false,
+		TransactionMode:      TransactionSingle,
+		PreserveForeignKeys:  true,
+		DeferForeignKeyCheck: true,
+	}
 }
