@@ -1,15 +1,16 @@
-package core
+package migration
 
 import (
 	"os"
+	"schemift/core"
 	"strings"
 )
 
 type Migration struct {
-	Operations []Operation
+	Operations []core.Operation
 }
 
-func (m *Migration) Plan() []Operation {
+func (m *Migration) Plan() []core.Operation {
 	if m == nil {
 		return nil
 	}
@@ -22,7 +23,7 @@ func (m *Migration) sqlStatements() []string {
 	}
 	var out []string
 	for _, op := range m.Operations {
-		if op.Kind != OperationSQL {
+		if op.Kind != core.OperationSQL {
 			continue
 		}
 		stmt := strings.TrimSpace(op.SQL)
@@ -40,7 +41,7 @@ func (m *Migration) rollbackStatements() []string {
 	}
 	var out []string
 	for _, op := range m.Operations {
-		if op.Kind != OperationSQL {
+		if op.Kind != core.OperationSQL {
 			continue
 		}
 		stmt := strings.TrimSpace(op.RollbackSQL)
@@ -58,7 +59,7 @@ func (m *Migration) breakingNotes() []string {
 	}
 	var out []string
 	for _, op := range m.Operations {
-		if op.Kind != OperationBreaking {
+		if op.Kind != core.OperationBreaking {
 			continue
 		}
 		msg := strings.TrimSpace(op.SQL)
@@ -76,7 +77,7 @@ func (m *Migration) unresolvedNotes() []string {
 	}
 	var out []string
 	for _, op := range m.Operations {
-		if op.Kind != OperationUnresolved {
+		if op.Kind != core.OperationUnresolved {
 			continue
 		}
 		msg := strings.TrimSpace(op.UnresolvedReason)
@@ -94,7 +95,7 @@ func (m *Migration) infoNotes() []string {
 	}
 	var out []string
 	for _, op := range m.Operations {
-		if op.Kind != OperationNote {
+		if op.Kind != core.OperationNote {
 			continue
 		}
 		msg := strings.TrimSpace(op.SQL)
@@ -214,7 +215,7 @@ func (m *Migration) AddStatement(stmt string) {
 	if stmt = strings.TrimSpace(stmt); stmt == "" {
 		return
 	}
-	m.Operations = append(m.Operations, Operation{Kind: OperationSQL, SQL: stmt})
+	m.Operations = append(m.Operations, core.Operation{Kind: core.OperationSQL, SQL: stmt})
 }
 
 func (m *Migration) AddRollbackStatement(stmt string) {
@@ -224,7 +225,7 @@ func (m *Migration) AddRollbackStatement(stmt string) {
 	if stmt = strings.TrimSpace(stmt); stmt == "" {
 		return
 	}
-	m.Operations = append(m.Operations, Operation{Kind: OperationSQL, RollbackSQL: stmt})
+	m.Operations = append(m.Operations, core.Operation{Kind: core.OperationSQL, RollbackSQL: stmt})
 }
 
 func (m *Migration) AddStatementWithRollback(up, down string) {
@@ -236,7 +237,7 @@ func (m *Migration) AddStatementWithRollback(up, down string) {
 	if up == "" && down == "" {
 		return
 	}
-	m.Operations = append(m.Operations, Operation{Kind: OperationSQL, SQL: up, RollbackSQL: down})
+	m.Operations = append(m.Operations, core.Operation{Kind: core.OperationSQL, SQL: up, RollbackSQL: down})
 }
 
 func (m *Migration) AddBreaking(msg string) {
@@ -246,7 +247,7 @@ func (m *Migration) AddBreaking(msg string) {
 	if msg = strings.TrimSpace(msg); msg == "" {
 		return
 	}
-	m.Operations = append(m.Operations, Operation{Kind: OperationBreaking, SQL: msg, Risk: RiskBreaking})
+	m.Operations = append(m.Operations, core.Operation{Kind: core.OperationBreaking, SQL: msg, Risk: core.RiskBreaking})
 }
 
 func (m *Migration) AddNote(msg string) {
@@ -256,7 +257,7 @@ func (m *Migration) AddNote(msg string) {
 	if msg = strings.TrimSpace(msg); msg == "" {
 		return
 	}
-	m.Operations = append(m.Operations, Operation{Kind: OperationNote, SQL: msg, Risk: RiskInfo})
+	m.Operations = append(m.Operations, core.Operation{Kind: core.OperationNote, SQL: msg, Risk: core.RiskInfo})
 }
 
 func (m *Migration) AddUnresolved(msg string) {
@@ -266,7 +267,7 @@ func (m *Migration) AddUnresolved(msg string) {
 	if msg = strings.TrimSpace(msg); msg == "" {
 		return
 	}
-	m.Operations = append(m.Operations, Operation{Kind: OperationUnresolved, UnresolvedReason: msg})
+	m.Operations = append(m.Operations, core.Operation{Kind: core.OperationUnresolved, UnresolvedReason: msg})
 }
 
 func (m *Migration) Dedupe() {
@@ -277,14 +278,14 @@ func (m *Migration) Dedupe() {
 	seenBreaking := make(map[string]struct{})
 	seenUnresolved := make(map[string]struct{})
 	seenRollback := make(map[string]struct{})
-	var out []Operation
+	var out []core.Operation
 	for _, op := range m.Operations {
 		op.SQL = strings.TrimSpace(op.SQL)
 		op.RollbackSQL = strings.TrimSpace(op.RollbackSQL)
 		op.UnresolvedReason = strings.TrimSpace(op.UnresolvedReason)
 
 		switch op.Kind {
-		case OperationSQL:
+		case core.OperationSQL:
 			if op.SQL == "" && op.RollbackSQL == "" {
 				continue
 			}
@@ -296,7 +297,7 @@ func (m *Migration) Dedupe() {
 				}
 			}
 			out = append(out, op)
-		case OperationNote:
+		case core.OperationNote:
 			if op.SQL == "" {
 				continue
 			}
@@ -305,7 +306,7 @@ func (m *Migration) Dedupe() {
 			}
 			seenNote[op.SQL] = struct{}{}
 			out = append(out, op)
-		case OperationBreaking:
+		case core.OperationBreaking:
 			if op.SQL == "" {
 				continue
 			}
@@ -314,7 +315,7 @@ func (m *Migration) Dedupe() {
 			}
 			seenBreaking[op.SQL] = struct{}{}
 			out = append(out, op)
-		case OperationUnresolved:
+		case core.OperationUnresolved:
 			if op.UnresolvedReason == "" {
 				continue
 			}

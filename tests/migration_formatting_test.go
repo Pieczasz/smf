@@ -2,15 +2,14 @@ package tests
 
 import (
 	"os"
+	"schemift/migration"
 	"testing"
-
-	"schemift/core"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestMigrationStringMultiLineNotesAreCommented(t *testing.T) {
-	m := &core.Migration{}
+	m := &migration.Migration{}
 	m.AddNote("line1\nline2")
 	m.AddRollbackStatement("ALTER TABLE t ADD COLUMN c INT")
 
@@ -28,7 +27,7 @@ func TestMigrationStringMultiLineNotesAreCommented(t *testing.T) {
 }
 
 func TestMigrationSaveRollbackToFileWritesRollbackSQL(t *testing.T) {
-	m := &core.Migration{}
+	m := &migration.Migration{}
 	m.AddRollbackStatement("ALTER TABLE t ADD COLUMN c INT")
 
 	f, err := os.CreateTemp("", "schemift-rollback-*.sql")

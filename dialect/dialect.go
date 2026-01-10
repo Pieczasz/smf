@@ -3,6 +3,7 @@ package dialect
 import (
 	"schemift/core"
 	"schemift/diff"
+	"schemift/migration"
 )
 
 type Type string
@@ -16,8 +17,8 @@ const (
 )
 
 type Generator interface {
-	GenerateMigration(diff *diff.SchemaDiff) *core.Migration
-	GenerateMigrationWithOptions(diff *diff.SchemaDiff, opts MigrationOptions) *core.Migration
+	GenerateMigration(diff *diff.SchemaDiff) *migration.Migration
+	GenerateMigrationWithOptions(diff *diff.SchemaDiff, opts MigrationOptions) *migration.Migration
 	GenerateCreateTable(table *core.Table) (statement string, fkStatements []string)
 	GenerateDropTable(table *core.Table) string
 	GenerateAlterTable(diff *diff.TableDiff) []string

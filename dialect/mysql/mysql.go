@@ -6,6 +6,7 @@ import (
 	"schemift/core"
 	"schemift/dialect"
 	"schemift/diff"
+	"schemift/migration"
 	"schemift/parser/mysql"
 	"strings"
 )
@@ -48,14 +49,14 @@ func NewMySQLGenerator() *Generator {
 	return &Generator{}
 }
 
-func (g *Generator) GenerateMigration(schemaDiff *diff.SchemaDiff) *core.Migration {
+func (g *Generator) GenerateMigration(schemaDiff *diff.SchemaDiff) *migration.Migration {
 	opts := dialect.DefaultMigrationOptions(dialect.MySQL)
 	opts.IncludeUnsafe = true
 	return g.GenerateMigrationWithOptions(schemaDiff, opts)
 }
 
-func (g *Generator) GenerateMigrationWithOptions(schemaDiff *diff.SchemaDiff, opts dialect.MigrationOptions) *core.Migration {
-	m := &core.Migration{}
+func (g *Generator) GenerateMigrationWithOptions(schemaDiff *diff.SchemaDiff, opts dialect.MigrationOptions) *migration.Migration {
+	m := &migration.Migration{}
 	if schemaDiff == nil {
 		m.AddNote("No diff provided; nothing to migrate.")
 		return m
