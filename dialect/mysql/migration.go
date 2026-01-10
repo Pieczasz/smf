@@ -201,7 +201,7 @@ func (g *Generator) generateAlterTable(td *core.TableDiff) ([]string, []string) 
 	var fkAdds []string
 
 	for _, mc := range td.ModifiedConstraints {
-		if mc == nil {
+		if mc == nil || mc.Old == nil {
 			continue
 		}
 		if drop := g.dropConstraint(table, mc.Old); drop != "" {
@@ -209,6 +209,9 @@ func (g *Generator) generateAlterTable(td *core.TableDiff) ([]string, []string) 
 		}
 	}
 	for _, rc := range td.RemovedConstraints {
+		if rc == nil {
+			continue
+		}
 		if drop := g.dropConstraint(table, rc); drop != "" {
 			stmts = append(stmts, drop)
 		}

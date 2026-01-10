@@ -181,7 +181,7 @@ func (p *Parser) parseTableOptions(opts []*ast.TableOption, table *core.Table) {
 		case ast.TableOptionTTLJobInterval:
 			table.Options.TiDB.TTLJobInterval = opt.StrValue
 		case ast.TableOptionSequence:
-			table.Options.TiDB.Sequence = opt.BoolValue
+			table.Options.TiDB.Sequence = optionTruthy(opt.BoolValue, opt.StrValue, opt.UintValue)
 		case ast.TableOptionAffinity:
 			table.Options.TiDB.Affinity = opt.StrValue
 		case ast.TableOptionPlacementPolicy:

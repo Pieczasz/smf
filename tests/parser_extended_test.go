@@ -66,6 +66,7 @@ STATS_SAMPLE_RATE = 0.5;
 	assert.Equal(t, uint64(10), tbl.Options.TiDB.StatsTopN)
 	assert.Equal(t, "c1, c2", tbl.Options.TiDB.StatsColList)
 	assert.Equal(t, 0.5, tbl.Options.TiDB.StatsSampleRate)
+	assert.True(t, tbl.Options.TiDB.Sequence)
 }
 
 func TestColumnOptions(t *testing.T) {
