@@ -2,7 +2,7 @@ package mysql
 
 import (
 	"fmt"
-	"schemift/core"
+	"smf/core"
 	"strconv"
 	"strings"
 )

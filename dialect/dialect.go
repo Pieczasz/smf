@@ -1,9 +1,9 @@
 package dialect
 
 import (
-	"schemift/core"
-	"schemift/diff"
-	"schemift/migration"
+	"smf/core"
+	"smf/diff"
+	"smf/migration"
 )
 
 type Type string

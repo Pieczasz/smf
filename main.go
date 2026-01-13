@@ -3,10 +3,10 @@ package main
 import (
 	"fmt"
 	"os"
-	"schemift/dialect"
-	"schemift/dialect/mysql"
-	"schemift/diff"
-	"schemift/parser"
+	"smf/dialect"
+	"smf/dialect/mysql"
+	"smf/diff"
+	"smf/parser"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -14,7 +14,7 @@ import (
 
 func main() {
 	rootCmd := &cobra.Command{
-		Use:   "schemift",
+		Use:   "smf",
 		Short: "Database migration tool",
 	}
 
@@ -135,7 +135,7 @@ You can specify the source and target database dialects using the --from and --t
 	migrateCmd.Flags().StringVarP(&fromDialect, "from", "f", "mysql", "Source database dialect (e.g., mysql)")
 	migrateCmd.Flags().StringVarP(&toDialect, "to", "t", "mysql", "Target database dialect (e.g., mysql)")
 	migrateCmd.Flags().StringVarP(&migrationOutFile, "output", "o", "", "Output file for the generated migration SQL")
-	migrateCmd.Flags().StringVarP(&rollbackOutFile, "rollback-output", "ro", "", "Output file for generated rollback SQL (run separately)")
+	migrateCmd.Flags().StringVarP(&rollbackOutFile, "rollback-output", "r", "", "Output file for generated rollback SQL (run separately)")
 	migrateCmd.Flags().BoolVarP(&unsafe, "unsafe", "u", false, "Generate unsafe migration (may drop/overwrite data); safe mode by default")
 
 	//_ = migrateCmd.MarkFlagRequired("from")

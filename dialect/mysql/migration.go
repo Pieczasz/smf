@@ -2,9 +2,9 @@ package mysql
 
 import (
 	"fmt"
-	"schemift/core"
-	"schemift/dialect"
-	"schemift/diff"
+	"smf/core"
+	"smf/dialect"
+	"smf/diff"
 	"strings"
 )
 

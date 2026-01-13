@@ -1,7 +1,7 @@
 package diff
 
 import (
-	"schemift/core"
+	"smf/core"
 	"strconv"
 	"strings"
 )

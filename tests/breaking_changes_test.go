@@ -1,11 +1,11 @@
 package tests
 
 import (
-	"schemift/dialect/mysql"
-	"schemift/diff"
+	"smf/dialect/mysql"
+	"smf/diff"
 	"testing"
 
-	"schemift/core"
+	"smf/core"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

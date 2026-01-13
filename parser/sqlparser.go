@@ -1,8 +1,8 @@
 package parser
 
 import (
-	"schemift/core"
-	"schemift/parser/mysql"
+	"smf/core"
+	"smf/parser/mysql"
 )
 
 type SQLParser struct {

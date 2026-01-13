@@ -3,7 +3,7 @@ package diff
 import (
 	"fmt"
 	"regexp"
-	"schemift/core"
+	"smf/core"
 	"strconv"
 	"strings"
 )

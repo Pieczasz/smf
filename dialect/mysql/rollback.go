@@ -2,7 +2,7 @@ package mysql
 
 import (
 	"fmt"
-	"schemift/diff"
+	"smf/diff"
 	"strings"
 )
 
