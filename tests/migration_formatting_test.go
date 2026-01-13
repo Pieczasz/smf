@@ -2,7 +2,7 @@ package tests
 
 import (
 	"os"
-	"schemift/migration"
+	"smf/migration"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -22,7 +22,7 @@ func TestMigrationStringMultiLineNotesAreCommented(t *testing.T) {
 	assert.Contains(t, out, "-- ALTER TABLE t ADD COLUMN c INT;")
 
 	rb := m.RollbackString()
-	assert.Contains(t, rb, "-- schemift rollback")
+	assert.Contains(t, rb, "-- smf rollback")
 	assert.Contains(t, rb, "ALTER TABLE t ADD COLUMN c INT;")
 }
 
@@ -30,7 +30,7 @@ func TestMigrationSaveRollbackToFileWritesRollbackSQL(t *testing.T) {
 	m := &migration.Migration{}
 	m.AddRollbackStatement("ALTER TABLE t ADD COLUMN c INT")
 
-	f, err := os.CreateTemp("", "schemift-rollback-*.sql")
+	f, err := os.CreateTemp("", "smf-rollback-*.sql")
 	if err != nil {
 		t.Fatalf("CreateTemp: %v", err)
 	}
@@ -42,6 +42,6 @@ func TestMigrationSaveRollbackToFileWritesRollbackSQL(t *testing.T) {
 	b, err := os.ReadFile(name)
 	assert.NoError(t, err)
 	out := string(b)
-	assert.Contains(t, out, "-- schemift rollback")
+	assert.Contains(t, out, "-- smf rollback")
 	assert.Contains(t, out, "ALTER TABLE t ADD COLUMN c INT;")
 }

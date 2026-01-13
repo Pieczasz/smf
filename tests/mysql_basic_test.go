@@ -1,8 +1,8 @@
 package tests
 
 import (
-	"schemift/core"
-	"schemift/parser"
+	"smf/core"
+	"smf/parser"
 	"testing"
 
 	_ "github.com/pingcap/tidb/pkg/parser/test_driver"

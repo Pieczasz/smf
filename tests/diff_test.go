@@ -3,10 +3,10 @@ package tests
 import (
 	"fmt"
 	"os"
-	"schemift/diff"
+	"smf/diff"
 	"testing"
 
-	"schemift/parser"
+	"smf/parser"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -211,7 +211,7 @@ CREATE TABLE related_features (
 	assert.Contains(t, out, "idx_regular")
 	assert.Contains(t, out, "columns")
 
-	f, err := os.CreateTemp("", "schemift-diff-full-*.txt")
+	f, err := os.CreateTemp("", "smf-diff-full-*.txt")
 	require.NoError(t, err)
 	defer func(name string) {
 		err := os.Remove(name)

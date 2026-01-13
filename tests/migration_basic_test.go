@@ -2,11 +2,11 @@ package tests
 
 import (
 	"os"
-	"schemift/dialect/mysql"
-	"schemift/diff"
+	"smf/dialect/mysql"
+	"smf/diff"
 	"testing"
 
-	"schemift/parser"
+	"smf/parser"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -52,7 +52,7 @@ func TestBasicMigration(t *testing.T) {
 	assert.Contains(t, out, "DROP TABLE")
 	assert.Contains(t, out, "BREAKING CHANGES")
 
-	f, err := os.CreateTemp("", "schemift-migration-*.sql")
+	f, err := os.CreateTemp("", "smf-migration-*.sql")
 	require.NoError(t, err)
 	name := f.Name()
 	require.NoError(t, f.Close())
@@ -61,5 +61,5 @@ func TestBasicMigration(t *testing.T) {
 	require.NoError(t, mig.SaveToFile(name))
 	b, err := os.ReadFile(name)
 	require.NoError(t, err)
-	assert.Contains(t, string(b), "-- schemift migration")
+	assert.Contains(t, string(b), "-- smf migration")
 }

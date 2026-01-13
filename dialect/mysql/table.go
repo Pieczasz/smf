@@ -3,8 +3,8 @@ package mysql
 import (
 	"fmt"
 	"regexp"
-	"schemift/core"
-	"schemift/diff"
+	"smf/core"
+	"smf/diff"
 	"strconv"
 	"strings"
 )

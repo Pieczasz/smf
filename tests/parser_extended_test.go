@@ -1,8 +1,8 @@
 package tests
 
 import (
-	"schemift/core"
-	"schemift/parser"
+	"smf/core"
+	"smf/parser"
 	"testing"
 
 	"github.com/stretchr/testify/assert"

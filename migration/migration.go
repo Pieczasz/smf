@@ -2,7 +2,7 @@ package migration
 
 import (
 	"os"
-	"schemift/core"
+	"smf/core"
 	"strings"
 )
 
@@ -109,7 +109,7 @@ func (m *Migration) infoNotes() []string {
 
 func (m *Migration) String() string {
 	var sb strings.Builder
-	sb.WriteString("-- schemift migration\n")
+	sb.WriteString("-- smf migration\n")
 	sb.WriteString("-- Review before running in production.\n")
 
 	writeCommentSection := func(title string, items []string) {
@@ -165,7 +165,7 @@ func (m *Migration) String() string {
 
 func (m *Migration) RollbackString() string {
 	var sb strings.Builder
-	sb.WriteString("-- schemift rollback\n")
+	sb.WriteString("-- smf rollback\n")
 	sb.WriteString("-- Run to revert the migration (review carefully).\n")
 
 	rb := m.rollbackStatements()

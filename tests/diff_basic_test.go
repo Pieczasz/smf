@@ -2,10 +2,10 @@ package tests
 
 import (
 	"os"
-	"schemift/diff"
+	"smf/diff"
 	"testing"
 
-	"schemift/parser"
+	"smf/parser"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -53,7 +53,7 @@ func TestDiff(t *testing.T) {
 	assert.Contains(t, s, "Modified columns")
 	assert.Contains(t, s, "name")
 
-	f, err := os.CreateTemp("", "schemift-diff-*.txt")
+	f, err := os.CreateTemp("", "smf-diff-*.txt")
 	require.NoError(t, err)
 	defer func(name string) {
 		err := os.Remove(name)

@@ -3,15 +3,15 @@ package mysql
 import (
 	"fmt"
 	"hash/fnv"
-	"schemift/core"
-	"schemift/dialect"
-	"schemift/diff"
-	"schemift/migration"
-	"schemift/parser/mysql"
+	"smf/core"
+	"smf/dialect"
+	"smf/diff"
+	"smf/migration"
+	"smf/parser/mysql"
 	"strings"
 )
 
-const backupSuffixPrefix = "__schemift_backup_"
+const backupSuffixPrefix = "__smf_backup_"
 
 func init() {
 	dialect.RegisterDialect(dialect.MySQL, func() dialect.Dialect {
@@ -79,7 +79,7 @@ func (g *Generator) GenerateMigrationWithOptions(schemaDiff *diff.SchemaDiff, op
 	}
 
 	if !opts.IncludeUnsafe {
-		m.AddNote("Safe mode: destructive drops are avoided (tables/columns are renamed to __schemift_backup_* instead of dropped) to enable a reliable rollback.")
+		m.AddNote("Safe mode: destructive drops are avoided (tables/columns are renamed to __smf_backup_* instead of dropped) to enable a reliable rollback.")
 	}
 
 	var pendingFKs []string
