@@ -6,11 +6,20 @@ import (
 	"smf/dialect"
 	"smf/dialect/mysql"
 	"smf/diff"
+	"smf/output"
 	"smf/parser"
 	"strings"
 
 	"github.com/spf13/cobra"
 )
+
+func printInfo(format string, msg string) {
+	if strings.EqualFold(strings.TrimSpace(format), string(output.FormatJSON)) {
+		_, _ = fmt.Fprintln(os.Stderr, msg)
+		return
+	}
+	fmt.Println(msg)
+}
 
 func main() {
 	rootCmd := &cobra.Command{
@@ -19,6 +28,7 @@ func main() {
 	}
 
 	var diffOutFile string
+	var diffFormat string
 	diffCmd := &cobra.Command{
 		Use:   "diff <old.sql> <new.sql>",
 		Short: "Compare two schemas",
@@ -44,24 +54,34 @@ func main() {
 			}
 
 			schemaDiff := diff.Diff(oldDB, newDB)
+			formatter, err := output.NewFormatter(diffFormat)
+			if err != nil {
+				return err
+			}
+			formatted, err := formatter.FormatDiff(schemaDiff)
+			if err != nil {
+				return fmt.Errorf("failed to format output: %w", err)
+			}
 			if diffOutFile == "" {
-				fmt.Print(schemaDiff.String())
+				fmt.Print(formatted)
 				return nil
 			}
-			if err := schemaDiff.SaveToFile(diffOutFile); err != nil {
+			if err := os.WriteFile(diffOutFile, []byte(formatted), 0644); err != nil {
 				return fmt.Errorf("failed to write output: %w", err)
 			}
-			fmt.Printf("Output saved to %s\n", diffOutFile)
+			printInfo(diffFormat, fmt.Sprintf("Output saved to %s", diffOutFile))
 			return nil
 		},
 	}
 
 	diffCmd.Flags().StringVarP(&diffOutFile, "output", "o", "", "Output file for the diff")
+	diffCmd.Flags().StringVarP(&diffFormat, "format", "f", "human", "Output format: human or json")
 
 	var fromDialect string
 	var toDialect string
 	var migrationOutFile string
 	var rollbackOutFile string
+	var migrationFormat string
 	var unsafe bool
 
 	migrateCmd := &cobra.Command{
@@ -75,7 +95,7 @@ You can specify the source and target database dialects using the --from and --t
 			oldPath := args[0]
 			newPath := args[1]
 
-			fmt.Printf("Migrating from %s (%s) to %s (%s)\n", oldPath, fromDialect, newPath, toDialect)
+			printInfo(migrationFormat, fmt.Sprintf("Migrating from %s (%s) to %s (%s)", oldPath, fromDialect, newPath, toDialect))
 
 			supported := map[string]bool{"mysql": true}
 			if !supported[strings.ToLower(fromDialect)] {
@@ -106,36 +126,45 @@ You can specify the source and target database dialects using the --from and --t
 			}
 
 			schemaDiff := diff.Diff(oldDB, newDB)
-			fmt.Printf("Detected changes between schemas (old: %d tables, new: %d tables)\n",
-				len(oldDB.Tables), len(newDB.Tables))
+			printInfo(migrationFormat, fmt.Sprintf("Detected changes between schemas (old: %d tables, new: %d tables)",
+				len(oldDB.Tables), len(newDB.Tables)))
 
 			d := mysql.NewMySQLDialect()
 			opts := dialect.DefaultMigrationOptions(dialect.MySQL)
 			opts.IncludeUnsafe = unsafe
 			migration := d.Generator().GenerateMigrationWithOptions(schemaDiff, opts)
 
+			formatter, err := output.NewFormatter(migrationFormat)
+			if err != nil {
+				return err
+			}
+			formatted, err := formatter.FormatMigration(migration)
+			if err != nil {
+				return fmt.Errorf("failed to format output: %w", err)
+			}
 			if migrationOutFile == "" {
-				fmt.Print(migration.String())
+				fmt.Print(formatted)
 				return nil
 			}
-			if err := migration.SaveToFile(migrationOutFile); err != nil {
+			if err := os.WriteFile(migrationOutFile, []byte(formatted), 0644); err != nil {
 				return fmt.Errorf("failed to write output: %w", err)
 			}
-			fmt.Printf("Output saved to %s\n", migrationOutFile)
+			printInfo(migrationFormat, fmt.Sprintf("Output saved to %s", migrationOutFile))
 			if rollbackOutFile != "" {
 				if err := migration.SaveRollbackToFile(rollbackOutFile); err != nil {
 					return fmt.Errorf("failed to write rollback output: %w", err)
 				}
-				fmt.Printf("Rollback saved to %s\n", rollbackOutFile)
+				printInfo(migrationFormat, fmt.Sprintf("Rollback saved to %s", rollbackOutFile))
 			}
 			return nil
 		},
 	}
 
-	migrateCmd.Flags().StringVarP(&fromDialect, "from", "f", "mysql", "Source database dialect (e.g., mysql)")
+	migrateCmd.Flags().StringVar(&fromDialect, "from", "mysql", "Source database dialect (e.g., mysql)")
 	migrateCmd.Flags().StringVarP(&toDialect, "to", "t", "mysql", "Target database dialect (e.g., mysql)")
 	migrateCmd.Flags().StringVarP(&migrationOutFile, "output", "o", "", "Output file for the generated migration SQL")
 	migrateCmd.Flags().StringVarP(&rollbackOutFile, "rollback-output", "r", "", "Output file for generated rollback SQL (run separately)")
+	migrateCmd.Flags().StringVarP(&migrationFormat, "format", "f", "human", "Output format: human or json")
 	migrateCmd.Flags().BoolVarP(&unsafe, "unsafe", "u", false, "Generate unsafe migration (may drop/overwrite data); safe mode by default")
 
 	//_ = migrateCmd.MarkFlagRequired("from")
