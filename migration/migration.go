@@ -17,6 +17,26 @@ func (m *Migration) Plan() []core.Operation {
 	return m.Operations
 }
 
+func (m *Migration) SQLStatements() []string {
+	return m.sqlStatements()
+}
+
+func (m *Migration) RollbackStatements() []string {
+	return m.rollbackStatements()
+}
+
+func (m *Migration) BreakingNotes() []string {
+	return m.breakingNotes()
+}
+
+func (m *Migration) UnresolvedNotes() []string {
+	return m.unresolvedNotes()
+}
+
+func (m *Migration) InfoNotes() []string {
+	return m.infoNotes()
+}
+
 func (m *Migration) sqlStatements() []string {
 	if m == nil {
 		return nil
