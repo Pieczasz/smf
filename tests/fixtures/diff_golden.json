@@ -1,0 +1,298 @@
+{
+  "format": "json",
+  "summary": {
+    "addedTables": 1,
+    "removedTables": 1,
+    "modifiedTables": 1
+  },
+  "addedTables": [
+    {
+      "Name": "comments",
+      "Columns": [
+        {
+          "Name": "id",
+          "TypeRaw": "int(11)",
+          "Type": "int",
+          "Nullable": false,
+          "PrimaryKey": true,
+          "AutoIncrement": false,
+          "DefaultValue": null,
+          "OnUpdate": null,
+          "Comment": "",
+          "Collate": "",
+          "Charset": "",
+          "IsGenerated": false,
+          "GenerationExpression": "",
+          "GenerationStorage": "",
+          "ColumnFormat": "",
+          "Storage": "",
+          "AutoRandom": 0,
+          "SecondaryEngineAttribute": ""
+        }
+      ],
+      "Constraints": [
+        {
+          "Name": "PRIMARY",
+          "Type": "PRIMARY KEY",
+          "Columns": [
+            "id"
+          ],
+          "ReferencedTable": "",
+          "ReferencedColumns": null,
+          "OnDelete": "",
+          "OnUpdate": "",
+          "CheckExpression": "",
+          "Enforced": false
+        }
+      ],
+      "Indexes": null,
+      "Comment": "",
+      "Options": {
+        "Engine": "",
+        "Charset": "",
+        "Collate": "",
+        "AutoIncrement": 0,
+        "RowFormat": "",
+        "AvgRowLength": 0,
+        "KeyBlockSize": 0,
+        "MaxRows": 0,
+        "MinRows": 0,
+        "Checksum": 0,
+        "DelayKeyWrite": 0,
+        "Tablespace": "",
+        "Compression": "",
+        "Encryption": "",
+        "PackKeys": "",
+        "DataDirectory": "",
+        "IndexDirectory": "",
+        "InsertMethod": "",
+        "StorageMedia": "",
+        "StatsPersistent": "",
+        "StatsAutoRecalc": "",
+        "StatsSamplePages": "",
+        "Connection": "",
+        "Password": "",
+        "AutoextendSize": "",
+        "PageChecksum": 0,
+        "Transactional": 0,
+        "MySQL": {
+          "Union": null,
+          "SecondaryEngine": "",
+          "TableChecksum": 0,
+          "EngineAttribute": "",
+          "SecondaryEngineAttribute": "",
+          "PageCompressed": false,
+          "PageCompressionLevel": 0,
+          "IetfQuotes": false,
+          "Nodegroup": 0
+        },
+        "TiDB": {
+          "AutoIdCache": 0,
+          "AutoRandomBase": 0,
+          "ShardRowID": 0,
+          "PreSplitRegion": 0,
+          "TTL": "",
+          "TTLEnable": false,
+          "TTLJobInterval": "",
+          "Affinity": "",
+          "PlacementPolicy": "",
+          "StatsBuckets": 0,
+          "StatsTopN": 0,
+          "StatsColsChoice": "",
+          "StatsColList": "",
+          "StatsSampleRate": 0,
+          "Sequence": false
+        }
+      }
+    }
+  ],
+  "removedTables": [
+    {
+      "Name": "posts",
+      "Columns": [
+        {
+          "Name": "id",
+          "TypeRaw": "int(11)",
+          "Type": "int",
+          "Nullable": false,
+          "PrimaryKey": true,
+          "AutoIncrement": false,
+          "DefaultValue": null,
+          "OnUpdate": null,
+          "Comment": "",
+          "Collate": "",
+          "Charset": "",
+          "IsGenerated": false,
+          "GenerationExpression": "",
+          "GenerationStorage": "",
+          "ColumnFormat": "",
+          "Storage": "",
+          "AutoRandom": 0,
+          "SecondaryEngineAttribute": ""
+        }
+      ],
+      "Constraints": [
+        {
+          "Name": "PRIMARY",
+          "Type": "PRIMARY KEY",
+          "Columns": [
+            "id"
+          ],
+          "ReferencedTable": "",
+          "ReferencedColumns": null,
+          "OnDelete": "",
+          "OnUpdate": "",
+          "CheckExpression": "",
+          "Enforced": false
+        }
+      ],
+      "Indexes": null,
+      "Comment": "",
+      "Options": {
+        "Engine": "",
+        "Charset": "",
+        "Collate": "",
+        "AutoIncrement": 0,
+        "RowFormat": "",
+        "AvgRowLength": 0,
+        "KeyBlockSize": 0,
+        "MaxRows": 0,
+        "MinRows": 0,
+        "Checksum": 0,
+        "DelayKeyWrite": 0,
+        "Tablespace": "",
+        "Compression": "",
+        "Encryption": "",
+        "PackKeys": "",
+        "DataDirectory": "",
+        "IndexDirectory": "",
+        "InsertMethod": "",
+        "StorageMedia": "",
+        "StatsPersistent": "",
+        "StatsAutoRecalc": "",
+        "StatsSamplePages": "",
+        "Connection": "",
+        "Password": "",
+        "AutoextendSize": "",
+        "PageChecksum": 0,
+        "Transactional": 0,
+        "MySQL": {
+          "Union": null,
+          "SecondaryEngine": "",
+          "TableChecksum": 0,
+          "EngineAttribute": "",
+          "SecondaryEngineAttribute": "",
+          "PageCompressed": false,
+          "PageCompressionLevel": 0,
+          "IetfQuotes": false,
+          "Nodegroup": 0
+        },
+        "TiDB": {
+          "AutoIdCache": 0,
+          "AutoRandomBase": 0,
+          "ShardRowID": 0,
+          "PreSplitRegion": 0,
+          "TTL": "",
+          "TTLEnable": false,
+          "TTLJobInterval": "",
+          "Affinity": "",
+          "PlacementPolicy": "",
+          "StatsBuckets": 0,
+          "StatsTopN": 0,
+          "StatsColsChoice": "",
+          "StatsColList": "",
+          "StatsSampleRate": 0,
+          "Sequence": false
+        }
+      }
+    }
+  ],
+  "modifiedTables": [
+    {
+      "Name": "users",
+      "AddedColumns": [
+        {
+          "Name": "email",
+          "TypeRaw": "varchar(255)",
+          "Type": "string",
+          "Nullable": true,
+          "PrimaryKey": false,
+          "AutoIncrement": false,
+          "DefaultValue": null,
+          "OnUpdate": null,
+          "Comment": "",
+          "Collate": "",
+          "Charset": "",
+          "IsGenerated": false,
+          "GenerationExpression": "",
+          "GenerationStorage": "",
+          "ColumnFormat": "",
+          "Storage": "",
+          "AutoRandom": 0,
+          "SecondaryEngineAttribute": ""
+        }
+      ],
+      "RemovedColumns": null,
+      "RenamedColumns": null,
+      "ModifiedColumns": [
+        {
+          "Name": "name",
+          "Old": {
+            "Name": "name",
+            "TypeRaw": "varchar(255)",
+            "Type": "string",
+            "Nullable": true,
+            "PrimaryKey": false,
+            "AutoIncrement": false,
+            "DefaultValue": null,
+            "OnUpdate": null,
+            "Comment": "",
+            "Collate": "",
+            "Charset": "",
+            "IsGenerated": false,
+            "GenerationExpression": "",
+            "GenerationStorage": "",
+            "ColumnFormat": "",
+            "Storage": "",
+            "AutoRandom": 0,
+            "SecondaryEngineAttribute": ""
+          },
+          "New": {
+            "Name": "name",
+            "TypeRaw": "varchar(255)",
+            "Type": "string",
+            "Nullable": false,
+            "PrimaryKey": false,
+            "AutoIncrement": false,
+            "DefaultValue": null,
+            "OnUpdate": null,
+            "Comment": "",
+            "Collate": "",
+            "Charset": "",
+            "IsGenerated": false,
+            "GenerationExpression": "",
+            "GenerationStorage": "",
+            "ColumnFormat": "",
+            "Storage": "",
+            "AutoRandom": 0,
+            "SecondaryEngineAttribute": ""
+          },
+          "Changes": [
+            {
+              "Field": "nullable",
+              "Old": "true",
+              "New": "false"
+            }
+          ]
+        }
+      ],
+      "AddedConstraints": null,
+      "RemovedConstraints": null,
+      "ModifiedConstraints": null,
+      "AddedIndexes": null,
+      "RemovedIndexes": null,
+      "ModifiedIndexes": null,
+      "ModifiedOptions": null
+    }
+  ]
+}

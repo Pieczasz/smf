@@ -1,0 +1,32 @@
+{
+  "format": "json",
+  "summary": {
+    "breakingChanges": 2,
+    "unresolved": 0,
+    "notes": 4,
+    "sqlStatements": 4,
+    "rollbackStatements": 4
+  },
+  "breakingChanges": [
+    "[CRITICAL] posts.posts: Table will be dropped - all data will be lost",
+    "[BREAKING] users.name: Column becomes NOT NULL - existing NULL values will cause migration failure"
+  ],
+  "notes": [
+    "Safety tip: take a backup or copy data out of posts before DROP TABLE.",
+    "Data migration tip: backfill users.name (UPDATE NULLs) before enforcing NOT NULL.",
+    "Safe mode: destructive drops are avoided (tables/columns are renamed to __smf_backup_* instead of dropped) to enable a reliable rollback.",
+    "Lock-time warning: ALTER TABLE / index changes may lock or rebuild tables; for large tables consider online schema change tools and off-peak execution."
+  ],
+  "sql": [
+    "CREATE TABLE `comments` (\n  `id` int(11) NOT NULL,\n  PRIMARY KEY (`id`)\n);",
+    "ALTER TABLE `users` ADD COLUMN `email` varchar(255) NULL;",
+    "ALTER TABLE `users` MODIFY COLUMN `name` varchar(255) NOT NULL;",
+    "RENAME TABLE `posts` TO `posts__smf_backup_caf63635761eef5c`;"
+  ],
+  "rollback": [
+    "RENAME TABLE `posts__smf_backup_caf63635761eef5c` TO `posts`;",
+    "ALTER TABLE `users` MODIFY COLUMN `name` varchar(255) NULL;",
+    "ALTER TABLE `users` DROP COLUMN `email`;",
+    "DROP TABLE `comments`;"
+  ]
+}
