@@ -3,12 +3,14 @@ module smf
 go 1.25.5
 
 require (
+	github.com/go-sql-driver/mysql v1.9.3
 	github.com/pingcap/tidb/pkg/parser v0.0.0-20260101060517-cb5f86216077
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
 )
 
 require (
+	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/kr/pretty v0.3.1 // indirect

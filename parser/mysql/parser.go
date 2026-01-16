@@ -27,7 +27,6 @@ func (p *Parser) Parse(sql string) (*core.Database, error) {
 	}
 
 	db := &core.Database{Tables: []*core.Table{}}
-
 	for _, stmt := range stmtNodes {
 		if create, ok := stmt.(*ast.CreateTableStmt); ok {
 			table, err := p.convertCreateTable(create)
