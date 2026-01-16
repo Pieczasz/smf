@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="GoLinterFmtOnSave">
+    <option name="enabledOnSave" value="true" />
+  </component>
+  <component name="GoLinterSettings">
+    <option name="concurrency" value="3" />
+    <option name="enabledFormatters">
+      <list>
+        <option value="gofmt" />
+        <option value="goimports" />
+      </list>
+    </option>
+    <option name="enabledLinters">
+      <list>
+        <option value="ineffassign" />
+        <option value="staticcheck" />
+        <option value="govet" />
+        <option value="goconst" />
+        <option value="errcheck" />
+        <option value="unused" />
+        <option value="gocyclo" />
+      </list>
+    </option>
+    <option name="linterSelected" value="true" />
+  </component>
+</project>
