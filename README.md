@@ -41,7 +41,7 @@ go test ./...
 Tip: there are ready-to-use fixture, so you can test the behavior:
 
 ```bash
-./smf diff tests/fixtures/mysql_schema_v1.sql tests/fixtures/mysql_schema_v2.sql
+./smf diff test/data/mysql_schema_v1.sql test/data/mysql_schema_v2.sql
 ```
 
 ### Generate a migration (MySQL)
