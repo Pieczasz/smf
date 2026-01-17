@@ -96,12 +96,11 @@ func (a *Applier) Connect(ctx context.Context) error {
 		return fmt.Errorf("failed to open database connection: %w", err)
 	}
 
-	if err := db.PingContext(ctx); err != nil {
-		err := db.Close()
-		if err != nil {
-			return err
+	if pingErr := db.PingContext(ctx); pingErr != nil {
+		if closeErr := db.Close(); closeErr != nil {
+			return fmt.Errorf("failed to ping database: %v; additionally failed to close connection: %w", pingErr, closeErr)
 		}
-		return fmt.Errorf("failed to ping database: %w", err)
+		return fmt.Errorf("failed to ping database: %w", pingErr)
 	}
 
 	a.db = db
