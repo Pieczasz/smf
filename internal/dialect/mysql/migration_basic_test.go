@@ -1,8 +1,7 @@
-package migration
+package mysql
 
 import (
 	"os"
-	"smf/internal/dialect/mysql"
 	"smf/internal/diff"
 	"smf/internal/parser"
 	"testing"
@@ -40,7 +39,7 @@ func TestBasicMigration(t *testing.T) {
 	d := diff.Diff(oldDB, newDB)
 	require.NotNil(t, d)
 
-	mysqlDialect := mysql.NewMySQLDialect()
+	mysqlDialect := NewMySQLDialect()
 	mig := mysqlDialect.Generator().GenerateMigration(d)
 	require.NotNil(t, mig)
 

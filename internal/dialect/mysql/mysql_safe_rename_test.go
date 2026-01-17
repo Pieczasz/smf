@@ -1,9 +1,9 @@
-package diff
+package mysql
 
 import (
 	"smf/internal/core"
 	"smf/internal/dialect"
-	"smf/internal/dialect/mysql"
+	"smf/internal/diff"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -21,10 +21,10 @@ func TestMySQLSafeModeUsesChangeColumnForRename(t *testing.T) {
 		Columns: []*core.Column{{Name: "password_digest", TypeRaw: "VARBINARY(72)", Type: core.NormalizeDataType("VARBINARY(72)"), Nullable: false}},
 	}}}
 
-	d := Diff(oldDB, newDB)
+	d := diff.Diff(oldDB, newDB)
 	require.NotNil(t, d)
 
-	gen := mysql.NewMySQLDialect().Generator()
+	gen := NewMySQLDialect().Generator()
 	opts := dialect.DefaultMigrationOptions(dialect.MySQL)
 	opts.IncludeUnsafe = false
 

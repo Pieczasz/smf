@@ -81,7 +81,7 @@ func formatMigrationJSON(t *testing.T) string {
 
 func readGolden(t *testing.T, name string) string {
 	t.Helper()
-	path := filepath.Join("data", name)
+	path := filepath.Join("..", "..", "test", "data", name)
 	b, err := os.ReadFile(path)
 	require.NoError(t, err)
 	return string(b)

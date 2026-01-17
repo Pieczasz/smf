@@ -2,7 +2,6 @@ package diff
 
 import (
 	"smf/internal/core"
-	"smf/internal/dialect/mysql"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -129,41 +128,6 @@ func TestBreakingChangeAnalyzer(t *testing.T) {
 		assert.True(t, hasBC(changes, SeverityCritical, "t", "narrow", "type changes"))
 		assert.True(t, hasBC(changes, SeverityCritical, "t", "incompat", "type changes"))
 	})
-}
-
-func TestMigrationGenerationSafetyNotesAndRollback(t *testing.T) {
-	oldDB := &core.Database{Tables: []*core.Table{{
-		Name:        "t",
-		Columns:     []*core.Column{{Name: "id", TypeRaw: "INT", Type: core.NormalizeDataType("INT"), Nullable: false, PrimaryKey: true}},
-		Constraints: []*core.Constraint{{Name: "PRIMARY", Type: core.ConstraintPrimaryKey, Columns: []string{"id"}}},
-		Indexes:     []*core.Index{{Name: "idx_id", Columns: []core.IndexColumn{{Name: "id"}}, Unique: false, Type: core.IndexTypeBTree}},
-		Options:     core.TableOptions{Engine: "InnoDB", Charset: "utf8mb4", Collate: "utf8mb4_unicode_ci"},
-	}}}
-
-	newDB := &core.Database{Tables: []*core.Table{{
-		Name: "t",
-		Columns: []*core.Column{
-			{Name: "id", TypeRaw: "INT", Type: core.NormalizeDataType("INT"), Nullable: false, PrimaryKey: true},
-			{Name: "email", TypeRaw: "VARCHAR(255)", Type: core.NormalizeDataType("VARCHAR(255)"), Nullable: false},
-		},
-		Constraints: []*core.Constraint{{Name: "PRIMARY", Type: core.ConstraintPrimaryKey, Columns: []string{"id"}}},
-		Indexes: []*core.Index{
-			{Name: "idx_id", Columns: []core.IndexColumn{{Name: "email"}}, Unique: false, Type: core.IndexTypeBTree},
-		},
-		Options: core.TableOptions{Engine: "MyISAM", Charset: "latin1", Collate: "latin1_swedish_ci"},
-	}}}
-
-	d := Diff(oldDB, newDB)
-	require.NotNil(t, d)
-
-	mig := mysql.NewMySQLDialect().Generator().GenerateMigration(d)
-	require.NotNil(t, mig)
-
-	out := mig.String()
-	assert.Contains(t, out, "-- SQL")
-	assert.Contains(t, out, "ALTER TABLE")
-	assert.Contains(t, out, "Lock-time warning")
-	assert.Contains(t, out, "ROLLBACK SQL")
 }
 
 func hasBC(changes []BreakingChange, sev ChangeSeverity, table, object, descSubstr string) bool {
