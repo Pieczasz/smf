@@ -1,3 +1,5 @@
+// Package main contains the cli implementation of the tool. It uses cobra
+// package for cli tool implementation.
 package main
 
 import (
@@ -8,6 +10,7 @@ import (
 	"smf/internal/dialect"
 	"smf/internal/dialect/mysql"
 	"smf/internal/diff"
+	"smf/internal/migration"
 	"smf/internal/output"
 	"smf/internal/parser"
 	"strings"
@@ -16,14 +19,6 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/spf13/cobra"
 )
-
-func printInfo(format string, msg string) {
-	if strings.EqualFold(strings.TrimSpace(format), string(output.FormatJSON)) {
-		_, _ = fmt.Fprintln(os.Stderr, msg)
-		return
-	}
-	fmt.Println(msg)
-}
 
 func main() {
 	rootCmd := &cobra.Command{
@@ -136,26 +131,15 @@ You can specify the source and target database dialects using the --from and --t
 			d := mysql.NewMySQLDialect()
 			opts := dialect.DefaultMigrationOptions(dialect.MySQL)
 			opts.IncludeUnsafe = migrateUnsafe
-			migration := d.Generator().GenerateMigrationWithOptions(schemaDiff, opts)
+			generatedMigration := d.Generator().GenerateMigrationWithOptions(schemaDiff, opts)
 
-			formatter, err := output.NewFormatter(migrationFormat)
+			err = formatMigration(generatedMigration, migrationFormat, migrationOutFile)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to format generatedMigration: %w", err)
 			}
-			formatted, err := formatter.FormatMigration(migration)
-			if err != nil {
-				return fmt.Errorf("failed to format output: %w", err)
-			}
-			if migrationOutFile == "" {
-				fmt.Print(formatted)
-				return nil
-			}
-			if err := os.WriteFile(migrationOutFile, []byte(formatted), 0644); err != nil {
-				return fmt.Errorf("failed to write output: %w", err)
-			}
-			printInfo(migrationFormat, fmt.Sprintf("Output saved to %s", migrationOutFile))
+
 			if rollbackOutFile != "" {
-				if err := migration.SaveRollbackToFile(rollbackOutFile); err != nil {
+				if err := generatedMigration.SaveRollbackToFile(rollbackOutFile); err != nil {
 					return fmt.Errorf("failed to write rollback output: %w", err)
 				}
 				printInfo(migrationFormat, fmt.Sprintf("Rollback saved to %s", rollbackOutFile))
@@ -296,4 +280,33 @@ Examples:
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
+}
+
+func printInfo(format string, msg string) {
+	if strings.EqualFold(strings.TrimSpace(format), string(output.FormatJSON)) {
+		_, _ = fmt.Fprintln(os.Stderr, msg)
+		return
+	}
+	fmt.Println(msg)
+}
+
+func formatMigration(migration *migration.Migration, migrationFormat string, migrationOutFile string) error {
+	formatter, err := output.NewFormatter(migrationFormat)
+	if err != nil {
+		return err
+	}
+	formatted, err := formatter.FormatMigration(migration)
+	if err != nil {
+		return fmt.Errorf("failed to format output: %w", err)
+	}
+	if migrationOutFile == "" {
+		fmt.Print(formatted)
+		return nil
+	}
+	if err := os.WriteFile(migrationOutFile, []byte(formatted), 0644); err != nil {
+		return fmt.Errorf("failed to write output: %w", err)
+	}
+	printInfo(migrationFormat, fmt.Sprintf("Output saved to %s", migrationOutFile))
+
+	return nil
 }
