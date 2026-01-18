@@ -1,3 +1,5 @@
+// Package output provides a set of formatters for schema diffs and migrations.
+// It is extendable and for now provides two formats: human and JSON.
 package output
 
 import (
@@ -7,6 +9,7 @@ import (
 	"strings"
 )
 
+// Format is an enum type representing the available output formats.
 type Format string
 
 const (
@@ -14,11 +17,13 @@ const (
 	FormatJSON  Format = "json"
 )
 
+// Formatter is an interface for formatting schema diffs and migrations.
 type Formatter interface {
 	FormatDiff(*diff.SchemaDiff) (string, error)
 	FormatMigration(*migration.Migration) (string, error)
 }
 
+// NewFormatter creates a new Formatter instance based on the given name.
 func NewFormatter(name string) (Formatter, error) {
 	format := Format(strings.ToLower(strings.TrimSpace(name)))
 	switch format {
