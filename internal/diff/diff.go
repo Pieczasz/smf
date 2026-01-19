@@ -7,12 +7,13 @@ import (
 )
 
 const (
-	renameDetectionScoreThreshold = 9
+	renameDetectionScoreThreshold = 12
 	renameSharedTokenMinLen       = 3
 )
 
 // SchemaDiff represents the differences between two schema dumps.
 type SchemaDiff struct {
+	Warnings       []string `json:"warnings,omitempty"`
 	AddedTables    []*core.Table
 	RemovedTables  []*core.Table
 	ModifiedTables []*TableDiff
@@ -21,6 +22,7 @@ type SchemaDiff struct {
 // TableDiff represents the differences between two tables.
 type TableDiff struct {
 	Name                string
+	Warnings            []string `json:"warnings,omitempty"`
 	AddedColumns        []*core.Column
 	RemovedColumns      []*core.Column
 	RenamedColumns      []*ColumnRename
@@ -81,12 +83,31 @@ type TableOptionChange struct {
 	New  string
 }
 
+type Options struct {
+	DetectColumnRenames bool
+}
+
+func DefaultOptions() Options {
+	return Options{DetectColumnRenames: true}
+}
+
 // Diff compares two database dumps and returns a SchemaDiff object.
 func Diff(oldDB, newDB *core.Database) *SchemaDiff {
+	return DiffWithOptions(oldDB, newDB, DefaultOptions())
+}
+
+// DiffWithOptions compares two database dumps and returns a SchemaDiff object.
+func DiffWithOptions(oldDB, newDB *core.Database, opts Options) *SchemaDiff {
 	d := &SchemaDiff{}
 
-	oldTables := mapByLowerName(oldDB.Tables, func(t *core.Table) string { return t.Name })
-	newTables := mapByLowerName(newDB.Tables, func(t *core.Table) string { return t.Name })
+	oldTables, oldCollisions := mapByLowerNameWithCollisions(oldDB.Tables, func(t *core.Table) string { return t.Name })
+	newTables, newCollisions := mapByLowerNameWithCollisions(newDB.Tables, func(t *core.Table) string { return t.Name })
+	for _, c := range oldCollisions {
+		d.Warnings = append(d.Warnings, "old schema: "+c)
+	}
+	for _, c := range newCollisions {
+		d.Warnings = append(d.Warnings, "new schema: "+c)
+	}
 
 	for name, nt := range newTables {
 		ot, ok := oldTables[name]
@@ -95,7 +116,7 @@ func Diff(oldDB, newDB *core.Database) *SchemaDiff {
 			continue
 		}
 
-		td := compareTable(ot, nt)
+		td := compareTable(ot, nt, opts)
 		if td != nil {
 			d.ModifiedTables = append(d.ModifiedTables, td)
 		}
