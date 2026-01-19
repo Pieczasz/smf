@@ -5,6 +5,7 @@
   </component>
   <component name="GoLinterSettings">
     <option name="concurrency" value="3" />
+    <option name="customConfigFile" value="$PROJECT_DIR$/.golangci.yml" />
     <option name="enabledFormatters">
       <list>
         <option value="gofmt" />
@@ -23,5 +24,6 @@
       </list>
     </option>
     <option name="linterSelected" value="true" />
+    <option name="useCustomConfigFile" value="true" />
   </component>
 </project>

@@ -34,7 +34,9 @@
         {
           "Name": "PRIMARY",
           "Type": "PRIMARY KEY",
-          "Columns": ["id"],
+          "Columns": [
+            "id"
+          ],
           "ReferencedTable": "",
           "ReferencedColumns": null,
           "OnDelete": "",
@@ -133,7 +135,9 @@
         {
           "Name": "PRIMARY",
           "Type": "PRIMARY KEY",
-          "Columns": ["id"],
+          "Columns": [
+            "id"
+          ],
           "ReferencedTable": "",
           "ReferencedColumns": null,
           "OnDelete": "",

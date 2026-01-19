@@ -1,16 +1,20 @@
 package output
 
 import (
+	"flag"
 	"os"
 	"path/filepath"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+
 	"smf/internal/dialect"
 	"smf/internal/dialect/mysql"
 	"smf/internal/diff"
 	"smf/internal/parser"
-	"testing"
-
-	"github.com/stretchr/testify/require"
 )
+
+var updateGolden = flag.Bool("update-golden", false, "update golden files")
 
 const (
 	jsonOldSchema = `CREATE TABLE users (
@@ -35,11 +39,19 @@ const (
 
 func TestDiffJSONFormatGolden(t *testing.T) {
 	out := formatDiffJSON(t)
+	if *updateGolden {
+		writeGolden(t, "diff_golden.json", out)
+		return
+	}
 	require.Equal(t, readGolden(t, "diff_golden.json"), out)
 }
 
 func TestMigrationJSONFormatGolden(t *testing.T) {
 	out := formatMigrationJSON(t)
+	if *updateGolden {
+		writeGolden(t, "migration_golden.json", out)
+		return
+	}
 	require.Equal(t, readGolden(t, "migration_golden.json"), out)
 }
 
@@ -85,4 +97,12 @@ func readGolden(t *testing.T, name string) string {
 	b, err := os.ReadFile(path)
 	require.NoError(t, err)
 	return string(b)
+}
+
+func writeGolden(t *testing.T, name string, content string) {
+	t.Helper()
+	path := filepath.Join("..", "..", "test", "data", name)
+	err := os.WriteFile(path, []byte(content), 0644)
+	require.NoError(t, err)
+	t.Logf("Updated golden file: %s", path)
 }

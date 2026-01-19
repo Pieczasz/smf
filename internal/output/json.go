@@ -2,6 +2,7 @@ package output
 
 import (
 	"encoding/json"
+
 	"smf/internal/core"
 	"smf/internal/diff"
 	"smf/internal/migration"
@@ -18,6 +19,7 @@ type diffSummary struct {
 type diffPayload struct {
 	Format         string            `json:"format"`
 	Summary        diffSummary       `json:"summary"`
+	Warnings       []string          `json:"warnings,omitempty"`
 	AddedTables    []*core.Table     `json:"addedTables,omitempty"`
 	RemovedTables  []*core.Table     `json:"removedTables,omitempty"`
 	ModifiedTables []*diff.TableDiff `json:"modifiedTables,omitempty"`
@@ -50,6 +52,7 @@ type Payload interface {
 func (jsonFormatter) FormatDiff(d *diff.SchemaDiff) (string, error) {
 	payload := diffPayload{Format: string(FormatJSON)}
 	if d != nil {
+		payload.Warnings = d.Warnings
 		payload.AddedTables = d.AddedTables
 		payload.RemovedTables = d.RemovedTables
 		payload.ModifiedTables = d.ModifiedTables
