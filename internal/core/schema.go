@@ -1,3 +1,6 @@
+// Package core contains the single source of truth from database schema.
+// It provides a structured representation of data for tables, columns, constraints, and so on
+// for all databases that we support.
 package core
 
 import (
@@ -5,11 +8,13 @@ import (
 	"strings"
 )
 
+// Database represents a database in the schema.
 type Database struct {
 	Name   string
 	Tables []*Table
 }
 
+// Table represents a table in the schema.
 type Table struct {
 	Name        string
 	Columns     []*Column
@@ -19,6 +24,7 @@ type Table struct {
 	Options     TableOptions
 }
 
+// TableOptions represents the options for a table in the schema.
 type TableOptions struct {
 	Engine        string
 	Charset       string
@@ -56,6 +62,7 @@ type TableOptions struct {
 	TiDB  TiDBTableOptions
 }
 
+// MySQLTableOptions contains MySQL-specific table options.
 type MySQLTableOptions struct {
 	Union                    []string
 	SecondaryEngine          string
@@ -68,8 +75,10 @@ type MySQLTableOptions struct {
 	Nodegroup                uint64
 }
 
+// TiDBTableOptions contains TiDB-specific table options. Since we use TIDB mysql parser
+// it is a nice addition to mysql parser.
 type TiDBTableOptions struct {
-	AutoIdCache     uint64
+	AutoIDCache     uint64
 	AutoRandomBase  uint64
 	ShardRowID      uint64
 	PreSplitRegion  uint64
@@ -86,6 +95,7 @@ type TiDBTableOptions struct {
 	Sequence        bool
 }
 
+// Column represents a single column inside schema
 type Column struct {
 	Name          string
 	TypeRaw       string
@@ -109,6 +119,7 @@ type Column struct {
 	SecondaryEngineAttribute string
 }
 
+// DataType is an ENUM with all possible column data types.
 type DataType string
 
 const (
@@ -123,6 +134,7 @@ const (
 	DataTypeUnknown  DataType = "unknown"
 )
 
+// GenerationStorage is an ENUM with all possible column generation storage options.
 type GenerationStorage string
 
 const (
@@ -130,6 +142,7 @@ const (
 	GenerationStored  GenerationStorage = "STORED"
 )
 
+// Constraint contains all constraint options for a column.
 type Constraint struct {
 	Name    string
 	Type    ConstraintType
@@ -144,6 +157,7 @@ type Constraint struct {
 	Enforced        bool
 }
 
+// ConstraintType is an ENUM with all possible constraint types.
 type ConstraintType string
 
 const (
@@ -153,6 +167,7 @@ const (
 	ConstraintCheck      ConstraintType = "CHECK"
 )
 
+// ReferentialAction is an ENUM with all possible column references after action.
 type ReferentialAction string
 
 const (
@@ -164,6 +179,7 @@ const (
 	RefActionNoAction   ReferentialAction = "NO ACTION"
 )
 
+// Index contains all possible index options for a column.
 type Index struct {
 	Name       string
 	Columns    []IndexColumn
@@ -173,19 +189,14 @@ type Index struct {
 	Visibility IndexVisibility
 }
 
+// IndexColumn connects all column indexes together.
 type IndexColumn struct {
 	Name   string
 	Length int
 	Order  SortOrder
 }
 
-type SortOrder string
-
-const (
-	SortAsc  SortOrder = "ASC"
-	SortDesc SortOrder = "DESC"
-)
-
+// IndexType is an ENUM with all possible index types.
 type IndexType string
 
 const (
@@ -197,6 +208,7 @@ const (
 	IndexTypeGiST     IndexType = "GiST"
 )
 
+// IndexVisibility is an ENUM with all possible index visibilities.
 type IndexVisibility string
 
 const (
@@ -204,6 +216,15 @@ const (
 	IndexInvisible IndexVisibility = "INVISIBLE"
 )
 
+// SortOrder is an ENUM with all possible column sort orders.
+type SortOrder string
+
+const (
+	SortAsc  SortOrder = "ASC"
+	SortDesc SortOrder = "DESC"
+)
+
+// FindTable looks for a table by name inside a database.
 func (db *Database) FindTable(name string) *Table {
 	for _, t := range db.Tables {
 		if strings.EqualFold(t.Name, name) {
@@ -213,6 +234,7 @@ func (db *Database) FindTable(name string) *Table {
 	return nil
 }
 
+// FindColumn looks for a column by name inside a table.
 func (t *Table) FindColumn(name string) *Column {
 	for _, c := range t.Columns {
 		if strings.EqualFold(c.Name, name) {
@@ -222,6 +244,7 @@ func (t *Table) FindColumn(name string) *Column {
 	return nil
 }
 
+// FindConstraint looks for a constraint by name inside a table.
 func (t *Table) FindConstraint(name string) *Constraint {
 	for _, c := range t.Constraints {
 		if strings.EqualFold(c.Name, name) {
@@ -231,6 +254,7 @@ func (t *Table) FindConstraint(name string) *Constraint {
 	return nil
 }
 
+// FindIndex looks for an index by name inside a table.
 func (t *Table) FindIndex(name string) *Index {
 	for _, i := range t.Indexes {
 		if strings.EqualFold(i.Name, name) {
@@ -240,6 +264,7 @@ func (t *Table) FindIndex(name string) *Index {
 	return nil
 }
 
+// PrimaryKey returns the primary key constraint of the table.
 func (t *Table) PrimaryKey() *Constraint {
 	for _, c := range t.Constraints {
 		if c.Type == ConstraintPrimaryKey {
@@ -249,6 +274,7 @@ func (t *Table) PrimaryKey() *Constraint {
 	return nil
 }
 
+// ColumnNames returns the names of the columns in the index.
 func (i *Index) ColumnNames() []string {
 	names := make([]string, len(i.Columns))
 	for idx, col := range i.Columns {
@@ -257,11 +283,13 @@ func (i *Index) ColumnNames() []string {
 	return names
 }
 
+// String returns a string representation of a table with all columns, constraints, and indexes.
 func (t *Table) String() string {
 	return fmt.Sprintf("Table: %s (%d cols, %d constraints, %d indexes)",
 		t.Name, len(t.Columns), len(t.Constraints), len(t.Indexes))
 }
 
+// NormalizeDataType normalizes a raw data type string to a DataType.
 func NormalizeDataType(rawType string) DataType {
 	rawType = strings.ToLower(strings.TrimSpace(rawType))
 

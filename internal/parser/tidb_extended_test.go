@@ -13,7 +13,7 @@ func TestTiDBOptions(t *testing.T) {
 	sql := `
 CREATE TABLE tidb_options (
     id INT PRIMARY KEY
-) 
+)
 AUTO_ID_CACHE = 100
 AUTO_RANDOM_BASE = 50
 SHARD_ROW_ID_BITS = 4
@@ -34,7 +34,7 @@ STATS_SAMPLE_RATE = 0.5;
 	tbl := db.FindTable("tidb_options")
 	require.NotNil(t, tbl)
 
-	assert.Equal(t, uint64(100), tbl.Options.TiDB.AutoIdCache)
+	assert.Equal(t, uint64(100), tbl.Options.TiDB.AutoIDCache)
 	assert.Equal(t, uint64(50), tbl.Options.TiDB.AutoRandomBase)
 	assert.Equal(t, uint64(4), tbl.Options.TiDB.ShardRowID)
 	assert.Equal(t, uint64(2), tbl.Options.TiDB.PreSplitRegion)

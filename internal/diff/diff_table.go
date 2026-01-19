@@ -155,7 +155,7 @@ func tableOptionMap(t *core.Table) map[string]string {
 		m["UNION"] = strings.Join(o.MySQL.Union, ",")
 	}
 
-	addU64("AUTO_ID_CACHE", o.TiDB.AutoIdCache)
+	addU64("AUTO_ID_CACHE", o.TiDB.AutoIDCache)
 	addU64("AUTO_RANDOM_BASE", o.TiDB.AutoRandomBase)
 	addU64("SHARD_ROW_ID_BITS", o.TiDB.ShardRowID)
 	addU64("PRE_SPLIT_REGIONS", o.TiDB.PreSplitRegion)

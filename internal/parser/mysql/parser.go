@@ -203,7 +203,7 @@ func (p *Parser) parseTableOptions(opts []*ast.TableOption, table *core.Table) {
 			table.Options.MySQL.Nodegroup = opt.UintValue
 
 		case ast.TableOptionAutoIdCache:
-			table.Options.TiDB.AutoIdCache = opt.UintValue
+			table.Options.TiDB.AutoIDCache = opt.UintValue
 		case ast.TableOptionAutoRandomBase:
 			table.Options.TiDB.AutoRandomBase = opt.UintValue
 		case ast.TableOptionShardRowID:

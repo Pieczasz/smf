@@ -34,9 +34,7 @@
         {
           "Name": "PRIMARY",
           "Type": "PRIMARY KEY",
-          "Columns": [
-            "id"
-          ],
+          "Columns": ["id"],
           "ReferencedTable": "",
           "ReferencedColumns": null,
           "OnDelete": "",
@@ -87,7 +85,7 @@
           "Nodegroup": 0
         },
         "TiDB": {
-          "AutoIdCache": 0,
+          "AutoIDCache": 0,
           "AutoRandomBase": 0,
           "ShardRowID": 0,
           "PreSplitRegion": 0,
@@ -135,9 +133,7 @@
         {
           "Name": "PRIMARY",
           "Type": "PRIMARY KEY",
-          "Columns": [
-            "id"
-          ],
+          "Columns": ["id"],
           "ReferencedTable": "",
           "ReferencedColumns": null,
           "OnDelete": "",
@@ -188,7 +184,7 @@
           "Nodegroup": 0
         },
         "TiDB": {
-          "AutoIdCache": 0,
+          "AutoIDCache": 0,
           "AutoRandomBase": 0,
           "ShardRowID": 0,
           "PreSplitRegion": 0,
