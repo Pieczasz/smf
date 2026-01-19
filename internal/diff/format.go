@@ -15,6 +15,17 @@ func (d *SchemaDiff) String() string {
 	var sb strings.Builder
 	sb.WriteString("Schema differences:\n")
 
+	if len(d.Warnings) > 0 {
+		sb.WriteString("\nWarnings:\n")
+		for _, w := range d.Warnings {
+			w = strings.TrimSpace(w)
+			if w == "" {
+				continue
+			}
+			sb.WriteString(fmt.Sprintf("  - %s\n", w))
+		}
+	}
+
 	if len(d.AddedTables) > 0 {
 		sb.WriteString("\nAdded tables:\n")
 		for _, at := range d.AddedTables {
@@ -41,6 +52,17 @@ func (d *SchemaDiff) String() string {
 
 func (d *SchemaDiff) writeTableDiff(sb *strings.Builder, mt *TableDiff) {
 	sb.WriteString(fmt.Sprintf("\n  - %s\n", mt.Name))
+
+	if len(mt.Warnings) > 0 {
+		sb.WriteString("    Warnings:\n")
+		for _, w := range mt.Warnings {
+			w = strings.TrimSpace(w)
+			if w == "" {
+				continue
+			}
+			sb.WriteString(fmt.Sprintf("      - %s\n", w))
+		}
+	}
 
 	if len(mt.ModifiedOptions) > 0 {
 		sb.WriteString("    Options changed:\n")

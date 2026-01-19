@@ -1,15 +1,16 @@
 package diff
 
 import (
-	"smf/internal/core"
 	"strconv"
 	"strings"
+
+	"smf/internal/core"
 )
 
-func compareTable(oldT, newT *core.Table) *TableDiff {
+func compareTable(oldT, newT *core.Table, opts Options) *TableDiff {
 	td := &TableDiff{Name: newT.Name}
 
-	compareColumns(oldT.Columns, newT.Columns, td)
+	compareColumns(oldT.Columns, newT.Columns, td, opts)
 	compareConstraints(oldT.Constraints, newT.Constraints, td)
 	markConstraintsForRebuild(oldT.Constraints, newT.Constraints, td)
 	compareIndexes(oldT.Indexes, newT.Indexes, td)
@@ -23,9 +24,15 @@ func compareTable(oldT, newT *core.Table) *TableDiff {
 	return td
 }
 
-func compareColumns(oldItems, newItems []*core.Column, td *TableDiff) {
-	oldMap := mapByLowerName(oldItems, func(c *core.Column) string { return c.Name })
-	newMap := mapByLowerName(newItems, func(c *core.Column) string { return c.Name })
+func compareColumns(oldItems, newItems []*core.Column, td *TableDiff, opts Options) {
+	oldMap, oldCollisions := mapByLowerNameWithCollisions(oldItems, func(c *core.Column) string { return c.Name })
+	newMap, newCollisions := mapByLowerNameWithCollisions(newItems, func(c *core.Column) string { return c.Name })
+	for _, c := range oldCollisions {
+		td.Warnings = append(td.Warnings, "old table columns: "+c)
+	}
+	for _, c := range newCollisions {
+		td.Warnings = append(td.Warnings, "new table columns: "+c)
+	}
 
 	for name, newItem := range newMap {
 		oldItem, exists := oldMap[name]
@@ -49,7 +56,9 @@ func compareColumns(oldItems, newItems []*core.Column, td *TableDiff) {
 		}
 	}
 
-	td.detectColumnRenames()
+	if opts.DetectColumnRenames {
+		td.detectColumnRenames()
+	}
 }
 
 func equalColumn(a, b *core.Column) bool {

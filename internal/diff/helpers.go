@@ -1,10 +1,12 @@
 package diff
 
 import (
-	"smf/internal/core"
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
+
+	"smf/internal/core"
 )
 
 type columnAttrMatch struct {
@@ -117,9 +119,31 @@ func sortByNameCI[T any](items []T, name func(T) string) {
 func mapByLowerName[T any](items []T, name func(T) string) map[string]T {
 	m := make(map[string]T, len(items))
 	for _, item := range items {
-		m[strings.ToLower(name(item))] = item
+		lowerKey := strings.ToLower(name(item))
+		m[lowerKey] = item
 	}
 	return m
+}
+
+func mapByLowerNameWithCollisions[T any](items []T, name func(T) string) (map[string]T, []string) {
+	m := make(map[string]T, len(items))
+	original := make(map[string]string, len(items))
+	var collisions []string
+
+	for _, item := range items {
+		n := name(item)
+		key := strings.ToLower(n)
+		if prev, ok := original[key]; ok {
+			if prev != n {
+				collisions = append(collisions, fmt.Sprintf("case-insensitive name collision: %q vs %q", prev, n))
+			}
+			continue
+		}
+		original[key] = n
+		m[key] = item
+	}
+
+	return m, collisions
 }
 
 func mapByKey[T any](items []T, key func(T) string) map[string]T {
