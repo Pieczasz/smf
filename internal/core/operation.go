@@ -1,5 +1,6 @@
 package core
 
+// OperationKind is used to identify what kind of operation is being performed by migration.
 type OperationKind string
 
 const (
@@ -9,6 +10,7 @@ const (
 	OperationUnresolved OperationKind = "UNRESOLVED"
 )
 
+// OperationRisk is used to identify the risk level of an operation.
 type OperationRisk string
 
 const (
@@ -18,6 +20,8 @@ const (
 	RiskCritical OperationRisk = "CRITICAL"
 )
 
+// Operation struct contains all information about a single operation of migration.
+// It also contains a rollback SQL statement and a risk level.
 type Operation struct {
 	Kind OperationKind `json:"kind"`
 
