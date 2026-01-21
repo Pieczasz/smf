@@ -1,3 +1,5 @@
+// Package mysql inside parser, provides implementation to parse MySQL schema dumps.
+// It uses TiDB's parser, so we support both MySQL syntax and TiDB specific options.
 package mysql
 
 import (
@@ -21,6 +23,7 @@ func NewParser() *Parser {
 }
 
 func (p *Parser) Parse(sql string) (*core.Database, error) {
+	// TODO: add support to specify charset and collation
 	stmtNodes, _, err := p.p.Parse(sql, "", "")
 	if err != nil {
 		return nil, fmt.Errorf("parse error: %w", err)
@@ -51,53 +54,6 @@ func (p *Parser) convertCreateTable(stmt *ast.CreateTableStmt) (*core.Table, err
 	p.parseConstraints(stmt.Constraints, table)
 
 	return table, nil
-}
-
-func (p *Parser) ensurePrimaryKeyColumn(table *core.Table, colName string) {
-	if table == nil {
-		return
-	}
-	colName = strings.TrimSpace(colName)
-	if colName == "" {
-		return
-	}
-
-	var pk *core.Constraint
-	for _, c := range table.Constraints {
-		if c == nil {
-			continue
-		}
-		if c.Type == core.ConstraintPrimaryKey {
-			pk = c
-			break
-		}
-	}
-	if pk == nil {
-		pk = &core.Constraint{
-			Name:    "PRIMARY",
-			Type:    core.ConstraintPrimaryKey,
-			Columns: []string{},
-		}
-		table.Constraints = append(table.Constraints, pk)
-	}
-	if strings.TrimSpace(pk.Name) == "" {
-		pk.Name = "PRIMARY"
-	}
-
-	for _, existing := range pk.Columns {
-		if strings.EqualFold(existing, colName) {
-			if col := table.FindColumn(colName); col != nil {
-				col.PrimaryKey = true
-				col.Nullable = false
-			}
-			return
-		}
-	}
-	pk.Columns = append(pk.Columns, colName)
-	if col := table.FindColumn(colName); col != nil {
-		col.PrimaryKey = true
-		col.Nullable = false
-	}
 }
 
 func (p *Parser) parseTableOptions(opts []*ast.TableOption, table *core.Table) {
@@ -354,8 +310,56 @@ func (p *Parser) parseColumns(cols []*ast.ColumnDef, table *core.Table) {
 	}
 }
 
+func (p *Parser) ensurePrimaryKeyColumn(table *core.Table, colName string) {
+	if table == nil {
+		return
+	}
+	colName = strings.TrimSpace(colName)
+	if colName == "" {
+		return
+	}
+
+	var pk *core.Constraint
+	for _, c := range table.Constraints {
+		if c == nil {
+			continue
+		}
+		if c.Type == core.ConstraintPrimaryKey {
+			pk = c
+			break
+		}
+	}
+	if pk == nil {
+		pk = &core.Constraint{
+			Name:    "PRIMARY",
+			Type:    core.ConstraintPrimaryKey,
+			Columns: []string{},
+		}
+		table.Constraints = append(table.Constraints, pk)
+	}
+	if strings.TrimSpace(pk.Name) == "" {
+		pk.Name = "PRIMARY"
+	}
+
+	for _, existing := range pk.Columns {
+		if strings.EqualFold(existing, colName) {
+			if col := table.FindColumn(colName); col != nil {
+				col.PrimaryKey = true
+				col.Nullable = false
+			}
+			return
+		}
+	}
+	pk.Columns = append(pk.Columns, colName)
+	if col := table.FindColumn(colName); col != nil {
+		col.PrimaryKey = true
+		col.Nullable = false
+	}
+}
+
 func (p *Parser) parseConstraints(constraints []*ast.Constraint, table *core.Table) {
 	for _, constraint := range constraints {
+		// TODO: check if make([]string, 0, len(constraint.Keys)) is faster or make([]string, len(constraint.Keys)) is faster
 		columns := make([]string, 0, len(constraint.Keys))
 		indexCols := make([]core.IndexColumn, 0, len(constraint.Keys))
 		for _, key := range constraint.Keys {
@@ -448,6 +452,7 @@ func (p *Parser) exprToString(expr ast.ExprNode) *string {
 	if expr == nil {
 		return nil
 	}
+
 	var sb strings.Builder
 	restoreCtx := format.NewRestoreCtx(format.DefaultRestoreFlags, &sb)
 	if err := expr.Restore(restoreCtx); err != nil {
