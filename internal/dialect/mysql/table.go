@@ -3,10 +3,11 @@ package mysql
 import (
 	"fmt"
 	"regexp"
-	"smf/internal/core"
-	"smf/internal/diff"
 	"strconv"
 	"strings"
+
+	"smf/internal/core"
+	"smf/internal/diff"
 )
 
 // Table

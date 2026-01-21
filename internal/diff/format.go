@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// String returns a string representation of all schema differences between two sql dumps.
+// String returns a string representation of all schema differences between two SQL dumps.
 func (d *SchemaDiff) String() string {
 	if d.IsEmpty() {
 		return "No differences detected."
@@ -166,8 +166,8 @@ func (d *SchemaDiff) IsEmpty() bool {
 	return len(d.AddedTables) == 0 && len(d.RemovedTables) == 0 && len(d.ModifiedTables) == 0
 }
 
-// SaveToFile function save a SchemaDiff struct to a file of a given path.
-// 0o644 permissions means read/write for owner, read for group and others.
+// SaveToFile function saves a SchemaDiff struct to a file of a given path.
+// 0o644 permissions means read/write for an owner, read for a group and others.
 func (d *SchemaDiff) SaveToFile(path string) error {
 	return os.WriteFile(path, []byte(d.String()), 0o644)
 }

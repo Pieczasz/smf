@@ -2,9 +2,10 @@ package mysql
 
 import (
 	"fmt"
-	"smf/internal/core"
 	"strconv"
 	"strings"
+
+	"smf/internal/core"
 )
 
 func (g *Generator) formatColumns(cols []string) string {

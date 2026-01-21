@@ -34,6 +34,7 @@ func compareColumns(oldItems, newItems []*core.Column, td *TableDiff, opts Optio
 		td.Warnings = append(td.Warnings, "new table columns: "+c)
 	}
 
+	// TODO: extract a method from duplicated code
 	for name, newItem := range newMap {
 		oldItem, exists := oldMap[name]
 		if !exists {

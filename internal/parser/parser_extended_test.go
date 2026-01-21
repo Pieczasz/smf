@@ -1,11 +1,12 @@
 package parser
 
 import (
-	"smf/internal/core"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"smf/internal/core"
 )
 
 func TestExtendedTableOptions(t *testing.T) {

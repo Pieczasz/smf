@@ -189,7 +189,7 @@ type Index struct {
 	Visibility IndexVisibility
 }
 
-// IndexColumn connects all column indexes together.
+// IndexColumn connects all column indexes.
 type IndexColumn struct {
 	Name   string
 	Length int

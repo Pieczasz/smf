@@ -2,12 +2,13 @@ package mysql
 
 import (
 	"os"
-	"smf/internal/diff"
-	"smf/internal/parser"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"smf/internal/diff"
+	"smf/internal/parser"
 )
 
 func TestBasicMigration(t *testing.T) {

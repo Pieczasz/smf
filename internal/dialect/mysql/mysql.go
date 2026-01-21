@@ -1,5 +1,5 @@
 // Package mysql provides MySQL dialect support for schema migration,
-// rollback generation, formatting and migration.
+// rollback generation, formatting, and migration.
 package mysql
 
 import (

@@ -2,8 +2,9 @@ package migration
 
 import (
 	"os"
-	"smf/internal/core"
 	"strings"
+
+	"smf/internal/core"
 )
 
 type Migration struct {

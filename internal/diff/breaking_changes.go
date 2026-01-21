@@ -3,9 +3,10 @@ package diff
 import (
 	"fmt"
 	"regexp"
-	"smf/internal/core"
 	"strconv"
 	"strings"
+
+	"smf/internal/core"
 )
 
 // BreakingChange represents a breaking change detected during schema comparison.

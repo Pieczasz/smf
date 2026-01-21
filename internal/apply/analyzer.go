@@ -286,6 +286,54 @@ func (a *StatementAnalyzer) analyzeAlterTable(stmt *ast.AlterTableStmt, analysis
 			analysis.IsBlocking = true
 			analysis.BlockingReasons = append(analysis.BlockingReasons,
 				"RENAME TABLE acquires an exclusive lock but is typically fast")
+		case ast.AlterTableOption:
+		case ast.AlterTableRenameColumn:
+		case ast.AlterTableAlterColumn:
+		case ast.AlterTableLock:
+		case ast.AlterTableWriteable:
+		case ast.AlterTableAlgorithm:
+		case ast.AlterTableRenameIndex:
+		case ast.AlterTableForce:
+		case ast.AlterTableAddPartitions:
+		case ast.AlterTablePartitionAttributes:
+		case ast.AlterTablePartitionOptions:
+		case ast.AlterTableCoalescePartitions:
+		case ast.AlterTableDropPartition:
+		case ast.AlterTableTruncatePartition:
+		case ast.AlterTablePartition:
+		case ast.AlterTableEnableKeys:
+		case ast.AlterTableDisableKeys:
+		case ast.AlterTableRemovePartitioning:
+		case ast.AlterTableWithValidation:
+		case ast.AlterTableWithoutValidation:
+		case ast.AlterTableSecondaryLoad:
+		case ast.AlterTableSecondaryUnload:
+		case ast.AlterTableRebuildPartition:
+		case ast.AlterTableReorganizePartition:
+		case ast.AlterTableCheckPartitions:
+		case ast.AlterTableExchangePartition:
+		case ast.AlterTableOptimizePartition:
+		case ast.AlterTableRepairPartition:
+		case ast.AlterTableImportPartitionTablespace:
+		case ast.AlterTableDiscardPartitionTablespace:
+		case ast.AlterTableAlterCheck:
+		case ast.AlterTableDropCheck:
+		case ast.AlterTableImportTablespace:
+		case ast.AlterTableDiscardTablespace:
+		case ast.AlterTableIndexInvisible:
+		case ast.AlterTableOrderByColumns:
+		case ast.AlterTableSetTiFlashReplica:
+		case ast.AlterTableAddStatistics:
+		case ast.AlterTableDropStatistics:
+		case ast.AlterTableAttributes:
+		case ast.AlterTableCache:
+		case ast.AlterTableNoCache:
+		case ast.AlterTableStatsOptions:
+		case ast.AlterTableDropFirstPartition:
+		case ast.AlterTableAddLastPartition:
+		case ast.AlterTableReorganizeLastPartition:
+		case ast.AlterTableReorganizeFirstPartition:
+		case ast.AlterTableRemoveTTL:
 		}
 		// TODO: Add support for all possible cases
 	}

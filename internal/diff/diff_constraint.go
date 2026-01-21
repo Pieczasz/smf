@@ -1,8 +1,9 @@
 package diff
 
 import (
-	"smf/internal/core"
 	"strings"
+
+	"smf/internal/core"
 )
 
 func compareConstraints(oldItems, newItems []*core.Constraint, td *TableDiff) {

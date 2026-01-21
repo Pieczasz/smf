@@ -2,8 +2,9 @@ package mysql
 
 import (
 	"fmt"
-	"smf/internal/diff"
 	"strings"
+
+	"smf/internal/diff"
 )
 
 func (g *Generator) rollbackSuggestions(schemaDiff *diff.SchemaDiff) []string {

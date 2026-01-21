@@ -1,13 +1,14 @@
 package migration
 
 import (
-	"smf/internal/core"
-	"smf/internal/parser"
 	"testing"
 
 	_ "github.com/pingcap/tidb/pkg/parser/test_driver"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"smf/internal/core"
+	"smf/internal/parser"
 )
 
 func TestMySQLParser(t *testing.T) {

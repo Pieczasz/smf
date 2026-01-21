@@ -1,13 +1,14 @@
 package mysql
 
 import (
-	"smf/internal/core"
-	"smf/internal/dialect"
-	"smf/internal/diff"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"smf/internal/core"
+	"smf/internal/dialect"
+	"smf/internal/diff"
 )
 
 func TestMySQLSafeModeUsesChangeColumnForRename(t *testing.T) {

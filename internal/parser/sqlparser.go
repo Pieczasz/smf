@@ -1,5 +1,5 @@
 // Package parser provides implementation to parse SQL schema dumps.
-// For now we support only MySQL syntax. But upcoming features will have psql, sqlite, and more.
+// For now, we support only MySQL syntax. But upcoming features will have psql, sqlite, and more.
 package parser
 
 import (

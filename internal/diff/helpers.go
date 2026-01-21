@@ -116,15 +116,6 @@ func sortByNameCI[T any](items []T, name func(T) string) {
 	})
 }
 
-func mapByLowerName[T any](items []T, name func(T) string) map[string]T {
-	m := make(map[string]T, len(items))
-	for _, item := range items {
-		lowerKey := strings.ToLower(name(item))
-		m[lowerKey] = item
-	}
-	return m
-}
-
 func mapByLowerNameWithCollisions[T any](items []T, name func(T) string) (map[string]T, []string) {
 	m := make(map[string]T, len(items))
 	original := make(map[string]string, len(items))

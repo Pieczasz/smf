@@ -1,9 +1,10 @@
 package diff
 
 import (
-	"smf/internal/core"
 	"strconv"
 	"strings"
+
+	"smf/internal/core"
 )
 
 func compareIndexes(oldItems, newItems []*core.Index, td *TableDiff) {

@@ -1,10 +1,9 @@
 // Package mysql inside parser, provides implementation to parse MySQL schema dumps.
-// It uses TiDB's parser, so we support both MySQL syntax and TiDB specific options.
+// It uses TiDB's parser, so we support both MySQL syntax and TiDB-specific options.
 package mysql
 
 import (
 	"fmt"
-	"smf/internal/core"
 	"strconv"
 	"strings"
 
@@ -12,6 +11,8 @@ import (
 	"github.com/pingcap/tidb/pkg/parser/ast"
 	"github.com/pingcap/tidb/pkg/parser/format"
 	_ "github.com/pingcap/tidb/pkg/parser/test_driver"
+
+	"smf/internal/core"
 )
 
 type Parser struct {

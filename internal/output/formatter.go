@@ -4,9 +4,10 @@ package output
 
 import (
 	"fmt"
+	"strings"
+
 	"smf/internal/diff"
 	"smf/internal/migration"
-	"strings"
 )
 
 // Format is an enum type representing the available output formats.

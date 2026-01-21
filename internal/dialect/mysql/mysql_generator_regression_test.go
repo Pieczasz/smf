@@ -1,13 +1,14 @@
 package mysql
 
 import (
-	"smf/internal/core"
-	"smf/internal/diff"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"smf/internal/core"
+	"smf/internal/diff"
 )
 
 func TestMySQLGeneratorDoesNotEmitCharsetCollateForJSONAndBinary(t *testing.T) {

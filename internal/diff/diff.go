@@ -44,7 +44,7 @@ type ColumnChange struct {
 	Changes []*FieldChange
 }
 
-// ColumnRename represents the score of a column rename detection.
+// ColumnRename represents the score of column rename detection.
 type ColumnRename struct {
 	Old   *core.Column
 	New   *core.Column

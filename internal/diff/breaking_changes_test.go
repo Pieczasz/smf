@@ -1,11 +1,12 @@
 package diff
 
 import (
-	"smf/internal/core"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"smf/internal/core"
 )
 
 func TestBreakingChangeAnalyzer(t *testing.T) {
@@ -47,7 +48,7 @@ func TestBreakingChangeAnalyzer(t *testing.T) {
 					// bio removed
 					// generated expression change (BREAKING)
 					{Name: "gen", TypeRaw: "INT", Type: core.NormalizeDataType("INT"), Nullable: true, IsGenerated: true, GenerationExpression: "id + 2", GenerationStorage: core.GenerationVirtual},
-					// new NOT NULL without default (BREAKING)
+					// new NOT NULL without a default (BREAKING)
 					{Name: "email", TypeRaw: "VARCHAR(255)", Type: core.NormalizeDataType("VARCHAR(255)"), Nullable: false},
 					// column rename: old_col -> renamed_col (reported via rename heuristic)
 					{Name: "renamed_col", TypeRaw: "INT", Type: core.NormalizeDataType("INT"), Nullable: true, Comment: "same"},

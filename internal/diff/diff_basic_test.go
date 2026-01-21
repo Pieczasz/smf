@@ -2,11 +2,12 @@ package diff
 
 import (
 	"os"
-	"smf/internal/parser"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"smf/internal/parser"
 )
 
 func TestDiff(t *testing.T) {

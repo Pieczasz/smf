@@ -2,10 +2,11 @@ package mysql
 
 import (
 	"fmt"
+	"strings"
+
 	"smf/internal/core"
 	"smf/internal/dialect"
 	"smf/internal/diff"
-	"strings"
 )
 
 func migrationRecommendations(bc diff.BreakingChange) []string {
