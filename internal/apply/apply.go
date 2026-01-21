@@ -8,8 +8,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"regexp"
+	"io"
 	"strings"
+
+	"github.com/pingcap/tidb/pkg/parser/format"
 )
 
 // PreflightResult contains a list of warnings, errors, and transactionality info about migration.
@@ -43,6 +45,7 @@ type Options struct {
 	Transaction           bool
 	AllowNonTransactional bool
 	Unsafe                bool
+	Out                   io.Writer
 }
 
 type jsonMigration struct {
@@ -58,13 +61,30 @@ type Applier struct {
 	db         *sql.DB
 	statements []string
 	options    Options
+	analyzer   *StatementAnalyzer
+	out        io.Writer
 }
 
 // NewApplier returns a pointer to Applier for user use, with provided options.
 func NewApplier(options Options) *Applier {
-	return &Applier{
-		options: options,
+	out := options.Out
+	if out == nil {
+		out = io.Discard
 	}
+	return &Applier{
+		options:  options,
+		analyzer: NewStatementAnalyzer(),
+		out:      out,
+	}
+}
+
+// We use custom printf to format and print messages to the output writer.
+func (a *Applier) printf(format string, args ...any) {
+	_, _ = fmt.Fprintf(a.out, format, args...)
+}
+
+func (a *Applier) println(args ...any) {
+	_, _ = fmt.Fprintln(a.out, args...)
 }
 
 // Apply function, look for the dryRun option, runs it, and
@@ -133,28 +153,10 @@ func (a *Applier) ParseStatements(content string) []string {
 	return a.parseHumanMigration(content)
 }
 
+// PreflightChecks uses the AST-based analyzer to detect dangerous operations
+// and transaction safety issues in the provided SQL statements.
 func (a *Applier) PreflightChecks(statements []string, unsafe bool) *PreflightResult {
-	result := &PreflightResult{
-		IsTransactional: true,
-	}
-
-	for _, stmt := range statements {
-		upper := strings.ToUpper(stmt)
-
-		blockingWarnings := checkBlockingDDL(stmt, upper)
-		result.Warnings = append(result.Warnings, blockingWarnings...)
-
-		destructiveWarnings := checkDestructive(stmt, upper, unsafe)
-		result.Warnings = append(result.Warnings, destructiveWarnings...)
-
-		if !isTransactionSafe(upper) {
-			result.IsTransactional = false
-			reason := getTransactionUnsafeReason(upper, stmt)
-			result.NonTxReasons = append(result.NonTxReasons, reason)
-		}
-	}
-
-	return result
+	return a.analyzer.AnalyzeStatements(statements, unsafe)
 }
 
 func (a *Applier) extractJSONStatements(migration *jsonMigration) []string {
@@ -169,11 +171,39 @@ func (a *Applier) extractJSONStatements(migration *jsonMigration) []string {
 }
 
 func (a *Applier) parseHumanMigration(content string) []string {
-	var statements []string
-	var current strings.Builder
+	statements := a.splitStatementsWithParser(content)
+	a.statements = statements
+	return statements
+}
 
-	lines := strings.Split(content, "\n")
-	for _, line := range lines {
+func (a *Applier) splitStatementsWithParser(content string) []string {
+	var statements []string
+	content = strings.TrimSpace(content)
+
+	// TODO: add support for charset and collation
+	stmtNodes, _, err := a.analyzer.parser.Parse(content, "", "")
+	if err == nil && len(stmtNodes) > 0 {
+		for _, node := range stmtNodes {
+			if node == nil {
+				continue
+			}
+			var sb strings.Builder
+			ctx := format.NewRestoreCtx(format.DefaultRestoreFlags, &sb)
+			if restoreErr := node.Restore(ctx); restoreErr != nil {
+				continue
+			}
+			stmt := strings.TrimSpace(sb.String())
+			if stmt != "" {
+				statements = append(statements, stmt)
+			}
+		}
+		if len(statements) > 0 {
+			return statements
+		}
+	}
+
+	var current strings.Builder
+	for line := range strings.SplitSeq(content, "\n") {
 		trimmed := strings.TrimSpace(line)
 
 		if strings.HasPrefix(trimmed, "--") || trimmed == "" {
@@ -196,193 +226,7 @@ func (a *Applier) parseHumanMigration(content string) []string {
 		statements = append(statements, remaining)
 	}
 
-	a.statements = statements
 	return statements
-}
-
-func checkBlockingDDL(stmt, upper string) []Warning {
-	var warnings []Warning
-
-	blockingPatterns := []struct {
-		pattern string
-		message string
-	}{
-		{
-			pattern: `ALTER\s+TABLE\s+\S+\s+ADD\s+(INDEX|KEY)`,
-			message: "ADD INDEX may lock the table for the duration of index creation on large tables",
-		},
-		{
-			pattern: `ALTER\s+TABLE\s+\S+\s+DROP\s+(INDEX|KEY)`,
-			message: "DROP INDEX may briefly lock the table",
-		},
-		{
-			pattern: `ALTER\s+TABLE\s+\S+\s+ADD\s+COLUMN`,
-			message: "ADD COLUMN may require a table rebuild depending on MySQL version and column position",
-		},
-		{
-			pattern: `ALTER\s+TABLE\s+\S+\s+DROP\s+COLUMN`,
-			message: "DROP COLUMN typically requires a full table rebuild and will lock the table",
-		},
-		{
-			pattern: `ALTER\s+TABLE\s+\S+\s+MODIFY`,
-			message: "MODIFY COLUMN may require a table rebuild if changing column type or size",
-		},
-		{
-			pattern: `ALTER\s+TABLE\s+\S+\s+CHANGE`,
-			message: "CHANGE COLUMN may require a table rebuild",
-		},
-		{
-			pattern: `ALTER\s+TABLE\s+\S+\s+ADD\s+(CONSTRAINT|FOREIGN\s+KEY)`,
-			message: "ADD CONSTRAINT/FOREIGN KEY may lock the table while validating existing data",
-		},
-		{
-			pattern: `CREATE\s+INDEX`,
-			message: "CREATE INDEX may lock the table for the duration of index creation",
-		},
-		{
-			pattern: `DROP\s+INDEX`,
-			message: "DROP INDEX may briefly lock the table",
-		},
-		{
-			pattern: `RENAME\s+TABLE`,
-			message: "RENAME TABLE acquires an exclusive lock but is typically fast",
-		},
-		{
-			pattern: `TRUNCATE\s+TABLE`,
-			message: "TRUNCATE TABLE acquires an exclusive lock and removes all data instantly",
-		},
-	}
-
-	for _, bp := range blockingPatterns {
-		matched, _ := regexp.MatchString(bp.pattern, upper)
-		if matched {
-			warnings = append(warnings, Warning{
-				Level:   WarnCaution,
-				Message: fmt.Sprintf("Potentially blocking DDL: %s", bp.message),
-				SQL:     truncateSQL(stmt),
-			})
-		}
-	}
-
-	return warnings
-}
-
-func checkDestructive(stmt, upper string, unsafeAllowed bool) []Warning {
-	var warnings []Warning
-
-	destructivePatterns := []struct {
-		pattern string
-		message string
-	}{
-		{
-			pattern: `DROP\s+TABLE`,
-			message: "DROP TABLE will permanently delete the table and all its data",
-		},
-		{
-			pattern: `DROP\s+DATABASE`,
-			message: "DROP DATABASE will permanently delete the entire database",
-		},
-		{
-			pattern: `DROP\s+COLUMN`,
-			message: "DROP COLUMN will permanently delete the column and its data",
-		},
-		{
-			pattern: `TRUNCATE\s+TABLE`,
-			message: "TRUNCATE TABLE will delete all rows from the table",
-		},
-		{
-			pattern: `DELETE\s+FROM`,
-			message: "DELETE will remove rows from the table",
-		},
-	}
-
-	for _, dp := range destructivePatterns {
-		matched, _ := regexp.MatchString(dp.pattern, upper)
-		if matched {
-			level := WarnDanger
-			msg := dp.message
-			if !unsafeAllowed {
-				msg = fmt.Sprintf("%s (requires --unsafe flag)", dp.message)
-			}
-			warnings = append(warnings, Warning{
-				Level:   level,
-				Message: msg,
-				SQL:     truncateSQL(stmt),
-			})
-		}
-	}
-
-	return warnings
-}
-
-func isTransactionSafe(upper string) bool {
-	nonTransactionalPatterns := []string{
-		`CREATE\s+DATABASE`,
-		`DROP\s+DATABASE`,
-		`ALTER\s+DATABASE`,
-		`CREATE\s+TABLE`,
-		`DROP\s+TABLE`,
-		`ALTER\s+TABLE`,
-		`RENAME\s+TABLE`,
-		`TRUNCATE\s+TABLE`,
-		`CREATE\s+INDEX`,
-		`DROP\s+INDEX`,
-		`CREATE\s+VIEW`,
-		`DROP\s+VIEW`,
-		`ALTER\s+VIEW`,
-		`CREATE\s+PROCEDURE`,
-		`DROP\s+PROCEDURE`,
-		`ALTER\s+PROCEDURE`,
-		`CREATE\s+FUNCTION`,
-		`DROP\s+FUNCTION`,
-		`ALTER\s+FUNCTION`,
-		`CREATE\s+TRIGGER`,
-		`DROP\s+TRIGGER`,
-		`CREATE\s+EVENT`,
-		`DROP\s+EVENT`,
-		`ALTER\s+EVENT`,
-	}
-
-	for _, pattern := range nonTransactionalPatterns {
-		matched, _ := regexp.MatchString(pattern, upper)
-		if matched {
-			return false
-		}
-	}
-
-	return true
-}
-
-func getTransactionUnsafeReason(upper, stmt string) string {
-	reasonMap := map[string]string{
-		`CREATE\s+TABLE`:     "CREATE TABLE causes an implicit commit in MySQL",
-		`DROP\s+TABLE`:       "DROP TABLE causes an implicit commit in MySQL",
-		`ALTER\s+TABLE`:      "ALTER TABLE causes an implicit commit in MySQL",
-		`RENAME\s+TABLE`:     "RENAME TABLE causes an implicit commit in MySQL",
-		`TRUNCATE\s+TABLE`:   "TRUNCATE TABLE causes an implicit commit in MySQL",
-		`CREATE\s+INDEX`:     "CREATE INDEX causes an implicit commit in MySQL",
-		`DROP\s+INDEX`:       "DROP INDEX causes an implicit commit in MySQL",
-		`CREATE\s+DATABASE`:  "CREATE DATABASE causes an implicit commit in MySQL",
-		`DROP\s+DATABASE`:    "DROP DATABASE causes an implicit commit in MySQL",
-		`ALTER\s+DATABASE`:   "ALTER DATABASE causes an implicit commit in MySQL",
-		`CREATE\s+VIEW`:      "CREATE VIEW causes an implicit commit in MySQL",
-		`DROP\s+VIEW`:        "DROP VIEW causes an implicit commit in MySQL",
-		`CREATE\s+PROCEDURE`: "CREATE PROCEDURE causes an implicit commit in MySQL",
-		`DROP\s+PROCEDURE`:   "DROP PROCEDURE causes an implicit commit in MySQL",
-		`CREATE\s+FUNCTION`:  "CREATE FUNCTION causes an implicit commit in MySQL",
-		`DROP\s+FUNCTION`:    "DROP FUNCTION causes an implicit commit in MySQL",
-		`CREATE\s+TRIGGER`:   "CREATE TRIGGER causes an implicit commit in MySQL",
-		`DROP\s+TRIGGER`:     "DROP TRIGGER causes an implicit commit in MySQL",
-	}
-
-	for pattern, reason := range reasonMap {
-		matched, _ := regexp.MatchString(pattern, upper)
-		if matched {
-			return fmt.Sprintf("%s: %s", reason, truncateSQL(stmt))
-		}
-	}
-
-	return fmt.Sprintf("DDL statement causes implicit commit: %s", truncateSQL(stmt))
 }
 
 func truncateSQL(stmt string) string {
@@ -394,36 +238,33 @@ func truncateSQL(stmt string) string {
 }
 
 func (a *Applier) dryRun(statements []string, preflight *PreflightResult) error {
-	fmt.Println("=== DRY RUN MODE ===")
-	fmt.Println()
+	a.println("=== DRY RUN MODE ===")
 
-	fmt.Println("--- Preflight Checks ---")
+	a.println("--- Preflight Checks ---")
 	if len(preflight.Warnings) == 0 {
-		fmt.Println("No warnings")
+		a.println("No warnings")
 	} else {
 		for _, w := range preflight.Warnings {
-			fmt.Printf("[%s] %s\n", w.Level, w.Message)
+			a.printf("[%s] %s\n", w.Level, w.Message)
 			if w.SQL != "" {
-				fmt.Printf("    SQL: %s\n", w.SQL)
+				a.printf("    SQL: %s\n", w.SQL)
 			}
 		}
 	}
-	fmt.Println()
 
-	fmt.Println("--- Transaction Safety ---")
+	a.println("--- Transaction Safety ---")
 	if preflight.IsTransactional {
-		fmt.Println("All statements are transaction-safe")
+		a.println("All statements are transaction-safe")
 	} else {
-		fmt.Println("Migration is NOT transaction-safe")
+		a.println("Migration is NOT transaction-safe")
 		for _, reason := range preflight.NonTxReasons {
-			fmt.Printf("  - %s\n", reason)
+			a.printf("  - %s\n", reason)
 		}
 	}
-	fmt.Println()
 
-	fmt.Println("--- Statements to Execute ---")
+	a.println("--- Statements to Execute ---")
 	for i, stmt := range statements {
-		fmt.Printf("%d. %s\n\n", i+1, stmt)
+		a.printf("%d. %s\n\n", i+1, stmt)
 	}
 
 	hasDestructive := false
@@ -442,8 +283,8 @@ func (a *Applier) dryRun(statements []string, preflight *PreflightResult) error 
 		return fmt.Errorf("preflight checks failed: non-transactional DDL detected without --allow-non-transactional flag")
 	}
 
-	fmt.Println("=== DRY RUN COMPLETE ===")
-	fmt.Println("All preflight checks passed. Run without --dry-run to apply.")
+	a.println("=== DRY RUN COMPLETE ===")
+	a.println("All preflight checks passed. Run without --dry-run to apply.")
 	return nil
 }
 
@@ -454,7 +295,7 @@ func (a *Applier) applyWithTransaction(ctx context.Context, statements []string)
 	}
 
 	for i, stmt := range statements {
-		fmt.Printf("Executing statement %d/%d...\n", i+1, len(statements))
+		a.printf("Executing statement %d/%d...\n", i+1, len(statements))
 		if _, err := tx.ExecContext(ctx, stmt); err != nil {
 			if rbErr := tx.Rollback(); rbErr != nil {
 				return fmt.Errorf("execute failed: %w; rollback also failed: %v", err, rbErr)
@@ -467,17 +308,16 @@ func (a *Applier) applyWithTransaction(ctx context.Context, statements []string)
 		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
-	fmt.Printf("Successfully applied %d statements\n", len(statements))
+	a.printf("Successfully applied %d statements\n", len(statements))
 	return nil
 }
 
 func (a *Applier) applyWithoutTransaction(ctx context.Context, statements []string) error {
-	fmt.Println("Applying migration without transaction wrapper (DDL statements cause implicit commits)")
-	fmt.Println()
+	a.println("Applying migration without transaction wrapper (DDL statements cause implicit commits)")
 
 	successCount := 0
 	for i, stmt := range statements {
-		fmt.Printf("Executing statement %d/%d...\n", i+1, len(statements))
+		a.printf("Executing statement %d/%d...\n", i+1, len(statements))
 		if _, err := a.db.ExecContext(ctx, stmt); err != nil {
 			return fmt.Errorf("statement %d failed: %w\n  Statement: %s\n  %d statements were already applied and cannot be automatically rolled back",
 				i+1, err, truncateSQL(stmt), successCount)
@@ -485,7 +325,7 @@ func (a *Applier) applyWithoutTransaction(ctx context.Context, statements []stri
 		successCount++
 	}
 
-	fmt.Printf("Successfully applied %d statements\n", len(statements))
+	a.printf("Successfully applied %d statements\n", len(statements))
 	return nil
 }
 
