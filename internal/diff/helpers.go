@@ -3,7 +3,6 @@ package diff
 import (
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 
 	"smf/internal/core"
@@ -201,10 +200,6 @@ func equalStringSliceCI(a, b []string) bool {
 		}
 	}
 	return true
-}
-
-func u64(v uint64) string {
-	return strconv.FormatUint(v, 10)
 }
 
 func ptrStr(p *string) string {

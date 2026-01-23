@@ -84,7 +84,7 @@ func columnFieldChanges(oldC, newC *core.Column) []*FieldChange {
 	c.Add("generation_storage", string(oldC.GenerationStorage), string(newC.GenerationStorage))
 	c.Add("column_format", strings.TrimSpace(oldC.ColumnFormat), strings.TrimSpace(newC.ColumnFormat))
 	c.Add("storage", strings.TrimSpace(oldC.Storage), strings.TrimSpace(newC.Storage))
-	c.Add("auto_random", u64(oldC.AutoRandom), u64(newC.AutoRandom))
+	c.Add("auto_random", strconv.FormatUint(oldC.AutoRandom, 10), strconv.FormatUint(newC.AutoRandom, 10))
 
 	return c.Changes
 }
@@ -113,7 +113,7 @@ func tableOptionMap(t *core.Table) map[string]string {
 
 	addU64 := func(name string, val uint64) {
 		if val != 0 {
-			m[name] = u64(val)
+			m[name] = strconv.FormatUint(val, 10)
 		}
 	}
 
