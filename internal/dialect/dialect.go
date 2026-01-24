@@ -1,4 +1,4 @@
-// Package dialect provides an unified interface for all database dialects. It is used to
+// Package dialect provides a unified interface for all database dialects. It is used to
 // make sure all SQL dialects are handled in the same way, and we provide complete
 // support for all features.
 package dialect
@@ -32,7 +32,7 @@ type Generator interface {
 	QuoteString(value string) string
 }
 
-// Parser interface is used to parse SQL statements into a database schema.kl:w
+// Parser interface is used to parse SQL statements into a database schema.
 type Parser interface {
 	Parse(sql string) (*core.Database, error)
 }

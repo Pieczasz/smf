@@ -276,12 +276,14 @@ func parseSchemas(oldPath, newPath string) (*core.Database, *core.Database, erro
 		oldData, err := os.ReadFile(oldPath)
 		if err != nil {
 			oldCh <- parseResult{nil, fmt.Errorf("failed to read old schema: %w", err)}
+			return
 		}
 
 		p := parser.NewSQLParser()
 		oldDB, err := p.ParseSchema(string(oldData))
 		if err != nil {
 			oldCh <- parseResult{nil, fmt.Errorf("failed to parse old schema: %w", err)}
+			return
 		}
 		oldCh <- parseResult{oldDB, nil}
 	}()
@@ -290,12 +292,14 @@ func parseSchemas(oldPath, newPath string) (*core.Database, *core.Database, erro
 		newData, err := os.ReadFile(newPath)
 		if err != nil {
 			newCh <- parseResult{nil, fmt.Errorf("failed to read new schema: %w", err)}
+			return
 		}
 
 		p := parser.NewSQLParser()
 		newDB, err := p.ParseSchema(string(newData))
 		if err != nil {
 			newCh <- parseResult{nil, fmt.Errorf("failed to parse new schema: %w", err)}
+			return
 		}
 		newCh <- parseResult{newDB, nil}
 	}()

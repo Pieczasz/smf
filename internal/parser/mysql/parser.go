@@ -25,7 +25,7 @@ func NewParser() *Parser {
 
 func (p *Parser) Parse(sql string) (*core.Database, error) {
 	// TODO: add support to specify charset and collation
-	// NOTE: this can be pararellized, it can help if schema dumps are big.
+	// NOTE: this can be parallelized, it can help if schema dumps are big.
 	stmtNodes, _, err := p.p.Parse(sql, "", "")
 	if err != nil {
 		return nil, fmt.Errorf("parse error: %w", err)
