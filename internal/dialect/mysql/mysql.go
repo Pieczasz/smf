@@ -122,24 +122,24 @@ func (g *Generator) GenerateMigrationWithOptions(schemaDiff *diff.SchemaDiff, op
 		if td == nil {
 			continue
 		}
-		stmts, rollback, fkAdds, fkRollback := g.generateAlterTableWithOptions(td, opts)
+		result := g.generateAlterTable(td, &opts)
 
-		pairCount := min(len(stmts), len(rollback))
+		pairCount := min(len(result.Statements), len(result.Rollback))
 
 		for i := range pairCount {
-			m.AddStatementWithRollback(stmts[i], rollback[i])
+			m.AddStatementWithRollback(result.Statements[i], result.Rollback[i])
 		}
 
-		for i := pairCount; i < len(stmts); i++ {
-			m.AddStatement(stmts[i])
+		for i := pairCount; i < len(result.Statements); i++ {
+			m.AddStatement(result.Statements[i])
 		}
 
-		for i := pairCount; i < len(rollback); i++ {
-			m.AddRollbackStatement(rollback[i])
+		for i := pairCount; i < len(result.Rollback); i++ {
+			m.AddRollbackStatement(result.Rollback[i])
 		}
 
-		pendingFKs = append(pendingFKs, fkAdds...)
-		pendingFKRollback = append(pendingFKRollback, fkRollback...)
+		pendingFKs = append(pendingFKs, result.FKStatements...)
+		pendingFKRollback = append(pendingFKRollback, result.FKRollback...)
 	}
 
 	if len(pendingFKs) > 0 {
@@ -241,10 +241,10 @@ func (g *Generator) GenerateDropTable(t *core.Table) string {
 	return fmt.Sprintf("DROP TABLE %s;", g.QuoteIdentifier(t.Name))
 }
 
-// GenerateAlterTable generate an SQL statement to alter a table.
+// GenerateAlterTable generates SQL statements to alter a table using default options.
 func (g *Generator) GenerateAlterTable(td *diff.TableDiff) []string {
-	stmts, fkAdds := g.generateAlterTable(td)
-	return append(stmts, fkAdds...)
+	result := g.generateAlterTable(td, nil)
+	return result.AllStatements()
 }
 
 // QuoteIdentifier is a function used for quote identification inside an SQL dialect.
@@ -264,10 +264,20 @@ func (g *Generator) QuoteString(value string) string {
 // Helpers
 func (g *Generator) safeBackupName(name string) string {
 	base := strings.TrimSpace(name)
+
+	// Create a non-cryptographic hash (FNV-1a) of the name
 	h := fnv.New64a()
 	_, _ = h.Write([]byte(base))
+
+	// 1. h.Sum64(): Gets the calculated hash as a generic unsigned 64-bit integer (uint64).
+	// 2. %s: Inserts the 'backupSuffixPrefix' string.
+	// 3. %016x: Formats the uint64 hash as a Hexadecimal string.
+	//    - 'x': Hex format (base 16).
+	//    - '16': Minimum width of 16 characters.
+	//    - '0': Pad with leading zeros if the hash is shorter than 16 chars.
 	suffix := fmt.Sprintf("%s%016x", backupSuffixPrefix, h.Sum64())
 
+	// Ensure the total length does not exceed MySQL's limit (usually 64 bytes)
 	if len(base)+len(suffix) > mysqlMaxIdentLen {
 		maxBase := max(mysqlMaxIdentLen-len(suffix), 0)
 		if len(base) > maxBase {
