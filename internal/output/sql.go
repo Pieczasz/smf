@@ -24,14 +24,6 @@ func (sqlFormatter) FormatMigration(m *migration.Migration) (string, error) {
 	if m == nil {
 		return "", nil
 	}
-	return FormatMigrationSQL(m), nil
-}
-
-// FormatMigrationSQL formats a migration as SQL statements.
-func FormatMigrationSQL(m *migration.Migration) string {
-	if m == nil {
-		return ""
-	}
 
 	var sb strings.Builder
 	sb.WriteString("-- smf migration\n")
@@ -50,7 +42,7 @@ func FormatMigrationSQL(m *migration.Migration) string {
 			sb.WriteString("\n-- ROLLBACK SQL (run separately if needed)\n")
 			writeRollbackAsComments(&sb, rb)
 		}
-		return sb.String()
+		return sb.String(), nil
 	}
 
 	sb.WriteString("\n-- SQL\n")
@@ -70,8 +62,9 @@ func FormatMigrationSQL(m *migration.Migration) string {
 		writeRollbackAsComments(&sb, rb)
 	}
 
-	return sb.String()
+	return sb.String(), nil
 }
+
 
 // FormatRollbackSQL formats a migration's rollback statements as SQL.
 func FormatRollbackSQL(m *migration.Migration) string {
@@ -107,7 +100,11 @@ func FormatRollbackSQL(m *migration.Migration) string {
 
 // SaveMigrationToFile saves a formatted migration to a file.
 func SaveMigrationToFile(m *migration.Migration, path string) error {
-	return os.WriteFile(path, []byte(FormatMigrationSQL(m)), 0644)
+	content, err := sqlFormatter{}.FormatMigration(m)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, []byte(content), 0644)
 }
 
 // SaveRollbackToFile saves a formatted rollback migration to a file.

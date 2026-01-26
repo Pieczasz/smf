@@ -33,7 +33,10 @@ func TestMySQLGeneratorDoesNotEmitCharsetCollateForJSONAndBinary(t *testing.T) {
 	require.NotNil(t, d)
 
 	mig := NewMySQLDialect().Generator().GenerateMigration(d)
-	out := output.FormatMigrationSQL(mig)
+	f, err := output.NewFormatter("sql")
+	require.NoError(t, err)
+	out, err := f.FormatMigration(mig)
+	require.NoError(t, err)
 
 	assert.Contains(t, out, "ALTER TABLE `t` ADD COLUMN `payload` json")
 	assert.Contains(t, out, "ALTER TABLE `t` ADD COLUMN `uuid` binary(16)")
@@ -63,7 +66,10 @@ func TestMySQLGeneratorDoesNotEmitBinaryAttributeForVarbinary(t *testing.T) {
 	require.NotNil(t, d)
 
 	mig := NewMySQLDialect().Generator().GenerateMigration(d)
-	out := output.FormatMigrationSQL(mig)
+	f, err := output.NewFormatter("sql")
+	require.NoError(t, err)
+	out, err := f.FormatMigration(mig)
+	require.NoError(t, err)
 
 	assert.Contains(t, out, "ALTER TABLE `t` ADD COLUMN `v` varbinary(72) NOT NULL")
 	assert.NotContains(t, out, "varbinary(72) BINARY")
@@ -112,7 +118,10 @@ func TestMySQLGeneratorDefersFKAddsUntilEnd(t *testing.T) {
 	require.NotNil(t, d)
 
 	mig := NewMySQLDialect().Generator().GenerateMigration(d)
-	out := output.FormatMigrationSQL(mig)
+	f, err := output.NewFormatter("sql")
+	require.NoError(t, err)
+	out, err := f.FormatMigration(mig)
+	require.NoError(t, err)
 	sqlStart := strings.Index(out, "-- SQL\n")
 	require.Greater(t, sqlStart, -1)
 	sql := out[sqlStart:]
@@ -180,7 +189,10 @@ func TestMySQLGeneratorRebuildsUnchangedFKWhenColumnModifiedWithoutConstraintMod
 	require.NotNil(t, d)
 
 	mig := NewMySQLDialect().Generator().GenerateMigration(d)
-	out := output.FormatMigrationSQL(mig)
+	f, err := output.NewFormatter("sql")
+	require.NoError(t, err)
+	out, err := f.FormatMigration(mig)
+	require.NoError(t, err)
 	sqlStart := strings.Index(out, "-- SQL\n")
 	require.Greater(t, sqlStart, -1)
 	sql := out[sqlStart:]
@@ -219,7 +231,10 @@ func TestMigrationGenerationSafetyNotesAndRollback(t *testing.T) {
 	mig := NewMySQLDialect().Generator().GenerateMigration(d)
 	require.NotNil(t, mig)
 
-	out := output.FormatMigrationSQL(mig)
+	f, err := output.NewFormatter("sql")
+	require.NoError(t, err)
+	out, err := f.FormatMigration(mig)
+	require.NoError(t, err)
 	assert.Contains(t, out, "-- SQL")
 	assert.Contains(t, out, "ALTER TABLE")
 	assert.Contains(t, out, "Lock-time warning")

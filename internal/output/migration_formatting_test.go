@@ -14,7 +14,8 @@ func TestMigrationStringMultiLineNotesAreCommented(t *testing.T) {
 	m.AddNote("line1\nline2")
 	m.AddRollbackStatement("ALTER TABLE t ADD COLUMN c INT")
 
-	out := FormatMigrationSQL(m)
+	out, err := sqlFormatter{}.FormatMigration(m)
+	assert.NoError(t, err)
 	assert.Contains(t, out, "-- NOTES")
 	assert.Contains(t, out, "-- - line1")
 	assert.Contains(t, out, "-- - line2")

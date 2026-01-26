@@ -33,7 +33,10 @@ func TestMySQLSafeModeUsesChangeColumnForRename(t *testing.T) {
 	mig := gen.GenerateMigrationWithOptions(d, opts)
 	require.NotNil(t, mig)
 
-	out := output.FormatMigrationSQL(mig)
+	f, err := output.NewFormatter("sql")
+	require.NoError(t, err)
+	out, err := f.FormatMigration(mig)
+	require.NoError(t, err)
 	assert.Contains(t, out, "CHANGE COLUMN")
 	assert.Contains(t, out, "password_hash")
 	assert.Contains(t, out, "password_digest")

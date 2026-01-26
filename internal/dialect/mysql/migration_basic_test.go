@@ -45,7 +45,10 @@ func TestBasicMigration(t *testing.T) {
 	mig := mysqlDialect.Generator().GenerateMigration(d)
 	require.NotNil(t, mig)
 
-	out := output.FormatMigrationSQL(mig)
+	fmt, err := output.NewFormatter("sql")
+	require.NoError(t, err)
+	out, err := fmt.FormatMigration(mig)
+	require.NoError(t, err)
 	assert.Contains(t, out, "-- SQL")
 	assert.Contains(t, out, "CREATE TABLE")
 	assert.Contains(t, out, "ALTER TABLE")
