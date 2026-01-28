@@ -1,8 +1,8 @@
-# SMF Roadmap
+# smf Roadmap
 
 ## M0 - Onboarding & Documentation
 
-**Goal:** New developers can use SMF in 10 minutes without external docs.
+**Goal:** New developers can use smf in 10 minutes without external docs.
 
 **Tasks:**
 - Add installation and quick start to README
@@ -333,7 +333,7 @@ ALTER TABLE posts DROP COLUMN content_new;
 
 ## M5 - PostgreSQL Dialect
 
-**Problem:** SMF only works with MySQL. PostgreSQL users are left out.
+**Problem:** smf only works with MySQL. PostgreSQL users are left out.
 
 ### Deliverables
 
@@ -880,7 +880,7 @@ At this stage: safe, reviewable migrations with execution and audit trail.
 
 | Milestone | Definition of Success |
 |-----------|----------------------|
-| M0 | New dev can use SMF in <10 minutes |
+| M0 | New dev can use smf in <10 minutes |
 | M1 | Plan output is identical across runs |
 | M2 | 95% of preflight checks prevent errors |
 | M3 | No re-applied migrations (checksum validation works) |

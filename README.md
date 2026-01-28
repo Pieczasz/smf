@@ -1,13 +1,14 @@
-# SMF
+# smf
 
-SMF is a lightweight CLI for diffing database schemas from SQL dumps and generating (SQL) migration with breaking-change warnings and rollback.
+smf is a lightweight CLI tool for diffing database schemas from SQL dumps and generating (SQL) migration with breaking-change warnings and rollback.
 
-It is intentionally config-free: you give it two schema files (`old.sql`, `new.sql`), it shows what changed and produces a migration script.
+It is intentionally config-free: you give it two schema files (`old.sql`, `new.sql`), it shows what changed and produces a migration script, as well as rollback.
+
+smf is always in safe mode first, which means it won't drop table, or apply changes that can potentailly result in data loss.
 
 ## Status
 
-- Supported dialects: MySQL (diff + migration generation)
-- Execution: not implemented yet (SMF generates SQL but does not run it)
+- Supported dialects: MySQL with TiDB options (diff + migration generation + apply on your database)
 
 ## Build
 
@@ -51,7 +52,7 @@ Tip: there are ready-to-use fixture, so you can test the behavior:
 ./smf migrate <old.sql> <new.sql> -o migration.sql
 ```
 
-By default, SMF runs in safe mode (non-destructive where possible):
+By default, smf runs in safe mode (non-destructive where possible):
 
 - dropped tables are renamed to `__smf_backup_*` instead of `DROP TABLE`
 - dropped columns are renamed to `__smf_backup_*` instead of `DROP COLUMN`
@@ -64,7 +65,7 @@ To allow destructive changes, pass `--unsafe`:
 
 ### Generate rollback SQL
 
-SMF can emit rollback SQL for the generated migration (to run separately):
+smf can emit rollback SQL for the generated migration (to run separately):
 
 ```bash
 ./smf migrate <old.sql> <new.sql> -o migration.sql -r rollback.sql
@@ -72,7 +73,7 @@ SMF can emit rollback SQL for the generated migration (to run separately):
 
 Rollback generation is "best-effort". For example, a true `DROP TABLE` cannot be automatically restored without an external backup. Maybe we will do something for it later.
 
-## What SMF detects today
+## What smf detects today
 
 The generator annotates output with warnings/breaking changes for schema operations such as:
 
@@ -85,9 +86,7 @@ The generator annotates output with warnings/breaking changes for schema operati
 
 ## Known limitations
 
-- SMF operates on SQL schema dumps (DDL). It does not inspect live DB data.
-- SMF does not apply migrations to a database yet (no `apply`, no `_smf_migrations` table).
-- Output is currently optimized for SQL; stable JSON output is planned.
+- smf operates on SQL schema dumps (DDL). It does not inspect live DB data.
 
 ## Contributing
 
