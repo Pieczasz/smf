@@ -67,7 +67,7 @@ func compareColumns(oldItems, newItems []*core.Column, td *TableDiff, opts Optio
 }
 
 func equalColumn(a, b *core.Column) bool {
-	return compareColumnAttrs(a, b).AllMatch()
+	return compareColumnAttrs(a, b).allMatch()
 }
 
 func columnFieldChanges(oldC, newC *core.Column) []*FieldChange {

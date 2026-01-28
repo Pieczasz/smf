@@ -48,7 +48,7 @@ func compareColumnAttrs(a, b *core.Column) columnAttrMatch {
 	}
 }
 
-func (m columnAttrMatch) AllMatch() bool {
+func (m columnAttrMatch) allMatch() bool {
 	return m.TypeRaw && m.Nullable && m.PrimaryKey && m.AutoIncrement &&
 		m.Charset && m.Collate && m.Comment && m.DefaultValue && m.OnUpdate &&
 		m.IsGenerated && m.GenerationExpression && m.GenerationStorage &&
@@ -57,7 +57,7 @@ func (m columnAttrMatch) AllMatch() bool {
 
 // SimilarityScore function calculates a similarity score between two column attributes.
 // It is used to detect renames between two columns.
-func (m columnAttrMatch) SimilarityScore() int {
+func (m columnAttrMatch) similarityScore() int {
 	score := 0
 	if m.TypeRaw {
 		score += 4

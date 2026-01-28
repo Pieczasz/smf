@@ -76,7 +76,7 @@ func renameSimilarityScore(oldC, newC *core.Column) int {
 	if strings.EqualFold(oldC.Name, newC.Name) {
 		return 0
 	}
-	return compareColumnAttrs(oldC, newC).SimilarityScore()
+	return compareColumnAttrs(oldC, newC).similarityScore()
 }
 
 func renameEvidence(oldC, newC *core.Column) bool {
