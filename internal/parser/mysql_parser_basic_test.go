@@ -1,4 +1,4 @@
-package migration
+package parser
 
 import (
 	"testing"
@@ -8,11 +8,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"smf/internal/core"
-	"smf/internal/parser"
 )
 
-func TestMySQLParser(t *testing.T) {
-	p := parser.NewSQLParser()
+func TestMySQLParserBasic(t *testing.T) {
+	p := NewSQLParser()
 
 	sql := `
 CREATE TABLE all_features (
@@ -25,7 +24,7 @@ CREATE TABLE all_features (
     t_json JSON,
     g_col INT GENERATED ALWAYS AS (id + 1) VIRTUAL,
     g_col_stored INT GENERATED ALWAYS AS (id * 2) STORED,
-    
+
     PRIMARY KEY (id),
     UNIQUE KEY idx_unique_varchar (t_varchar),
     KEY idx_regular (t_tinyint),
