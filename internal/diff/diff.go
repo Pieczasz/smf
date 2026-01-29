@@ -7,8 +7,15 @@ import (
 )
 
 const (
+	// renameDetectionScoreThreshold is the minimum similarity score required to consider
+	// a removed+added column pair as a rename. The score is computed by comparing column
+	// attributes (type=4pts, nullable=1pt, auto_increment=1pt, etc.). A threshold of 12
+	// requires near-identical column definitions to avoid false positives.
 	renameDetectionScoreThreshold = 12
-	renameSharedTokenMinLen       = 3
+
+	// renameSharedTokenMinLen is the minimum length of shared name tokens (e.g., "user" in
+	// "user_id" and "user_name") required as additional evidence for rename detection.
+	renameSharedTokenMinLen = 3
 )
 
 // SchemaDiff represents the differences between two schema dumps.
@@ -99,7 +106,8 @@ func DefaultOptions() Options {
 }
 
 // Diff compares two database dumps and returns a SchemaDiff object.
-// TODO: optimize this code to run Diff comparison in parallel?
+// NOTE: For very large schemas (100+ tables), table comparisons could be parallelized,
+// but current sequential approach is sufficient for typical use cases.
 func Diff(oldDB, newDB *core.Database, opts Options) *SchemaDiff {
 	d := &SchemaDiff{}
 

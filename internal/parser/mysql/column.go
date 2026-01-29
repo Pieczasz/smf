@@ -159,7 +159,6 @@ func (p *Parser) ensurePrimaryKeyColumn(table *core.Table, colName string) {
 
 func (p *Parser) parseConstraints(constraints []*ast.Constraint, table *core.Table) {
 	for _, constraint := range constraints {
-		// TODO: check if make([]string, 0, len(constraint.Keys)) is faster or make([]string, len(constraint.Keys)) is faster
 		columns := make([]string, 0, len(constraint.Keys))
 		indexCols := make([]core.IndexColumn, 0, len(constraint.Keys))
 		for _, key := range constraint.Keys {

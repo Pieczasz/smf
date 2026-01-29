@@ -20,6 +20,12 @@ const backupSuffixPrefix = "__smf_backup_"
 
 const mysqlMaxIdentLen = 64
 
+func init() {
+	dialect.RegisterDialect(dialect.MySQL, func() dialect.Dialect {
+		return NewMySQLDialect()
+	})
+}
+
 // Dialect represents the MySQL dialect struct. With migration generator
 // and parser.
 type Dialect struct {
