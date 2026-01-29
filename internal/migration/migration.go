@@ -152,80 +152,37 @@ func (m *Migration) Dedupe() {
 	m.Operations = out
 }
 
-func (m *Migration) sqlStatements() []string {
+func (m *Migration) filterByKind(kind core.OperationKind, fieldFn func(core.Operation) string) []string {
 	var out []string
 	for _, op := range m.Operations {
-		if op.Kind != core.OperationSQL {
+		if op.Kind != kind {
 			continue
 		}
-		stmt := strings.TrimSpace(op.SQL)
-		if stmt == "" {
+		val := strings.TrimSpace(fieldFn(op))
+		if val == "" {
 			continue
 		}
-		out = append(out, stmt)
+		out = append(out, val)
 	}
 	return out
+}
+
+func (m *Migration) sqlStatements() []string {
+	return m.filterByKind(core.OperationSQL, func(op core.Operation) string { return op.SQL })
 }
 
 func (m *Migration) rollbackStatements() []string {
-	var out []string
-	for _, op := range m.Operations {
-		if op.Kind != core.OperationSQL {
-			continue
-		}
-		stmt := strings.TrimSpace(op.RollbackSQL)
-		if stmt == "" {
-			continue
-		}
-		out = append(out, stmt)
-	}
-	return out
+	return m.filterByKind(core.OperationSQL, func(op core.Operation) string { return op.RollbackSQL })
 }
 
-// TODO: extract these to single method?
 func (m *Migration) breakingNotes() []string {
-	var out []string
-	for _, op := range m.Operations {
-		if op.Kind != core.OperationBreaking {
-			continue
-		}
-
-		msg := strings.TrimSpace(op.SQL)
-		if msg == "" {
-			continue
-		}
-		out = append(out, msg)
-	}
-
-	return out
+	return m.filterByKind(core.OperationBreaking, func(op core.Operation) string { return op.SQL })
 }
 
 func (m *Migration) unresolvedNotes() []string {
-	var out []string
-	for _, op := range m.Operations {
-		if op.Kind != core.OperationUnresolved {
-			continue
-		}
-		msg := strings.TrimSpace(op.UnresolvedReason)
-		if msg == "" {
-			continue
-		}
-		out = append(out, msg)
-	}
-	return out
+	return m.filterByKind(core.OperationUnresolved, func(op core.Operation) string { return op.UnresolvedReason })
 }
 
 func (m *Migration) infoNotes() []string {
-	var out []string
-	for _, op := range m.Operations {
-		if op.Kind != core.OperationNote {
-			continue
-		}
-		msg := strings.TrimSpace(op.SQL)
-		if msg == "" {
-			continue
-		}
-		out = append(out, msg)
-	}
-	return out
+	return m.filterByKind(core.OperationNote, func(op core.Operation) string { return op.SQL })
 }
