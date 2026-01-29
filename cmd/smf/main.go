@@ -15,7 +15,7 @@ import (
 	"smf/internal/apply"
 	"smf/internal/core"
 	"smf/internal/dialect"
-	"smf/internal/dialect/mysql"
+	_ "smf/internal/dialect/mysql"
 	"smf/internal/diff"
 	"smf/internal/migration"
 	"smf/internal/output"
@@ -26,6 +26,7 @@ type diffFlags struct {
 	outFile       string
 	format        string
 	detectRenames bool
+	dialect       string
 }
 
 type migrateFlags struct {
@@ -77,11 +78,16 @@ func diffCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&flags.outFile, "output", "o", "", "Output file for the diff")
 	cmd.Flags().StringVarP(&flags.format, "format", "f", "", "Output format: json or sql")
 	cmd.Flags().BoolVarP(&flags.detectRenames, "detect-renames", "r", true, "Enable heuristic column rename detection")
+	cmd.Flags().StringVar(&flags.dialect, "dialect", "mysql", "Database dialect (e.g., mysql)")
 
 	return cmd
 }
 
 func runDiff(oldPath, newPath string, flags *diffFlags) error {
+	if err := validateDialect(flags.dialect); err != nil {
+		return fmt.Errorf("unsupported dialect: %s", flags.dialect)
+	}
+
 	oldDB, newDB, err := parseSchemas(oldPath, newPath)
 	if err != nil {
 		return err
@@ -127,7 +133,6 @@ You can specify the source and target database dialects using the --from and --t
 }
 
 func runMigrate(oldPath, newPath string, flags *migrateFlags) error {
-	// TODO: refactor this function
 	printInfo(flags.format, fmt.Sprintf("migrating from %s (%s) to %s (%s)", oldPath, flags.fromDialect, newPath, flags.toDialect))
 
 	if err := validateDialect(flags.fromDialect); err != nil {
@@ -324,8 +329,7 @@ func validateDialect(dialectName string) error {
 }
 
 func generateMigration(schemaDiff *diff.SchemaDiff, unsafe bool) *migration.Migration {
-	// TODO: keep in mind to refactor this after we add more dialects
-	d := mysql.NewMySQLDialect()
+	d := dialect.GetDialect(dialect.MySQL)
 	opts := dialect.DefaultMigrationOptions(dialect.MySQL)
 	opts.IncludeUnsafe = unsafe
 	return d.Generator().GenerateMigrationWithOptions(schemaDiff, opts)
