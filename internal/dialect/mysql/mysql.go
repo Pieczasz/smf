@@ -76,7 +76,6 @@ func (g *Generator) GenerateMigration(schemaDiff *diff.SchemaDiff) *migration.Mi
 // A user provides options to customize the migration process.
 func (g *Generator) GenerateMigrationWithOptions(schemaDiff *diff.SchemaDiff, opts dialect.MigrationOptions) *migration.Migration {
 	m := &migration.Migration{}
-
 	analyzer := diff.NewBreakingChangeAnalyzer()
 	breakingChanges := analyzer.Analyze(schemaDiff)
 	for _, bc := range breakingChanges {
@@ -101,16 +100,13 @@ func (g *Generator) GenerateMigrationWithOptions(schemaDiff *diff.SchemaDiff, op
 	var pendingFKRollback []string
 
 	for _, at := range schemaDiff.AddedTables {
-		if at == nil {
-			continue
-		}
 		create, fks := g.GenerateCreateTable(at)
 		m.AddStatementWithRollback(create, g.GenerateDropTable(at))
 		pendingFKs = append(pendingFKs, fks...)
 
 		table := g.QuoteIdentifier(at.Name)
 		for _, c := range at.Constraints {
-			if c == nil || c.Type != core.ConstraintForeignKey {
+			if c.Type != core.ConstraintForeignKey {
 				continue
 			}
 			rb := g.dropConstraint(table, c)
@@ -121,9 +117,6 @@ func (g *Generator) GenerateMigrationWithOptions(schemaDiff *diff.SchemaDiff, op
 	}
 
 	for _, td := range schemaDiff.ModifiedTables {
-		if td == nil {
-			continue
-		}
 		result := g.generateAlterTable(td, &opts)
 
 		pairCount := min(len(result.Statements), len(result.Rollback))

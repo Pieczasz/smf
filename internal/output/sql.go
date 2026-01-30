@@ -4,6 +4,7 @@ import (
 	"os"
 	"strings"
 
+	"smf/internal/core"
 	"smf/internal/diff"
 	"smf/internal/migration"
 )
@@ -32,10 +33,10 @@ func (sqlFormatter) FormatMigration(m *migration.Migration) (string, error) {
 	writeCommentSection(&sb, "UNRESOLVED (cannot auto-generate safely)", m.UnresolvedNotes())
 	writeCommentSection(&sb, "NOTES", m.InfoNotes())
 
-	sql := m.SQLStatements()
+	sqlOps := getSQLOperations(m)
 	rb := m.RollbackStatements()
 
-	if len(sql) == 0 {
+	if len(sqlOps) == 0 {
 		sb.WriteString("\n-- No SQL statements generated.\n")
 		if len(rb) > 0 {
 			sb.WriteString("\n-- ROLLBACK SQL (run separately if needed)\n")
@@ -45,12 +46,19 @@ func (sqlFormatter) FormatMigration(m *migration.Migration) (string, error) {
 	}
 
 	sb.WriteString("\n-- SQL\n")
-	for _, stmt := range sql {
-		if stmt == "" {
+	for _, op := range sqlOps {
+		if op.SQL == "" {
 			continue
 		}
-		sb.WriteString(stmt)
-		if !strings.HasSuffix(stmt, ";") {
+		if op.Risk != "" && op.Risk != core.RiskInfo {
+			sb.WriteString("-- [" + string(op.Risk) + "]")
+			if op.RequiresLock {
+				sb.WriteString(" (may acquire locks)")
+			}
+			sb.WriteString("\n")
+		}
+		sb.WriteString(op.SQL)
+		if !strings.HasSuffix(op.SQL, ";") {
 			sb.WriteString(";")
 		}
 		sb.WriteString("\n")
@@ -63,7 +71,6 @@ func (sqlFormatter) FormatMigration(m *migration.Migration) (string, error) {
 
 	return sb.String(), nil
 }
-
 
 // FormatRollbackSQL formats a migration's rollback statements as SQL.
 func FormatRollbackSQL(m *migration.Migration) string {
@@ -109,6 +116,16 @@ func SaveMigrationToFile(m *migration.Migration, path string) error {
 // SaveRollbackToFile saves a formatted rollback migration to a file.
 func SaveRollbackToFile(m *migration.Migration, path string) error {
 	return os.WriteFile(path, []byte(FormatRollbackSQL(m)), 0644)
+}
+
+func getSQLOperations(m *migration.Migration) []core.Operation {
+	var ops []core.Operation
+	for _, op := range m.Plan() {
+		if op.Kind == core.OperationSQL && op.SQL != "" {
+			ops = append(ops, op)
+		}
+	}
+	return ops
 }
 
 func writeCommentSection(sb *strings.Builder, title string, items []string) {

@@ -16,15 +16,16 @@ type Database struct {
 
 // Table represents a table in the schema.
 type Table struct {
-	Name        string
-	Columns     []*Column
-	Constraints []*Constraint
-	Indexes     []*Index
-	Comment     string
-	Options     TableOptions
+	Name        string        `json:"name"`
+	Columns     []*Column     `json:"columns"`
+	Constraints []*Constraint `json:"constraints,omitempty"`
+	Indexes     []*Index      `json:"indexes,omitempty"`
+	Comment     string        `json:"comment,omitempty"`
+	Options     TableOptions  `json:"options"`
 }
 
 // TableOptions represents the options for a table in the schema.
+// TODO: split this big struct into several smaller ones.
 type TableOptions struct {
 	Engine        string
 	Charset       string
@@ -97,26 +98,26 @@ type TiDBTableOptions struct {
 
 // Column represents a single column inside schema
 type Column struct {
-	Name          string
-	TypeRaw       string
-	Type          DataType
-	Nullable      bool
-	PrimaryKey    bool
-	AutoIncrement bool
-	DefaultValue  *string
-	OnUpdate      *string
-	Comment       string
-	Collate       string
-	Charset       string
+	Name          string   `json:"name"`
+	TypeRaw       string   `json:"typeRaw"`
+	Type          DataType `json:"type"`
+	Nullable      bool     `json:"nullable"`
+	PrimaryKey    bool     `json:"primaryKey"`
+	AutoIncrement bool     `json:"autoIncrement"`
+	DefaultValue  *string  `json:"defaultValue,omitempty"`
+	OnUpdate      *string  `json:"onUpdate,omitempty"`
+	Comment       string   `json:"comment,omitempty"`
+	Collate       string   `json:"collate,omitempty"`
+	Charset       string   `json:"charset,omitempty"`
 
-	IsGenerated          bool
-	GenerationExpression string
-	GenerationStorage    GenerationStorage
+	IsGenerated          bool              `json:"isGenerated,omitempty"`
+	GenerationExpression string            `json:"generationExpression,omitempty"`
+	GenerationStorage    GenerationStorage `json:"generationStorage,omitempty"`
 
-	ColumnFormat             string
-	Storage                  string
-	AutoRandom               uint64
-	SecondaryEngineAttribute string
+	ColumnFormat             string `json:"columnFormat,omitempty"`
+	Storage                  string `json:"storage,omitempty"`
+	AutoRandom               uint64 `json:"autoRandom,omitempty"`
+	SecondaryEngineAttribute string `json:"secondaryEngineAttribute,omitempty"`
 }
 
 // DataType is an ENUM with all possible column data types.
@@ -144,17 +145,17 @@ const (
 
 // Constraint contains all constraint options for a column.
 type Constraint struct {
-	Name    string
-	Type    ConstraintType
-	Columns []string
+	Name    string         `json:"name,omitempty"`
+	Type    ConstraintType `json:"type"`
+	Columns []string       `json:"columns"`
 
-	ReferencedTable   string
-	ReferencedColumns []string
-	OnDelete          ReferentialAction
-	OnUpdate          ReferentialAction
+	ReferencedTable   string            `json:"referencedTable,omitempty"`
+	ReferencedColumns []string          `json:"referencedColumns,omitempty"`
+	OnDelete          ReferentialAction `json:"onDelete,omitempty"`
+	OnUpdate          ReferentialAction `json:"onUpdate,omitempty"`
 
-	CheckExpression string
-	Enforced        bool
+	CheckExpression string `json:"checkExpression,omitempty"`
+	Enforced        bool   `json:"enforced,omitempty"`
 }
 
 // ConstraintType is an ENUM with all possible constraint types.
@@ -181,19 +182,19 @@ const (
 
 // Index contains all possible index options for a column.
 type Index struct {
-	Name       string
-	Columns    []IndexColumn
-	Unique     bool
-	Type       IndexType
-	Comment    string
-	Visibility IndexVisibility
+	Name       string          `json:"name,omitempty"`
+	Columns    []IndexColumn   `json:"columns"`
+	Unique     bool            `json:"unique,omitempty"`
+	Type       IndexType       `json:"type,omitempty"`
+	Comment    string          `json:"comment,omitempty"`
+	Visibility IndexVisibility `json:"visibility,omitempty"`
 }
 
 // IndexColumn connects all column indexes.
 type IndexColumn struct {
-	Name   string
-	Length int
-	Order  SortOrder
+	Name   string    `json:"name"`
+	Length int       `json:"length,omitempty"`
+	Order  SortOrder `json:"order,omitempty"`
 }
 
 // IndexType is an ENUM with all possible index types.
@@ -280,8 +281,8 @@ func (t *Table) PrimaryKey() *Constraint {
 	return nil
 }
 
-// ColumnNames returns the names of the columns in the index.
-func (i *Index) ColumnNames() []string {
+// Names returns the names of the columns in the index.
+func (i *Index) Names() []string {
 	names := make([]string, len(i.Columns))
 	for idx, col := range i.Columns {
 		names[idx] = col.Name

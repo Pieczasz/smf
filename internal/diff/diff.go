@@ -110,7 +110,6 @@ func DefaultOptions() Options {
 // but current sequential approach is sufficient for typical use cases.
 func Diff(oldDB, newDB *core.Database, opts Options) *SchemaDiff {
 	d := &SchemaDiff{}
-
 	oldTables, oldCollisions := mapTablesByName(oldDB.Tables)
 	newTables, newCollisions := mapTablesByName(newDB.Tables)
 	for _, c := range oldCollisions {
