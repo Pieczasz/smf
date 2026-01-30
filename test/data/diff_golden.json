@@ -1,53 +1,39 @@
 {
+  "formatVersion": "1.0",
   "format": "json",
   "summary": {
     "addedTables": 1,
     "removedTables": 1,
-    "modifiedTables": 1
+    "modifiedTables": 1,
+    "addedColumns": 2,
+    "removedColumns": 1,
+    "modifiedColumns": 1,
+    "addedIndexes": 0,
+    "removedIndexes": 0
   },
   "addedTables": [
     {
-      "Name": "comments",
-      "Columns": [
+      "name": "comments",
+      "columns": [
         {
-          "Name": "id",
-          "TypeRaw": "int(11)",
-          "Type": "int",
-          "Nullable": false,
-          "PrimaryKey": true,
-          "AutoIncrement": false,
-          "DefaultValue": null,
-          "OnUpdate": null,
-          "Comment": "",
-          "Collate": "",
-          "Charset": "",
-          "IsGenerated": false,
-          "GenerationExpression": "",
-          "GenerationStorage": "",
-          "ColumnFormat": "",
-          "Storage": "",
-          "AutoRandom": 0,
-          "SecondaryEngineAttribute": ""
+          "name": "id",
+          "typeRaw": "int(11)",
+          "type": "int",
+          "nullable": false,
+          "primaryKey": true,
+          "autoIncrement": false
         }
       ],
-      "Constraints": [
+      "constraints": [
         {
-          "Name": "PRIMARY",
-          "Type": "PRIMARY KEY",
-          "Columns": [
+          "name": "PRIMARY",
+          "type": "PRIMARY KEY",
+          "columns": [
             "id"
-          ],
-          "ReferencedTable": "",
-          "ReferencedColumns": null,
-          "OnDelete": "",
-          "OnUpdate": "",
-          "CheckExpression": "",
-          "Enforced": false
+          ]
         }
       ],
-      "Indexes": null,
-      "Comment": "",
-      "Options": {
+      "options": {
         "Engine": "",
         "Charset": "",
         "Collate": "",
@@ -108,47 +94,27 @@
   ],
   "removedTables": [
     {
-      "Name": "posts",
-      "Columns": [
+      "name": "posts",
+      "columns": [
         {
-          "Name": "id",
-          "TypeRaw": "int(11)",
-          "Type": "int",
-          "Nullable": false,
-          "PrimaryKey": true,
-          "AutoIncrement": false,
-          "DefaultValue": null,
-          "OnUpdate": null,
-          "Comment": "",
-          "Collate": "",
-          "Charset": "",
-          "IsGenerated": false,
-          "GenerationExpression": "",
-          "GenerationStorage": "",
-          "ColumnFormat": "",
-          "Storage": "",
-          "AutoRandom": 0,
-          "SecondaryEngineAttribute": ""
+          "name": "id",
+          "typeRaw": "int(11)",
+          "type": "int",
+          "nullable": false,
+          "primaryKey": true,
+          "autoIncrement": false
         }
       ],
-      "Constraints": [
+      "constraints": [
         {
-          "Name": "PRIMARY",
-          "Type": "PRIMARY KEY",
-          "Columns": [
+          "name": "PRIMARY",
+          "type": "PRIMARY KEY",
+          "columns": [
             "id"
-          ],
-          "ReferencedTable": "",
-          "ReferencedColumns": null,
-          "OnDelete": "",
-          "OnUpdate": "",
-          "CheckExpression": "",
-          "Enforced": false
+          ]
         }
       ],
-      "Indexes": null,
-      "Comment": "",
-      "Options": {
+      "options": {
         "Engine": "",
         "Charset": "",
         "Collate": "",
@@ -212,24 +178,12 @@
       "Name": "users",
       "AddedColumns": [
         {
-          "Name": "email",
-          "TypeRaw": "varchar(255)",
-          "Type": "string",
-          "Nullable": true,
-          "PrimaryKey": false,
-          "AutoIncrement": false,
-          "DefaultValue": null,
-          "OnUpdate": null,
-          "Comment": "",
-          "Collate": "",
-          "Charset": "",
-          "IsGenerated": false,
-          "GenerationExpression": "",
-          "GenerationStorage": "",
-          "ColumnFormat": "",
-          "Storage": "",
-          "AutoRandom": 0,
-          "SecondaryEngineAttribute": ""
+          "name": "email",
+          "typeRaw": "varchar(255)",
+          "type": "string",
+          "nullable": true,
+          "primaryKey": false,
+          "autoIncrement": false
         }
       ],
       "RemovedColumns": null,
@@ -238,44 +192,20 @@
         {
           "Name": "name",
           "Old": {
-            "Name": "name",
-            "TypeRaw": "varchar(255)",
-            "Type": "string",
-            "Nullable": true,
-            "PrimaryKey": false,
-            "AutoIncrement": false,
-            "DefaultValue": null,
-            "OnUpdate": null,
-            "Comment": "",
-            "Collate": "",
-            "Charset": "",
-            "IsGenerated": false,
-            "GenerationExpression": "",
-            "GenerationStorage": "",
-            "ColumnFormat": "",
-            "Storage": "",
-            "AutoRandom": 0,
-            "SecondaryEngineAttribute": ""
+            "name": "name",
+            "typeRaw": "varchar(255)",
+            "type": "string",
+            "nullable": true,
+            "primaryKey": false,
+            "autoIncrement": false
           },
           "New": {
-            "Name": "name",
-            "TypeRaw": "varchar(255)",
-            "Type": "string",
-            "Nullable": false,
-            "PrimaryKey": false,
-            "AutoIncrement": false,
-            "DefaultValue": null,
-            "OnUpdate": null,
-            "Comment": "",
-            "Collate": "",
-            "Charset": "",
-            "IsGenerated": false,
-            "GenerationExpression": "",
-            "GenerationStorage": "",
-            "ColumnFormat": "",
-            "Storage": "",
-            "AutoRandom": 0,
-            "SecondaryEngineAttribute": ""
+            "name": "name",
+            "typeRaw": "varchar(255)",
+            "type": "string",
+            "nullable": false,
+            "primaryKey": false,
+            "autoIncrement": false
           },
           "Changes": [
             {

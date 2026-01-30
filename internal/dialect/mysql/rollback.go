@@ -8,9 +8,6 @@ import (
 )
 
 func (g *Generator) rollbackSuggestions(schemaDiff *diff.SchemaDiff) []string {
-	if schemaDiff == nil {
-		return nil
-	}
 	var out []string
 
 	for _, t := range schemaDiff.AddedTables {

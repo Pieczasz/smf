@@ -1,5 +1,5 @@
 // Package output provides a set of formatters for schema diffs and migrations.
-// It is extendable and for now provides two formats: human and JSON.
+// It is extendable and for now provides two formats: SQL and JSON.
 package output
 
 import (
@@ -14,8 +14,9 @@ import (
 type Format string
 
 const (
-	FormatHuman Format = "human"
-	FormatJSON  Format = "json"
+	FormatSQL     Format = "sql"
+	FormatJSON    Format = "json"
+	FormatSummary Format = "summary"
 )
 
 // Formatter is an interface for formatting schema diffs and migrations.
@@ -25,16 +26,18 @@ type Formatter interface {
 }
 
 // NewFormatter creates a new Formatter instance based on the given name.
-// If no format is specified, defaults to human-readable format.
+// If no format is specified, defaults to SQL format.
 func NewFormatter(name string) (Formatter, error) {
 	format := Format(strings.ToLower(strings.TrimSpace(name)))
 	switch format {
-	case "", FormatHuman:
-		return humanFormatter{}, nil
+	case "", FormatSQL:
+		return sqlFormatter{}, nil
 	case FormatJSON:
 		return jsonFormatter{}, nil
+	case FormatSummary:
+		return summaryFormatter{}, nil
 	default:
-		return nil, fmt.Errorf("unsupported format: %s; use 'human' or 'json'", name)
+		return nil, fmt.Errorf("unsupported format: %s; use 'sql', 'json', or 'summary'", name)
 	}
 }
 

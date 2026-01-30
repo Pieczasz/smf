@@ -1,8 +1,8 @@
-# SMF Roadmap
+# smf Roadmap
 
 ## M0 - Onboarding & Documentation
 
-**Goal:** New developers can use SMF in 10 minutes without external docs.
+**Goal:** New developers can use smf in 10 minutes without external docs.
 
 **Tasks:**
 - Add installation and quick start to README
@@ -18,7 +18,7 @@
 **Problem:** Schema change plans need to be stable for CI/CD and reviewable in PRs.
 
 **Current Issues:**
-- Human-readable output changes formatting between runs
+- SQL output changes formatting between runs
 - JSON is difficult to review in pull requests
 - No risk assessment or change summary
 
@@ -50,8 +50,8 @@ Safe Changes (6):
 #### 2. Format Flags
 
 ```bash
-# Human-readable (default)
-$ smf plan old.sql new.sql --format=human
+# SQK-readable (default)
+$ smf plan old.sql new.sql --format=sql
 
 # JSON (stable for CI/CD)
 $ smf plan old.sql new.sql --format=json
@@ -333,7 +333,7 @@ ALTER TABLE posts DROP COLUMN content_new;
 
 ## M5 - PostgreSQL Dialect
 
-**Problem:** SMF only works with MySQL. PostgreSQL users are left out.
+**Problem:** smf only works with MySQL. PostgreSQL users are left out.
 
 ### Deliverables
 
@@ -880,7 +880,7 @@ At this stage: safe, reviewable migrations with execution and audit trail.
 
 | Milestone | Definition of Success |
 |-----------|----------------------|
-| M0 | New dev can use SMF in <10 minutes |
+| M0 | New dev can use smf in <10 minutes |
 | M1 | Plan output is identical across runs |
 | M2 | 95% of preflight checks prevent errors |
 | M3 | No re-applied migrations (checksum validation works) |

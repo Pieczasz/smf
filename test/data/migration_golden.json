@@ -1,4 +1,5 @@
 {
+  "formatVersion": "1.0",
   "format": "json",
   "summary": {
     "breakingChanges": 2,

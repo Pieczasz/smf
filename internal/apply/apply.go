@@ -181,7 +181,7 @@ func (a *Applier) ParseStatements(content string) []string {
 		}
 	}
 
-	return a.parseHumanMigration(content)
+	return a.parseSQLMigration(content)
 }
 
 // PreflightChecks uses the AST-based analyzer to detect dangerous operations
@@ -201,7 +201,7 @@ func (a *Applier) extractJSONStatements(migration *jsonMigration) []string {
 	return statements
 }
 
-func (a *Applier) parseHumanMigration(content string) []string {
+func (a *Applier) parseSQLMigration(content string) []string {
 	statements := a.splitStatementsWithParser(content)
 	a.statements = statements
 	return statements

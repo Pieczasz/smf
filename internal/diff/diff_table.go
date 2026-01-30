@@ -7,6 +7,11 @@ import (
 	"smf/internal/core"
 )
 
+const (
+	// OptionsCount is the number of options that we support for MySQL dialect.
+	OptionsCount = 44
+)
+
 func compareTable(oldT, newT *core.Table, opts Options) *TableDiff {
 	td := &TableDiff{Name: newT.Name}
 
@@ -62,7 +67,7 @@ func compareColumns(oldItems, newItems []*core.Column, td *TableDiff, opts Optio
 }
 
 func equalColumn(a, b *core.Column) bool {
-	return compareColumnAttrs(a, b).AllMatch()
+	return compareColumnAttrs(a, b).allMatch()
 }
 
 func columnFieldChanges(oldC, newC *core.Column) []*FieldChange {
@@ -103,7 +108,7 @@ func compareOptions(oldT, newT *core.Table, td *TableDiff) {
 
 func tableOptionMap(t *core.Table) map[string]string {
 	o := t.Options
-	m := make(map[string]string)
+	m := make(map[string]string, OptionsCount)
 
 	addStr := func(name, val string) {
 		if v := strings.TrimSpace(val); v != "" {

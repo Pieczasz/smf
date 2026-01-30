@@ -34,9 +34,6 @@ func compareConstraints(oldItems, newItems []*core.Constraint, td *TableDiff) {
 }
 
 func markConstraintsForRebuild(oldItems, newItems []*core.Constraint, td *TableDiff) {
-	if td == nil {
-		return
-	}
 	if len(td.ModifiedColumns) == 0 {
 		return
 	}

@@ -10,7 +10,6 @@ import (
 	"smf/internal/diff"
 )
 
-// Table
 func (g *Generator) tableOptions(t *core.Table) string {
 	var parts []string
 	o := t.Options
@@ -123,7 +122,6 @@ func (g *Generator) columnDefinition(c *core.Column) string {
 	return strings.Join(parts, " ")
 }
 
-// Indexes
 func (g *Generator) indexDefinitionInline(idx *core.Index) string {
 	cols := g.formatIndexColumns(idx.Columns)
 	name := strings.TrimSpace(idx.Name)
@@ -194,7 +192,6 @@ func (g *Generator) constraintDefinition(c *core.Constraint) string {
 	}
 }
 
-// Constraint
 func (g *Generator) addConstraint(table string, c *core.Constraint) string {
 	if c == nil {
 		return ""
@@ -289,7 +286,6 @@ func (g *Generator) dropConstraint(table string, c *core.Constraint) string {
 	}
 }
 
-// Alter Table
 func (g *Generator) alterOption(table string, opt *diff.TableOptionChange) string {
 	name := strings.ToUpper(strings.TrimSpace(opt.Name))
 	value := strings.TrimSpace(opt.New)
@@ -312,14 +308,13 @@ func (g *Generator) alterOption(table string, opt *diff.TableOptionChange) strin
 	case "ROW_FORMAT":
 		return fmt.Sprintf("ALTER TABLE %s ROW_FORMAT=%s;", table, value)
 	default:
-		if looksNumeric(value) {
+		if _, err := strconv.ParseFloat(value, 64); err == nil {
 			return fmt.Sprintf("ALTER TABLE %s %s=%s;", table, name, value)
 		}
 		return fmt.Sprintf("ALTER TABLE %s %s=%s;", table, name, g.QuoteString(value))
 	}
 }
 
-// Helpers
 var reBaseType = regexp.MustCompile(`(?i)^\s*([a-z0-9_]+)\b`)
 
 func supportsCharsetCollation(typeRaw string) bool {

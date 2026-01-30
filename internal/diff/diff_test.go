@@ -1,8 +1,6 @@
 package diff
 
 import (
-	"fmt"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -193,37 +191,6 @@ CREATE TABLE related_features (
 
 	rf := findTableDiff(t, d, "related_features")
 	assert.True(t, hasModifiedConstraint(rf, "fk_related"))
-
-	out := d.String()
-	assert.Contains(t, out, "Schema differences")
-	assert.Contains(t, out, "Options changed")
-	assert.Contains(t, out, "Modified columns")
-	assert.Contains(t, out, "t_tinyint")
-	assert.Contains(t, out, "nullable")
-	assert.Contains(t, out, "t_varchar")
-	assert.Contains(t, out, "default")
-	assert.Contains(t, out, "on_update")
-	assert.Contains(t, out, "Modified constraints")
-	assert.Contains(t, out, "chk_positive")
-	assert.Contains(t, out, "check_expression")
-	assert.Contains(t, out, "Modified indexes")
-	assert.Contains(t, out, "idx_regular")
-	assert.Contains(t, out, "columns")
-
-	f, err := os.CreateTemp("", "smf-diff-full-*.txt")
-	require.NoError(t, err)
-	defer func(name string) {
-		err := os.Remove(name)
-		if err != nil {
-			fmt.Println(err)
-		}
-	}(f.Name())
-	require.NoError(t, f.Close())
-
-	require.NoError(t, d.SaveToFile(f.Name()))
-	b, err := os.ReadFile(f.Name())
-	require.NoError(t, err)
-	assert.Contains(t, string(b), "Schema differences")
 }
 
 func findTableDiff(t *testing.T, d *SchemaDiff, name string) *TableDiff {

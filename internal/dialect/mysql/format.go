@@ -2,6 +2,7 @@ package mysql
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -44,13 +45,11 @@ func (g *Generator) formatValue(v string) string {
 
 	upper := strings.ToUpper(v)
 	keywords := []string{"NULL", "CURRENT_TIMESTAMP", "CURRENT_DATE", "CURRENT_TIME", "NOW()", "TRUE", "FALSE"}
-	for _, kw := range keywords {
-		if upper == kw {
-			return upper
-		}
+	if slices.Contains(keywords, upper) {
+		return upper
 	}
 
-	if looksNumeric(v) {
+	if _, err := strconv.ParseFloat(v, 64); err == nil {
 		return v
 	}
 
@@ -59,9 +58,4 @@ func (g *Generator) formatValue(v string) string {
 	}
 
 	return g.QuoteString(v)
-}
-
-func looksNumeric(s string) bool {
-	_, err := strconv.ParseFloat(s, 64)
-	return err == nil
 }

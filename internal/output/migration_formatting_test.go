@@ -14,7 +14,8 @@ func TestMigrationStringMultiLineNotesAreCommented(t *testing.T) {
 	m.AddNote("line1\nline2")
 	m.AddRollbackStatement("ALTER TABLE t ADD COLUMN c INT")
 
-	out := m.String()
+	out, err := sqlFormatter{}.FormatMigration(m)
+	assert.NoError(t, err)
 	assert.Contains(t, out, "-- NOTES")
 	assert.Contains(t, out, "-- - line1")
 	assert.Contains(t, out, "-- - line2")
@@ -22,7 +23,7 @@ func TestMigrationStringMultiLineNotesAreCommented(t *testing.T) {
 	assert.Contains(t, out, "-- ROLLBACK SQL")
 	assert.Contains(t, out, "-- ALTER TABLE t ADD COLUMN c INT;")
 
-	rb := m.RollbackString()
+	rb := FormatRollbackSQL(m)
 	assert.Contains(t, rb, "-- smf rollback")
 	assert.Contains(t, rb, "ALTER TABLE t ADD COLUMN c INT;")
 }
@@ -39,7 +40,7 @@ func TestMigrationSaveRollbackToFileWritesRollbackSQL(t *testing.T) {
 	_ = f.Close()
 	defer func() { _ = os.Remove(name) }()
 
-	assert.NoError(t, m.SaveRollbackToFile(name))
+	assert.NoError(t, SaveRollbackToFile(m, name))
 	b, err := os.ReadFile(name)
 	assert.NoError(t, err)
 	out := string(b)

@@ -228,114 +228,117 @@ func (a *StatementAnalyzer) analyzeNode(node ast.StmtNode, originalSQL string) *
 
 func (a *StatementAnalyzer) analyzeAlterTable(stmt *ast.AlterTableStmt, analysis *StatementAnalysis) {
 	for _, spec := range stmt.Specs {
-		switch spec.Tp {
-		case ast.AlterTableAddColumns:
-			analysis.IsBlocking = true
-			analysis.BlockingReasons = append(analysis.BlockingReasons,
-				"ADD COLUMN may require a table rebuild depending on MySQL version and column position")
+		a.analyzeAlterTableSpec(spec, analysis)
+	}
+}
 
-		case ast.AlterTableDropColumn:
-			analysis.IsBlocking = true
-			analysis.IsDestructive = true
-			analysis.DestructiveReason = "DROP COLUMN will permanently delete the column and its data"
-			analysis.BlockingReasons = append(analysis.BlockingReasons,
-				"DROP COLUMN typically requires a full table rebuild and will lock the table")
+func (a *StatementAnalyzer) analyzeAlterTableSpec(spec *ast.AlterTableSpec, analysis *StatementAnalysis) {
+	switch spec.Tp {
+	case ast.AlterTableAddColumns:
+		analysis.IsBlocking = true
+		analysis.BlockingReasons = append(analysis.BlockingReasons,
+			"ADD COLUMN may require a table rebuild depending on MySQL version and column position")
 
-		case ast.AlterTableModifyColumn, ast.AlterTableChangeColumn:
-			analysis.IsBlocking = true
-			if spec.Tp == ast.AlterTableModifyColumn {
-				analysis.BlockingReasons = append(analysis.BlockingReasons,
-					"MODIFY COLUMN may require a table rebuild if changing column type or size")
-			} else {
-				analysis.BlockingReasons = append(analysis.BlockingReasons,
-					"CHANGE COLUMN may require a table rebuild")
-			}
+	case ast.AlterTableDropColumn:
+		analysis.IsBlocking = true
+		analysis.IsDestructive = true
+		analysis.DestructiveReason = "DROP COLUMN will permanently delete the column and its data"
+		analysis.BlockingReasons = append(analysis.BlockingReasons,
+			"DROP COLUMN typically requires a full table rebuild and will lock the table")
 
-		case ast.AlterTableAddConstraint:
-			analysis.IsBlocking = true
-			if spec.Constraint != nil {
-				switch spec.Constraint.Tp {
-				case ast.ConstraintForeignKey:
-					analysis.BlockingReasons = append(analysis.BlockingReasons,
-						"ADD FOREIGN KEY may lock the table while validating existing data")
-				case ast.ConstraintIndex, ast.ConstraintKey, ast.ConstraintUniq, ast.ConstraintUniqKey, ast.ConstraintUniqIndex:
-					analysis.BlockingReasons = append(analysis.BlockingReasons,
-						"ADD INDEX may lock the table for the duration of index creation on large tables")
-				default:
-					analysis.BlockingReasons = append(analysis.BlockingReasons,
-						"ADD CONSTRAINT may lock the table while validating existing data")
-				}
-			}
+	case ast.AlterTableModifyColumn:
+		analysis.IsBlocking = true
+		analysis.BlockingReasons = append(analysis.BlockingReasons,
+			"MODIFY COLUMN may require a table rebuild if changing column type or size")
 
-		case ast.AlterTableDropIndex:
-			analysis.IsBlocking = true
-			analysis.BlockingReasons = append(analysis.BlockingReasons,
-				"DROP INDEX may briefly lock the table")
+	case ast.AlterTableChangeColumn:
+		analysis.IsBlocking = true
+		analysis.BlockingReasons = append(analysis.BlockingReasons,
+			"CHANGE COLUMN may require a table rebuild")
 
-		case ast.AlterTableDropForeignKey:
-			analysis.IsBlocking = true
-			analysis.BlockingReasons = append(analysis.BlockingReasons,
-				"DROP FOREIGN KEY may briefly lock the table")
+	case ast.AlterTableAlterColumn, ast.AlterTableRenameColumn:
 
-		case ast.AlterTableDropPrimaryKey:
-			analysis.IsBlocking = true
-			analysis.BlockingReasons = append(analysis.BlockingReasons,
-				"DROP PRIMARY KEY requires a full table rebuild and will lock the table")
+	case ast.AlterTableAddConstraint:
+		a.analyzeAddConstraint(spec, analysis)
 
-		case ast.AlterTableRenameTable:
-			analysis.IsBlocking = true
-			analysis.BlockingReasons = append(analysis.BlockingReasons,
-				"RENAME TABLE acquires an exclusive lock but is typically fast")
-		case ast.AlterTableOption:
-		case ast.AlterTableRenameColumn:
-		case ast.AlterTableAlterColumn:
-		case ast.AlterTableLock:
-		case ast.AlterTableWriteable:
-		case ast.AlterTableAlgorithm:
-		case ast.AlterTableRenameIndex:
-		case ast.AlterTableForce:
-		case ast.AlterTableAddPartitions:
-		case ast.AlterTablePartitionAttributes:
-		case ast.AlterTablePartitionOptions:
-		case ast.AlterTableCoalescePartitions:
-		case ast.AlterTableDropPartition:
-		case ast.AlterTableTruncatePartition:
-		case ast.AlterTablePartition:
-		case ast.AlterTableEnableKeys:
-		case ast.AlterTableDisableKeys:
-		case ast.AlterTableRemovePartitioning:
-		case ast.AlterTableWithValidation:
-		case ast.AlterTableWithoutValidation:
-		case ast.AlterTableSecondaryLoad:
-		case ast.AlterTableSecondaryUnload:
-		case ast.AlterTableRebuildPartition:
-		case ast.AlterTableReorganizePartition:
-		case ast.AlterTableCheckPartitions:
-		case ast.AlterTableExchangePartition:
-		case ast.AlterTableOptimizePartition:
-		case ast.AlterTableRepairPartition:
-		case ast.AlterTableImportPartitionTablespace:
-		case ast.AlterTableDiscardPartitionTablespace:
-		case ast.AlterTableAlterCheck:
-		case ast.AlterTableDropCheck:
-		case ast.AlterTableImportTablespace:
-		case ast.AlterTableDiscardTablespace:
-		case ast.AlterTableIndexInvisible:
-		case ast.AlterTableOrderByColumns:
-		case ast.AlterTableSetTiFlashReplica:
-		case ast.AlterTableAddStatistics:
-		case ast.AlterTableDropStatistics:
-		case ast.AlterTableAttributes:
-		case ast.AlterTableCache:
-		case ast.AlterTableNoCache:
-		case ast.AlterTableStatsOptions:
-		case ast.AlterTableDropFirstPartition:
-		case ast.AlterTableAddLastPartition:
-		case ast.AlterTableReorganizeLastPartition:
-		case ast.AlterTableReorganizeFirstPartition:
-		case ast.AlterTableRemoveTTL:
-		}
-		// TODO: Add support for all possible cases
+	case ast.AlterTableDropIndex:
+		analysis.IsBlocking = true
+		analysis.BlockingReasons = append(analysis.BlockingReasons,
+			"DROP INDEX may briefly lock the table")
+
+	case ast.AlterTableDropForeignKey:
+		analysis.IsBlocking = true
+		analysis.BlockingReasons = append(analysis.BlockingReasons,
+			"DROP FOREIGN KEY may briefly lock the table")
+
+	case ast.AlterTableDropPrimaryKey:
+		analysis.IsBlocking = true
+		analysis.BlockingReasons = append(analysis.BlockingReasons,
+			"DROP PRIMARY KEY requires a full table rebuild and will lock the table")
+
+	case ast.AlterTableAlterCheck, ast.AlterTableDropCheck:
+
+	case ast.AlterTableRenameTable:
+		analysis.IsBlocking = true
+		analysis.BlockingReasons = append(analysis.BlockingReasons,
+			"RENAME TABLE acquires an exclusive lock but is typically fast")
+
+	case ast.AlterTableRenameIndex, ast.AlterTableIndexInvisible:
+
+	case ast.AlterTableForce:
+		analysis.IsBlocking = true
+		analysis.BlockingReasons = append(analysis.BlockingReasons,
+			"FORCE rebuilds the table and will lock it")
+
+	case ast.AlterTableOption, ast.AlterTableLock, ast.AlterTableAlgorithm,
+		ast.AlterTableWriteable, ast.AlterTableOrderByColumns:
+
+	case ast.AlterTableAddPartitions, ast.AlterTableDropPartition,
+		ast.AlterTableTruncatePartition, ast.AlterTableCoalescePartitions,
+		ast.AlterTableReorganizePartition, ast.AlterTableRebuildPartition,
+		ast.AlterTableCheckPartitions, ast.AlterTableExchangePartition,
+		ast.AlterTableOptimizePartition, ast.AlterTableRepairPartition,
+		ast.AlterTableRemovePartitioning, ast.AlterTablePartition,
+		ast.AlterTablePartitionAttributes, ast.AlterTablePartitionOptions,
+		ast.AlterTableDropFirstPartition, ast.AlterTableAddLastPartition,
+		ast.AlterTableReorganizeLastPartition, ast.AlterTableReorganizeFirstPartition:
+
+	case ast.AlterTableImportTablespace, ast.AlterTableDiscardTablespace,
+		ast.AlterTableImportPartitionTablespace, ast.AlterTableDiscardPartitionTablespace:
+
+	case ast.AlterTableWithValidation, ast.AlterTableWithoutValidation:
+
+	case ast.AlterTableEnableKeys, ast.AlterTableDisableKeys:
+
+	case ast.AlterTableSecondaryLoad, ast.AlterTableSecondaryUnload:
+
+	case ast.AlterTableAddStatistics, ast.AlterTableDropStatistics,
+		ast.AlterTableStatsOptions:
+
+	case ast.AlterTableSetTiFlashReplica, ast.AlterTableAttributes,
+		ast.AlterTableCache, ast.AlterTableNoCache, ast.AlterTableRemoveTTL:
+	}
+}
+
+func (a *StatementAnalyzer) analyzeAddConstraint(spec *ast.AlterTableSpec, analysis *StatementAnalysis) {
+	analysis.IsBlocking = true
+	if spec.Constraint == nil {
+		analysis.BlockingReasons = append(analysis.BlockingReasons,
+			"ADD CONSTRAINT may lock the table while validating existing data")
+		return
+	}
+
+	switch spec.Constraint.Tp {
+	case ast.ConstraintForeignKey:
+		analysis.BlockingReasons = append(analysis.BlockingReasons,
+			"ADD FOREIGN KEY may lock the table while validating existing data")
+	case ast.ConstraintIndex, ast.ConstraintKey, ast.ConstraintUniq,
+		ast.ConstraintUniqKey, ast.ConstraintUniqIndex:
+		analysis.BlockingReasons = append(analysis.BlockingReasons,
+			"ADD INDEX may lock the table for the duration of index creation on large tables")
+	default:
+		analysis.BlockingReasons = append(analysis.BlockingReasons,
+			"ADD CONSTRAINT may lock the table while validating existing data")
 	}
 }
 

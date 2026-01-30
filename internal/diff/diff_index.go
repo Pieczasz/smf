@@ -76,14 +76,14 @@ func indexFieldChanges(oldI, newI *core.Index) []*FieldChange {
 
 	c.Add("unique", strconv.FormatBool(oldI.Unique), strconv.FormatBool(newI.Unique))
 	c.Add("type", string(oldI.Type), string(newI.Type))
-	c.Add("columns", formatIndexColumns(oldI.Columns), formatIndexColumns(newI.Columns))
+	c.Add("columns", FormatIndexColumns(oldI.Columns), FormatIndexColumns(newI.Columns))
 	c.Add("comment", oldI.Comment, newI.Comment)
 	c.Add("visibility", string(oldI.Visibility), string(newI.Visibility))
 
 	return c.Changes
 }
 
-func formatIndexColumns(cols []core.IndexColumn) string {
+func FormatIndexColumns(cols []core.IndexColumn) string {
 	names := make([]string, len(cols))
 	for i, c := range cols {
 		names[i] = c.Name

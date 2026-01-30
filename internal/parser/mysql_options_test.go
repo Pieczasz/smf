@@ -7,13 +7,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMySQLOptions(t *testing.T) {
+func TestMySQLParserOptions(t *testing.T) {
 	p := NewSQLParser()
 
 	sql := `
 CREATE TABLE std_options (
     id INT PRIMARY KEY
-) 
+)
 ENGINE = InnoDB
 AUTO_INCREMENT = 10
 AVG_ROW_LENGTH = 100
@@ -65,7 +65,7 @@ PACK_KEYS = 1;
 	sql = `
 CREATE TABLE std_options_numeric (
     id INT PRIMARY KEY
-) 
+)
 STATS_AUTO_RECALC = 1
 STATS_SAMPLE_PAGES = 100;
 `
@@ -84,7 +84,7 @@ func TestMySQLParserAdditionalOptions(t *testing.T) {
 	sql := `
 CREATE TABLE add_options (
     id INT PRIMARY KEY
-) 
+)
 CONNECTION = 'mysql://user@host/db'
 PASSWORD = 'secret_password'
 AUTOEXTEND_SIZE = '64M'

@@ -20,6 +20,12 @@ const backupSuffixPrefix = "__smf_backup_"
 
 const mysqlMaxIdentLen = 64
 
+func init() {
+	dialect.RegisterDialect(dialect.MySQL, func() dialect.Dialect {
+		return NewMySQLDialect()
+	})
+}
+
 // Dialect represents the MySQL dialect struct. With migration generator
 // and parser.
 type Dialect struct {
@@ -50,7 +56,7 @@ func (d *Dialect) Parser() dialect.Parser {
 	return d.parser
 }
 
-// Generator is an empty struct that you can perform migrations with.
+// Generator is a stateless struct for generating MySQL migrations.
 type Generator struct{}
 
 // NewMySQLGenerator initializes a new MySQL migration generator instance.
@@ -70,11 +76,6 @@ func (g *Generator) GenerateMigration(schemaDiff *diff.SchemaDiff) *migration.Mi
 // A user provides options to customize the migration process.
 func (g *Generator) GenerateMigrationWithOptions(schemaDiff *diff.SchemaDiff, opts dialect.MigrationOptions) *migration.Migration {
 	m := &migration.Migration{}
-	if schemaDiff == nil {
-		m.AddNote("No diff provided; nothing to migrate.")
-		return m
-	}
-
 	analyzer := diff.NewBreakingChangeAnalyzer()
 	breakingChanges := analyzer.Analyze(schemaDiff)
 	for _, bc := range breakingChanges {
@@ -99,16 +100,13 @@ func (g *Generator) GenerateMigrationWithOptions(schemaDiff *diff.SchemaDiff, op
 	var pendingFKRollback []string
 
 	for _, at := range schemaDiff.AddedTables {
-		if at == nil {
-			continue
-		}
 		create, fks := g.GenerateCreateTable(at)
 		m.AddStatementWithRollback(create, g.GenerateDropTable(at))
 		pendingFKs = append(pendingFKs, fks...)
 
 		table := g.QuoteIdentifier(at.Name)
 		for _, c := range at.Constraints {
-			if c == nil || c.Type != core.ConstraintForeignKey {
+			if c.Type != core.ConstraintForeignKey {
 				continue
 			}
 			rb := g.dropConstraint(table, c)
@@ -119,27 +117,24 @@ func (g *Generator) GenerateMigrationWithOptions(schemaDiff *diff.SchemaDiff, op
 	}
 
 	for _, td := range schemaDiff.ModifiedTables {
-		if td == nil {
-			continue
-		}
-		stmts, rollback, fkAdds, fkRollback := g.generateAlterTableWithOptions(td, opts)
+		result := g.generateAlterTable(td, &opts)
 
-		pairCount := min(len(stmts), len(rollback))
+		pairCount := min(len(result.Statements), len(result.Rollback))
 
 		for i := range pairCount {
-			m.AddStatementWithRollback(stmts[i], rollback[i])
+			m.AddStatementWithRollback(result.Statements[i], result.Rollback[i])
 		}
 
-		for i := pairCount; i < len(stmts); i++ {
-			m.AddStatement(stmts[i])
+		for i := pairCount; i < len(result.Statements); i++ {
+			m.AddStatement(result.Statements[i])
 		}
 
-		for i := pairCount; i < len(rollback); i++ {
-			m.AddRollbackStatement(rollback[i])
+		for i := pairCount; i < len(result.Rollback); i++ {
+			m.AddRollbackStatement(result.Rollback[i])
 		}
 
-		pendingFKs = append(pendingFKs, fkAdds...)
-		pendingFKRollback = append(pendingFKRollback, fkRollback...)
+		pendingFKs = append(pendingFKs, result.FKStatements...)
+		pendingFKRollback = append(pendingFKRollback, result.FKRollback...)
 	}
 
 	if len(pendingFKs) > 0 {
@@ -241,10 +236,10 @@ func (g *Generator) GenerateDropTable(t *core.Table) string {
 	return fmt.Sprintf("DROP TABLE %s;", g.QuoteIdentifier(t.Name))
 }
 
-// GenerateAlterTable generate an SQL statement to alter a table.
+// GenerateAlterTable generates SQL statements to alter a table using default options.
 func (g *Generator) GenerateAlterTable(td *diff.TableDiff) []string {
-	stmts, fkAdds := g.generateAlterTable(td)
-	return append(stmts, fkAdds...)
+	result := g.generateAlterTable(td, nil)
+	return result.AllStatements()
 }
 
 // QuoteIdentifier is a function used for quote identification inside an SQL dialect.
@@ -256,18 +251,49 @@ func (g *Generator) QuoteIdentifier(name string) string {
 
 // QuoteString is a function used for quote string inside an SQL dialect.
 func (g *Generator) QuoteString(value string) string {
-	value = strings.ReplaceAll(value, "\\", "\\\\")
-	value = strings.ReplaceAll(value, "'", "\\'")
-	return "'" + value + "'"
+	var b strings.Builder
+	b.Grow(len(value) + len(value)/10 + 2)
+
+	b.WriteByte('\'')
+	for _, char := range value {
+		switch char {
+		case '\'':
+			b.WriteString("''")
+		case '\\': // Backslash escaped
+			b.WriteString(`\\`)
+		case '\x00': // NUL byte
+			b.WriteString(`\0`)
+		case '\n': // Newline
+			b.WriteString(`\n`)
+		case '\r': // Carriage return
+			b.WriteString(`\r`)
+		case '\x1A': // Ctrl+Z
+			b.WriteString(`\Z`)
+		default:
+			b.WriteRune(char)
+		}
+	}
+	b.WriteByte('\'')
+	return b.String()
 }
 
 // Helpers
 func (g *Generator) safeBackupName(name string) string {
 	base := strings.TrimSpace(name)
+
+	// Create a non-cryptographic hash (FNV-1a) of the name
 	h := fnv.New64a()
 	_, _ = h.Write([]byte(base))
+
+	// 1. h.Sum64(): Gets the calculated hash as a generic unsigned 64-bit integer (uint64).
+	// 2. %s: Inserts the 'backupSuffixPrefix' string.
+	// 3. %016x: Formats the uint64 hash as a Hexadecimal string.
+	//    - 'x': Hex format (base 16).
+	//    - '16': Minimum width of 16 characters.
+	//    - '0': Pad with leading zeros if the hash is shorter than 16 chars.
 	suffix := fmt.Sprintf("%s%016x", backupSuffixPrefix, h.Sum64())
 
+	// Ensure the total length does not exceed MySQL's limit (usually 64 bytes)
 	if len(base)+len(suffix) > mysqlMaxIdentLen {
 		maxBase := max(mysqlMaxIdentLen-len(suffix), 0)
 		if len(base) > maxBase {

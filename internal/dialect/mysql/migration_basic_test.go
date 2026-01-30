@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"smf/internal/diff"
+	"smf/internal/output"
 	"smf/internal/parser"
 )
 
@@ -44,7 +45,10 @@ func TestBasicMigration(t *testing.T) {
 	mig := mysqlDialect.Generator().GenerateMigration(d)
 	require.NotNil(t, mig)
 
-	out := mig.String()
+	fmt, err := output.NewFormatter("sql")
+	require.NoError(t, err)
+	out, err := fmt.FormatMigration(mig)
+	require.NoError(t, err)
 	assert.Contains(t, out, "-- SQL")
 	assert.Contains(t, out, "CREATE TABLE")
 	assert.Contains(t, out, "ALTER TABLE")
@@ -57,7 +61,7 @@ func TestBasicMigration(t *testing.T) {
 	require.NoError(t, f.Close())
 	defer func() { _ = os.Remove(name) }()
 
-	require.NoError(t, mig.SaveToFile(name))
+	require.NoError(t, output.SaveMigrationToFile(mig, name))
 	b, err := os.ReadFile(name)
 	require.NoError(t, err)
 	assert.Contains(t, string(b), "-- smf migration")

@@ -1,7 +1,6 @@
 package diff
 
 import (
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -39,35 +38,12 @@ func TestDiff(t *testing.T) {
 	d := Diff(oldDB, newDB, DefaultOptions())
 	require.NotNil(t, d)
 
-	s := d.String()
+	assert.Len(t, d.AddedTables, 1, "Expected 1 added table")
+	assert.Equal(t, "comments", d.AddedTables[0].Name)
 
-	assert.Contains(t, s, "Added tables")
-	assert.Contains(t, s, "comments")
-	assert.Contains(t, s, "Removed tables")
-	assert.Contains(t, s, "posts")
-	assert.Contains(t, s, "Modified tables")
-	assert.Contains(t, s, "users")
-	assert.Contains(t, s, "Added columns")
-	assert.Contains(t, s, "email")
-	assert.Contains(t, s, "Modified columns")
-	assert.Contains(t, s, "name")
+	assert.Len(t, d.RemovedTables, 1, "Expected 1 removed table")
+	assert.Equal(t, "posts", d.RemovedTables[0].Name)
 
-	f, err := os.CreateTemp("", "smf-diff-*.txt")
-	require.NoError(t, err)
-	defer func(name string) {
-		err := os.Remove(name)
-		if err != nil {
-			t.Logf("Failed to remove temp file: %v", err)
-		}
-	}(f.Name())
-
-	err = f.Close()
-	if err != nil {
-		return
-	}
-
-	require.NoError(t, d.SaveToFile(f.Name()))
-	b, err := os.ReadFile(f.Name())
-	require.NoError(t, err)
-	assert.Contains(t, string(b), "Schema differences")
+	assert.Len(t, d.ModifiedTables, 1, "Expected 1 modified table")
+	assert.Equal(t, "users", d.ModifiedTables[0].Name)
 }
