@@ -50,7 +50,7 @@ Safe Changes (6):
 #### 2. Format Flags
 
 ```bash
-# SQK-readable (default)
+# SQL-readable (default)
 $ smf plan old.sql new.sql --format=sql
 
 # JSON (stable for CI/CD)

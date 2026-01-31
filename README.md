@@ -4,7 +4,7 @@ smf is a lightweight CLI tool for diffing database schemas from SQL dumps and ge
 
 It is intentionally config-free: you give it two schema files (`old.sql`, `new.sql`), it shows what changed and produces a migration script, as well as rollback.
 
-smf is always in safe mode first, which means it won't drop table, or apply changes that can potentailly result in data loss.
+smf is always in safe mode first, which means it won't drop table, or apply changes that can potentially result in data loss.
 
 ## Status
 

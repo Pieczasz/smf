@@ -12,9 +12,20 @@ func (td *TableDiff) detectColumnRenames() {
 	}
 
 	usedAdded := make(map[int]struct{}, len(td.AddedColumns))
-	var renames []*ColumnRename
+	maxRenames := max(len(td.AddedColumns), len(td.RemovedColumns))
 
-	for _, oldC := range td.RemovedColumns {
+	renames := make([]*ColumnRename, 0, maxRenames)
+
+	removedTokens := make([][]string, len(td.RemovedColumns))
+	for i, c := range td.RemovedColumns {
+		removedTokens[i] = tokenizeName(c.Name)
+	}
+	addedTokens := make([][]string, len(td.AddedColumns))
+	for i, c := range td.AddedColumns {
+		addedTokens[i] = tokenizeName(c.Name)
+	}
+
+	for i, oldC := range td.RemovedColumns {
 		bestIdx := -1
 		bestScore := -1
 		for j, newC := range td.AddedColumns {
@@ -29,7 +40,7 @@ func (td *TableDiff) detectColumnRenames() {
 		}
 		if bestIdx >= 0 && bestScore >= renameDetectionScoreThreshold {
 			newC := td.AddedColumns[bestIdx]
-			if !renameEvidence(oldC, newC) {
+			if !renameEvidenceWithTokens(oldC, newC, removedTokens[i], addedTokens[bestIdx]) {
 				continue
 			}
 			if !strings.EqualFold(oldC.TypeRaw, newC.TypeRaw) {
@@ -79,8 +90,8 @@ func renameSimilarityScore(oldC, newC *core.Column) int {
 	return compareColumnAttrs(oldC, newC).similarityScore()
 }
 
-func renameEvidence(oldC, newC *core.Column) bool {
-	if hasSharedNameToken(oldC.Name, newC.Name) {
+func renameEvidenceWithTokens(oldC, newC *core.Column, oldTokens, newTokens []string) bool {
+	if hasSharedTokens(oldTokens, newTokens) {
 		return true
 	}
 	if strings.TrimSpace(oldC.Comment) != "" && strings.EqualFold(strings.TrimSpace(oldC.Comment), strings.TrimSpace(newC.Comment)) {
@@ -96,42 +107,43 @@ func renameEvidence(oldC, newC *core.Column) bool {
 	return false
 }
 
-func hasSharedNameToken(a, b string) bool {
-	a = strings.ToLower(strings.TrimSpace(a))
-	b = strings.ToLower(strings.TrimSpace(b))
-	if a == "" || b == "" {
-		return false
+// tokenizeName splits a column name into lowercase tokens for comparison.
+func tokenizeName(name string) []string {
+	name = strings.ToLower(strings.TrimSpace(name))
+	if name == "" {
+		return nil
 	}
-
-	split := func(s string) []string {
-		f := func(r rune) bool {
-			return !(r >= 'a' && r <= 'z') && !(r >= '0' && r <= '9')
-		}
-		parts := strings.FieldsFunc(s, f)
-		var out []string
-		for _, p := range parts {
-			p = strings.TrimSpace(p)
-			if len(p) < renameSharedTokenMinLen {
-				continue
-			}
+	f := func(r rune) bool {
+		return (r < 'a' || r > 'z') && (r < '0' || r > '9')
+	}
+	parts := strings.FieldsFunc(name, f)
+	var out []string
+	for _, p := range parts {
+		if len(p) >= renameSharedTokenMinLen {
 			out = append(out, p)
 		}
-		return out
 	}
+	return out
+}
 
-	ta := split(a)
-	tb := split(b)
-	if len(ta) == 0 || len(tb) == 0 {
+// hasSharedTokens checks if two token slices share any common token.
+func hasSharedTokens(a, b []string) bool {
+	if len(a) == 0 || len(b) == 0 {
 		return false
 	}
-	set := make(map[string]struct{}, len(ta))
-	for _, t := range ta {
+	set := make(map[string]struct{}, len(a))
+	for _, t := range a {
 		set[t] = struct{}{}
 	}
-	for _, t := range tb {
+	for _, t := range b {
 		if _, ok := set[t]; ok {
 			return true
 		}
 	}
 	return false
+}
+
+// hasSharedNameToken checks if two names share a common token (for non-cached usage).
+func hasSharedNameToken(a, b string) bool {
+	return hasSharedTokens(tokenizeName(a), tokenizeName(b))
 }

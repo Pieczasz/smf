@@ -8,7 +8,7 @@ import (
 	"smf/internal/core"
 )
 
-// Migration struct contains all operations that needs to be performed,
+// Migration struct contains all operations that need to be performed
 // to apply a schema migration.
 type Migration struct {
 	Operations []core.Operation
@@ -95,12 +95,17 @@ func (m *Migration) AddUnresolved(msg string) {
 }
 
 func (m *Migration) Dedupe() {
-	seenNote := make(map[string]struct{})
-	seenBreaking := make(map[string]struct{})
-	seenUnresolved := make(map[string]struct{})
-	seenRollback := make(map[string]struct{})
-	var out []core.Operation
-	for _, op := range m.Operations {
+	n := len(m.Operations)
+	if n == 0 {
+		return
+	}
+	seenNote := make(map[string]struct{}, n)
+	seenBreaking := make(map[string]struct{}, n)
+	seenUnresolved := make(map[string]struct{}, n)
+	seenRollback := make(map[string]struct{}, n)
+	out := make([]core.Operation, 0, n)
+	for i := range m.Operations {
+		op := m.Operations[i]
 		op.SQL = strings.TrimSpace(op.SQL)
 		op.RollbackSQL = strings.TrimSpace(op.RollbackSQL)
 		op.UnresolvedReason = strings.TrimSpace(op.UnresolvedReason)
@@ -153,12 +158,13 @@ func (m *Migration) Dedupe() {
 }
 
 func (m *Migration) filterByKind(kind core.OperationKind, fieldFn func(core.Operation) string) []string {
-	var out []string
-	for _, op := range m.Operations {
+	out := make([]string, 0, len(m.Operations)/4+1)
+	for i := range m.Operations {
+		op := &m.Operations[i]
 		if op.Kind != kind {
 			continue
 		}
-		val := strings.TrimSpace(fieldFn(op))
+		val := strings.TrimSpace(fieldFn(*op))
 		if val == "" {
 			continue
 		}

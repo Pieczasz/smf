@@ -117,17 +117,30 @@ type Named interface {
 
 // sortNamed sorts a slice of Named items by name (case-insensitive).
 func sortNamed[T Named](items []T) {
+	if len(items) <= 1 {
+		return
+	}
+	// Pre-compute lowercase keys once
+	keys := make([]string, len(items))
+	for i, item := range items {
+		keys[i] = strings.ToLower(item.GetName())
+	}
 	sort.Slice(items, func(i, j int) bool {
-		return strings.ToLower(items[i].GetName()) < strings.ToLower(items[j].GetName())
+		return keys[i] < keys[j]
 	})
 }
 
 // sortByFunc sorts items using a custom name extractor function.
-// Use this only when the type doesn't implement Named (e.g., has special name logic).
-// NOTE: delete this function if it will be later used only in diff_table
 func sortByFunc[T any](items []T, getName func(T) string) {
+	if len(items) <= 1 {
+		return
+	}
+	keys := make([]string, len(items))
+	for i, item := range items {
+		keys[i] = strings.ToLower(getName(item))
+	}
 	sort.Slice(items, func(i, j int) bool {
-		return strings.ToLower(getName(items[i])) < strings.ToLower(getName(items[j]))
+		return keys[i] < keys[j]
 	})
 }
 
@@ -230,8 +243,15 @@ func unionKeys(a, b map[string]string) []string {
 	for k := range seen {
 		keys = append(keys, k)
 	}
+	if len(keys) <= 1 {
+		return keys
+	}
+	lowerKeys := make([]string, len(keys))
+	for i, k := range keys {
+		lowerKeys[i] = strings.ToLower(k)
+	}
 	sort.Slice(keys, func(i, j int) bool {
-		return strings.ToLower(keys[i]) < strings.ToLower(keys[j])
+		return lowerKeys[i] < lowerKeys[j]
 	})
 	return keys
 }

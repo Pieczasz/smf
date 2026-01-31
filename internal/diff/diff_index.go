@@ -96,13 +96,22 @@ func indexKey(i *core.Index) string {
 	if name != "" {
 		return name
 	}
-	uniq := "0"
+	var sb strings.Builder
+	sb.Grow(32)
+	sb.WriteString("idx:")
 	if i.Unique {
-		uniq = "1"
+		sb.WriteByte('1')
+	} else {
+		sb.WriteByte('0')
 	}
-	cols := make([]string, len(i.Columns))
+	sb.WriteByte(':')
+	sb.WriteString(strings.ToLower(string(i.Type)))
+	sb.WriteByte(':')
 	for idx, c := range i.Columns {
-		cols[idx] = strings.ToLower(c.Name)
+		if idx > 0 {
+			sb.WriteByte(',')
+		}
+		sb.WriteString(strings.ToLower(c.Name))
 	}
-	return "idx:" + uniq + ":" + strings.ToLower(string(i.Type)) + ":" + strings.Join(cols, ",")
+	return sb.String()
 }

@@ -139,7 +139,17 @@ func constraintKey(c *core.Constraint) string {
 	if name != "" {
 		return name
 	}
-	return strings.ToLower(string(c.Type)) + ":" + strings.ToLower(strings.Join(c.Columns, ","))
+	var sb strings.Builder
+	sb.Grow(32)
+	sb.WriteString(strings.ToLower(string(c.Type)))
+	sb.WriteByte(':')
+	for i, col := range c.Columns {
+		if i > 0 {
+			sb.WriteByte(',')
+		}
+		sb.WriteString(strings.ToLower(col))
+	}
+	return sb.String()
 }
 
 func constraintFieldChanges(oldC, newC *core.Constraint) []*FieldChange {

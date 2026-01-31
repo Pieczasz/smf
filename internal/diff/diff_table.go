@@ -9,7 +9,7 @@ import (
 
 const (
 	// OptionsCount is the number of options that we support for MySQL dialect.
-	OptionsCount = 44
+	OptionsCount = 45
 )
 
 func compareTable(oldT, newT *core.Table, opts Options) *TableDiff {
