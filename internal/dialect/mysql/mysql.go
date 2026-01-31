@@ -131,10 +131,6 @@ func (g *Generator) GenerateMigrationWithOptions(schemaDiff *diff.SchemaDiff, op
 			m.AddStatement(result.Statements[i])
 		}
 
-		for i := pairCount; i < len(result.Rollback); i++ {
-			m.AddRollbackStatement(result.Rollback[i])
-		}
-
 		pendingFKs = append(pendingFKs, result.FKStatements...)
 		pendingFKRollback = append(pendingFKRollback, result.FKRollback...)
 	}
@@ -144,27 +140,14 @@ func (g *Generator) GenerateMigrationWithOptions(schemaDiff *diff.SchemaDiff, op
 
 		for i, stmt := range pendingFKs {
 			if i < len(pendingFKRollback) {
-				rb := pendingFKRollback[i]
-				if strings.TrimSpace(rb) != "" {
-					m.AddStatementWithRollback(stmt, rb)
-					continue
-				}
-			}
-			m.AddStatement(stmt)
-		}
-
-		for i := len(pendingFKs); i < len(pendingFKRollback); i++ {
-			rb := pendingFKRollback[i]
-			if strings.TrimSpace(rb) != "" {
-				m.AddRollbackStatement(rb)
+				m.AddStatementWithRollback(stmt, pendingFKRollback[i])
+			} else {
+				m.AddStatement(stmt)
 			}
 		}
 	}
 
 	for _, t := range schemaDiff.RemovedTables {
-		if t == nil {
-			continue
-		}
 		if opts.IncludeUnsafe {
 			m.AddStatementWithRollback(g.GenerateDropTable(t), fmt.Sprintf("-- cannot auto-restore dropped table %s; restore from backup", g.QuoteIdentifier(t.Name)))
 			continue
