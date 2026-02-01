@@ -208,42 +208,54 @@ func (a *Applier) parseSQLMigration(content string) []string {
 }
 
 func (a *Applier) splitStatementsWithParser(content string) []string {
-	var statements []string
 	content = strings.TrimSpace(content)
+	if statements := a.splitStatementsUsingTiDBParser(content); len(statements) > 0 {
+		return statements
+	}
+	return splitStatementsBySemicolon(content)
+}
 
+func (a *Applier) splitStatementsUsingTiDBParser(content string) []string {
 	// TODO: add support for charset and collation
 	stmtNodes, _, err := a.analyzer.parser.Parse(content, "", "")
-	if err == nil && len(stmtNodes) > 0 {
-		for _, node := range stmtNodes {
-			if node == nil {
-				continue
-			}
-			var sb strings.Builder
-			ctx := format.NewRestoreCtx(format.DefaultRestoreFlags, &sb)
-			if restoreErr := node.Restore(ctx); restoreErr != nil {
-				continue
-			}
-			stmt := strings.TrimSpace(sb.String())
-			if stmt != "" {
-				statements = append(statements, stmt)
-			}
+	if err != nil || len(stmtNodes) == 0 {
+		return nil
+	}
+
+	statements := make([]string, 0, len(stmtNodes))
+	for _, node := range stmtNodes {
+		if node == nil {
+			continue
 		}
-		if len(statements) > 0 {
-			return statements
+		var sb strings.Builder
+		ctx := format.NewRestoreCtx(format.DefaultRestoreFlags, &sb)
+		if restoreErr := node.Restore(ctx); restoreErr != nil {
+			continue
+		}
+		stmt := strings.TrimSpace(sb.String())
+		if stmt != "" {
+			statements = append(statements, stmt)
 		}
 	}
 
+	if len(statements) == 0 {
+		return nil
+	}
+	return statements
+}
+
+func splitStatementsBySemicolon(content string) []string {
+	var statements []string
 	var current strings.Builder
+
 	for line := range strings.SplitSeq(content, "\n") {
 		trimmed := strings.TrimSpace(line)
-
 		if strings.HasPrefix(trimmed, "--") || trimmed == "" {
 			continue
 		}
 
 		current.WriteString(line)
 		current.WriteString("\n")
-
 		if strings.HasSuffix(trimmed, ";") {
 			stmt := strings.TrimSpace(current.String())
 			if stmt != "" {
@@ -256,7 +268,6 @@ func (a *Applier) splitStatementsWithParser(content string) []string {
 	if remaining := strings.TrimSpace(current.String()); remaining != "" {
 		statements = append(statements, remaining)
 	}
-
 	return statements
 }
 
