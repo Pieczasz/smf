@@ -41,15 +41,33 @@ func TestValidationErrorError(t *testing.T) {
 }
 
 func TestDatabaseValidate(t *testing.T) {
-	t.Run("nil database", func(t *testing.T) {
-		var db *Database
-		err := db.Validate()
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "database is nil")
-	})
+	for _, tc := range databaseValidateCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.db.Validate()
+			if tc.wantErrContains != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.wantErrContains)
+				return
+			}
+			assert.NoError(t, err)
+		})
+	}
+}
 
-	t.Run("valid database", func(t *testing.T) {
-		db := &Database{
+var databaseValidateCases = []struct {
+	name            string
+	db              *Database
+	wantErrContains string
+}{
+	{
+		name:            "nil database",
+		db:              nil,
+		wantErrContains: "database is nil",
+	},
+	{
+		name: "valid database",
+		db: &Database{
 			Name: "testdb",
 			Tables: []*Table{
 				{
@@ -59,13 +77,11 @@ func TestDatabaseValidate(t *testing.T) {
 					},
 				},
 			},
-		}
-		err := db.Validate()
-		assert.NoError(t, err)
-	})
-
-	t.Run("nil table in database", func(t *testing.T) {
-		db := &Database{
+		},
+	},
+	{
+		name: "nil table in database",
+		db: &Database{
 			Name: "testdb",
 			Tables: []*Table{
 				{
@@ -76,14 +92,12 @@ func TestDatabaseValidate(t *testing.T) {
 				},
 				nil,
 			},
-		}
-		err := db.Validate()
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "table at index 1 is nil")
-	})
-
-	t.Run("duplicate table names", func(t *testing.T) {
-		db := &Database{
+		},
+		wantErrContains: "table at index 1 is nil",
+	},
+	{
+		name: "duplicate table names",
+		db: &Database{
 			Name: "testdb",
 			Tables: []*Table{
 				{
@@ -99,14 +113,12 @@ func TestDatabaseValidate(t *testing.T) {
 					},
 				},
 			},
-		}
-		err := db.Validate()
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "duplicate table name")
-	})
-
-	t.Run("invalid table in database", func(t *testing.T) {
-		db := &Database{
+		},
+		wantErrContains: "duplicate table name",
+	},
+	{
+		name: "invalid table in database",
+		db: &Database{
 			Name: "testdb",
 			Tables: []*Table{
 				{
@@ -114,105 +126,103 @@ func TestDatabaseValidate(t *testing.T) {
 					Columns: []*Column{},
 				},
 			},
-		}
-		err := db.Validate()
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "table has no columns")
-	})
-
-	t.Run("empty database with no tables", func(t *testing.T) {
-		db := &Database{
+		},
+		wantErrContains: "table has no columns",
+	},
+	{
+		name: "empty database with no tables",
+		db: &Database{
 			Name:   "testdb",
 			Tables: []*Table{},
-		}
-		err := db.Validate()
-		assert.NoError(t, err)
-	})
+		},
+	},
 }
 
 func TestTableValidate(t *testing.T) {
-	t.Run("nil table", func(t *testing.T) {
-		var table *Table
-		err := table.Validate()
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "table is nil")
-	})
+	for _, tc := range tableValidateCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.table.Validate()
+			if tc.wantErrContains != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.wantErrContains)
+				return
+			}
+			assert.NoError(t, err)
+		})
+	}
+}
 
-	t.Run("empty table name", func(t *testing.T) {
-		table := &Table{
+var tableValidateCases = []struct {
+	name            string
+	table           *Table
+	wantErrContains string
+}{
+	{name: "nil table", table: nil, wantErrContains: "table is nil"},
+	{
+		name: "empty table name",
+		table: &Table{
 			Name: "",
 			Columns: []*Column{
 				{Name: "id", TypeRaw: "INT"},
 			},
-		}
-		err := table.Validate()
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "table name is empty")
-	})
-
-	t.Run("whitespace only table name", func(t *testing.T) {
-		table := &Table{
+		},
+		wantErrContains: "table name is empty",
+	},
+	{
+		name: "whitespace only table name",
+		table: &Table{
 			Name: "   ",
 			Columns: []*Column{
 				{Name: "id", TypeRaw: "INT"},
 			},
-		}
-		err := table.Validate()
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "table name is empty")
-	})
-
-	t.Run("table with no columns", func(t *testing.T) {
-		table := &Table{
+		},
+		wantErrContains: "table name is empty",
+	},
+	{
+		name: "table with no columns",
+		table: &Table{
 			Name:    "users",
 			Columns: []*Column{},
-		}
-		err := table.Validate()
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "table has no columns")
-	})
-
-	t.Run("nil column in table", func(t *testing.T) {
-		table := &Table{
+		},
+		wantErrContains: "table has no columns",
+	},
+	{
+		name: "nil column in table",
+		table: &Table{
 			Name: "users",
 			Columns: []*Column{
 				{Name: "id", TypeRaw: "INT"},
 				nil,
 			},
-		}
-		err := table.Validate()
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "column at index 1 is nil")
-	})
-
-	t.Run("invalid column in table", func(t *testing.T) {
-		table := &Table{
+		},
+		wantErrContains: "column at index 1 is nil",
+	},
+	{
+		name: "invalid column in table",
+		table: &Table{
 			Name: "users",
 			Columns: []*Column{
 				{Name: "id", TypeRaw: "INT"},
 				{Name: "", TypeRaw: "VARCHAR(255)"},
 			},
-		}
-		err := table.Validate()
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "column name is empty")
-	})
-
-	t.Run("duplicate column names", func(t *testing.T) {
-		table := &Table{
+		},
+		wantErrContains: "column name is empty",
+	},
+	{
+		name: "duplicate column names",
+		table: &Table{
 			Name: "users",
 			Columns: []*Column{
 				{Name: "id", TypeRaw: "INT"},
 				{Name: "ID", TypeRaw: "INT"},
 			},
-		}
-		err := table.Validate()
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "duplicate column name")
-	})
-
-	t.Run("nil constraint in table", func(t *testing.T) {
-		table := &Table{
+		},
+		wantErrContains: "duplicate column name",
+	},
+	{
+		name: "nil constraint in table",
+		table: &Table{
 			Name: "users",
 			Columns: []*Column{
 				{Name: "id", TypeRaw: "INT"},
@@ -221,14 +231,12 @@ func TestTableValidate(t *testing.T) {
 				{Name: "pk_users", Type: ConstraintPrimaryKey, Columns: []string{"id"}},
 				nil,
 			},
-		}
-		err := table.Validate()
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "constraint at index 1 is nil")
-	})
-
-	t.Run("invalid constraint in table", func(t *testing.T) {
-		table := &Table{
+		},
+		wantErrContains: "constraint at index 1 is nil",
+	},
+	{
+		name: "invalid constraint in table",
+		table: &Table{
 			Name: "users",
 			Columns: []*Column{
 				{Name: "id", TypeRaw: "INT"},
@@ -236,14 +244,12 @@ func TestTableValidate(t *testing.T) {
 			Constraints: []*Constraint{
 				{Name: "pk_users", Type: ConstraintPrimaryKey, Columns: []string{}},
 			},
-		}
-		err := table.Validate()
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "constraint has no columns")
-	})
-
-	t.Run("duplicate constraint names", func(t *testing.T) {
-		table := &Table{
+		},
+		wantErrContains: "constraint has no columns",
+	},
+	{
+		name: "duplicate constraint names",
+		table: &Table{
 			Name: "users",
 			Columns: []*Column{
 				{Name: "id", TypeRaw: "INT"},
@@ -253,14 +259,12 @@ func TestTableValidate(t *testing.T) {
 				{Name: "pk_users", Type: ConstraintPrimaryKey, Columns: []string{"id"}},
 				{Name: "PK_Users", Type: ConstraintUnique, Columns: []string{"email"}},
 			},
-		}
-		err := table.Validate()
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "duplicate constraint name")
-	})
-
-	t.Run("empty constraint names are allowed", func(t *testing.T) {
-		table := &Table{
+		},
+		wantErrContains: "duplicate constraint name",
+	},
+	{
+		name: "empty constraint names are allowed",
+		table: &Table{
 			Name: "users",
 			Columns: []*Column{
 				{Name: "id", TypeRaw: "INT"},
@@ -270,13 +274,11 @@ func TestTableValidate(t *testing.T) {
 				{Name: "", Type: ConstraintPrimaryKey, Columns: []string{"id"}},
 				{Name: "", Type: ConstraintUnique, Columns: []string{"email"}},
 			},
-		}
-		err := table.Validate()
-		assert.NoError(t, err)
-	})
-
-	t.Run("nil index in table", func(t *testing.T) {
-		table := &Table{
+		},
+	},
+	{
+		name: "nil index in table",
+		table: &Table{
 			Name: "users",
 			Columns: []*Column{
 				{Name: "id", TypeRaw: "INT"},
@@ -285,14 +287,12 @@ func TestTableValidate(t *testing.T) {
 				{Name: "idx_id", Columns: []IndexColumn{{Name: "id"}}},
 				nil,
 			},
-		}
-		err := table.Validate()
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "index at index 1 is nil")
-	})
-
-	t.Run("invalid index in table", func(t *testing.T) {
-		table := &Table{
+		},
+		wantErrContains: "index at index 1 is nil",
+	},
+	{
+		name: "invalid index in table",
+		table: &Table{
 			Name: "users",
 			Columns: []*Column{
 				{Name: "id", TypeRaw: "INT"},
@@ -300,14 +300,12 @@ func TestTableValidate(t *testing.T) {
 			Indexes: []*Index{
 				{Name: "idx_id", Columns: []IndexColumn{}},
 			},
-		}
-		err := table.Validate()
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "index has no columns")
-	})
-
-	t.Run("duplicate index names", func(t *testing.T) {
-		table := &Table{
+		},
+		wantErrContains: "index has no columns",
+	},
+	{
+		name: "duplicate index names",
+		table: &Table{
 			Name: "users",
 			Columns: []*Column{
 				{Name: "id", TypeRaw: "INT"},
@@ -317,14 +315,12 @@ func TestTableValidate(t *testing.T) {
 				{Name: "idx_email", Columns: []IndexColumn{{Name: "email"}}},
 				{Name: "IDX_Email", Columns: []IndexColumn{{Name: "id"}}},
 			},
-		}
-		err := table.Validate()
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "duplicate index name")
-	})
-
-	t.Run("empty index names are allowed", func(t *testing.T) {
-		table := &Table{
+		},
+		wantErrContains: "duplicate index name",
+	},
+	{
+		name: "empty index names are allowed",
+		table: &Table{
 			Name: "users",
 			Columns: []*Column{
 				{Name: "id", TypeRaw: "INT"},
@@ -334,13 +330,11 @@ func TestTableValidate(t *testing.T) {
 				{Name: "", Columns: []IndexColumn{{Name: "id"}}},
 				{Name: "", Columns: []IndexColumn{{Name: "email"}}},
 			},
-		}
-		err := table.Validate()
-		assert.NoError(t, err)
-	})
-
-	t.Run("valid table with all components", func(t *testing.T) {
-		table := &Table{
+		},
+	},
+	{
+		name: "valid table with all components",
+		table: &Table{
 			Name: "users",
 			Columns: []*Column{
 				{Name: "id", TypeRaw: "INT"},
@@ -352,10 +346,8 @@ func TestTableValidate(t *testing.T) {
 			Indexes: []*Index{
 				{Name: "idx_email", Columns: []IndexColumn{{Name: "email"}}},
 			},
-		}
-		err := table.Validate()
-		assert.NoError(t, err)
-	})
+		},
+	},
 }
 
 func TestColumnValidate(t *testing.T) {
@@ -441,131 +433,125 @@ func TestColumnValidate(t *testing.T) {
 }
 
 func TestConstraintValidate(t *testing.T) {
-	t.Run("nil constraint", func(t *testing.T) {
-		var c *Constraint
-		err := c.Validate()
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "constraint is nil")
-	})
+	for _, tc := range constraintValidateCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.constraint.Validate()
+			if tc.wantErrContains != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.wantErrContains)
+				return
+			}
+			assert.NoError(t, err)
+		})
+	}
+}
 
-	t.Run("primary key without columns", func(t *testing.T) {
-		c := &Constraint{
+var constraintValidateCases = []struct {
+	name            string
+	constraint      *Constraint
+	wantErrContains string
+}{
+	{name: "nil constraint", constraint: nil, wantErrContains: "constraint is nil"},
+	{
+		name: "primary key without columns",
+		constraint: &Constraint{
 			Name:    "pk_users",
 			Type:    ConstraintPrimaryKey,
 			Columns: []string{},
-		}
-		err := c.Validate()
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "constraint has no columns")
-	})
-
-	t.Run("unique constraint without columns", func(t *testing.T) {
-		c := &Constraint{
+		},
+		wantErrContains: "constraint has no columns",
+	},
+	{
+		name: "unique constraint without columns",
+		constraint: &Constraint{
 			Name:    "uq_email",
 			Type:    ConstraintUnique,
 			Columns: []string{},
-		}
-		err := c.Validate()
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "constraint has no columns")
-	})
-
-	t.Run("foreign key without referenced table", func(t *testing.T) {
-		c := &Constraint{
+		},
+		wantErrContains: "constraint has no columns",
+	},
+	{
+		name: "foreign key without referenced table",
+		constraint: &Constraint{
 			Name:              "fk_order_user",
 			Type:              ConstraintForeignKey,
 			Columns:           []string{"user_id"},
 			ReferencedTable:   "",
 			ReferencedColumns: []string{"id"},
-		}
-		err := c.Validate()
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "foreign key must reference a table")
-	})
-
-	t.Run("foreign key with whitespace only referenced table", func(t *testing.T) {
-		c := &Constraint{
+		},
+		wantErrContains: "foreign key must reference a table",
+	},
+	{
+		name: "foreign key with whitespace only referenced table",
+		constraint: &Constraint{
 			Name:              "fk_order_user",
 			Type:              ConstraintForeignKey,
 			Columns:           []string{"user_id"},
 			ReferencedTable:   "   ",
 			ReferencedColumns: []string{"id"},
-		}
-		err := c.Validate()
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "foreign key must reference a table")
-	})
-
-	t.Run("foreign key without referenced columns", func(t *testing.T) {
-		c := &Constraint{
+		},
+		wantErrContains: "foreign key must reference a table",
+	},
+	{
+		name: "foreign key without referenced columns",
+		constraint: &Constraint{
 			Name:              "fk_order_user",
 			Type:              ConstraintForeignKey,
 			Columns:           []string{"user_id"},
 			ReferencedTable:   "users",
 			ReferencedColumns: []string{},
-		}
-		err := c.Validate()
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "foreign key must reference columns")
-	})
-
-	t.Run("foreign key column count mismatch", func(t *testing.T) {
-		c := &Constraint{
+		},
+		wantErrContains: "foreign key must reference columns",
+	},
+	{
+		name: "foreign key column count mismatch",
+		constraint: &Constraint{
 			Name:              "fk_order_user",
 			Type:              ConstraintForeignKey,
 			Columns:           []string{"user_id", "org_id"},
 			ReferencedTable:   "users",
 			ReferencedColumns: []string{"id"},
-		}
-		err := c.Validate()
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "foreign key column count mismatch")
-	})
-
-	t.Run("check constraint without expression", func(t *testing.T) {
-		c := &Constraint{
+		},
+		wantErrContains: "foreign key column count mismatch",
+	},
+	{
+		name: "check constraint without expression",
+		constraint: &Constraint{
 			Name:            "chk_age",
 			Type:            ConstraintCheck,
 			CheckExpression: "",
-		}
-		err := c.Validate()
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "check constraint must have an expression")
-	})
-
-	t.Run("check constraint with whitespace only expression", func(t *testing.T) {
-		c := &Constraint{
+		},
+		wantErrContains: "check constraint must have an expression",
+	},
+	{
+		name: "check constraint with whitespace only expression",
+		constraint: &Constraint{
 			Name:            "chk_age",
 			Type:            ConstraintCheck,
 			CheckExpression: "   ",
-		}
-		err := c.Validate()
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "check constraint must have an expression")
-	})
-
-	t.Run("valid primary key constraint", func(t *testing.T) {
-		c := &Constraint{
+		},
+		wantErrContains: "check constraint must have an expression",
+	},
+	{
+		name: "valid primary key constraint",
+		constraint: &Constraint{
 			Name:    "pk_users",
 			Type:    ConstraintPrimaryKey,
 			Columns: []string{"id"},
-		}
-		err := c.Validate()
-		assert.NoError(t, err)
-	})
-
-	t.Run("valid unique constraint", func(t *testing.T) {
-		c := &Constraint{
+		},
+	},
+	{
+		name: "valid unique constraint",
+		constraint: &Constraint{
 			Name:    "uq_email",
 			Type:    ConstraintUnique,
 			Columns: []string{"email"},
-		}
-		err := c.Validate()
-		assert.NoError(t, err)
-	})
-
-	t.Run("valid foreign key constraint", func(t *testing.T) {
-		c := &Constraint{
+		},
+	},
+	{
+		name: "valid foreign key constraint",
+		constraint: &Constraint{
 			Name:              "fk_order_user",
 			Type:              ConstraintForeignKey,
 			Columns:           []string{"user_id"},
@@ -573,90 +559,90 @@ func TestConstraintValidate(t *testing.T) {
 			ReferencedColumns: []string{"id"},
 			OnDelete:          RefActionCascade,
 			OnUpdate:          RefActionRestrict,
-		}
-		err := c.Validate()
-		assert.NoError(t, err)
-	})
-
-	t.Run("valid check constraint", func(t *testing.T) {
-		c := &Constraint{
+		},
+	},
+	{
+		name: "valid check constraint",
+		constraint: &Constraint{
 			Name:            "chk_age",
 			Type:            ConstraintCheck,
 			CheckExpression: "age >= 0 AND age <= 150",
 			Enforced:        true,
-		}
-		err := c.Validate()
-		assert.NoError(t, err)
-	})
-
-	t.Run("check constraint can have empty columns", func(t *testing.T) {
-		c := &Constraint{
+		},
+	},
+	{
+		name: "check constraint can have empty columns",
+		constraint: &Constraint{
 			Name:            "chk_age",
 			Type:            ConstraintCheck,
 			Columns:         []string{},
 			CheckExpression: "age >= 0",
-		}
-		err := c.Validate()
-		assert.NoError(t, err)
-	})
+		},
+	},
 }
 
 func TestIndexValidate(t *testing.T) {
-	t.Run("nil index", func(t *testing.T) {
-		var idx *Index
-		err := idx.Validate()
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "index is nil")
-	})
+	for _, tc := range indexValidateCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.index.Validate()
+			if tc.wantErrContains != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.wantErrContains)
+				return
+			}
+			assert.NoError(t, err)
+		})
+	}
+}
 
-	t.Run("index without columns", func(t *testing.T) {
-		idx := &Index{
+var indexValidateCases = []struct {
+	name            string
+	index           *Index
+	wantErrContains string
+}{
+	{name: "nil index", index: nil, wantErrContains: "index is nil"},
+	{
+		name: "index without columns",
+		index: &Index{
 			Name:    "idx_email",
 			Columns: []IndexColumn{},
-		}
-		err := idx.Validate()
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "index has no columns")
-	})
-
-	t.Run("index with empty column name", func(t *testing.T) {
-		idx := &Index{
+		},
+		wantErrContains: "index has no columns",
+	},
+	{
+		name: "index with empty column name",
+		index: &Index{
 			Name: "idx_composite",
 			Columns: []IndexColumn{
 				{Name: "email"},
 				{Name: ""},
 			},
-		}
-		err := idx.Validate()
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "index column at position 1 has empty name")
-	})
-
-	t.Run("index with whitespace only column name", func(t *testing.T) {
-		idx := &Index{
+		},
+		wantErrContains: "index column at position 1 has empty name",
+	},
+	{
+		name: "index with whitespace only column name",
+		index: &Index{
 			Name: "idx_composite",
 			Columns: []IndexColumn{
 				{Name: "   "},
 			},
-		}
-		err := idx.Validate()
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "index column at position 0 has empty name")
-	})
-
-	t.Run("valid index with single column", func(t *testing.T) {
-		idx := &Index{
+		},
+		wantErrContains: "index column at position 0 has empty name",
+	},
+	{
+		name: "valid index with single column",
+		index: &Index{
 			Name: "idx_email",
 			Columns: []IndexColumn{
 				{Name: "email"},
 			},
-		}
-		err := idx.Validate()
-		assert.NoError(t, err)
-	})
-
-	t.Run("valid index with multiple columns", func(t *testing.T) {
-		idx := &Index{
+		},
+	},
+	{
+		name: "valid index with multiple columns",
+		index: &Index{
 			Name: "idx_composite",
 			Columns: []IndexColumn{
 				{Name: "first_name", Order: SortAsc},
@@ -664,29 +650,23 @@ func TestIndexValidate(t *testing.T) {
 			},
 			Unique: true,
 			Type:   IndexTypeBTree,
-		}
-		err := idx.Validate()
-		assert.NoError(t, err)
-	})
-
-	t.Run("valid index with length", func(t *testing.T) {
-		idx := &Index{
+		},
+	},
+	{
+		name: "valid index with length",
+		index: &Index{
 			Name: "idx_content",
 			Columns: []IndexColumn{
 				{Name: "content", Length: 100},
 			},
-		}
-		err := idx.Validate()
-		assert.NoError(t, err)
-	})
-
-	t.Run("valid index without name", func(t *testing.T) {
-		idx := &Index{
+		},
+	},
+	{
+		name: "valid index without name",
+		index: &Index{
 			Columns: []IndexColumn{
 				{Name: "email"},
 			},
-		}
-		err := idx.Validate()
-		assert.NoError(t, err)
-	})
+		},
+	},
 }

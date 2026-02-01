@@ -56,7 +56,20 @@ func (t *Table) Validate() error {
 		return &ValidationError{Entity: "table", Name: t.Name, Message: "table has no columns"}
 	}
 
-	// Check for duplicate column names
+	if err := validateTableColumns(t); err != nil {
+		return err
+	}
+	if err := validateTableConstraints(t); err != nil {
+		return err
+	}
+	if err := validateTableIndexes(t); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func validateTableColumns(t *Table) error {
 	seenCols := make(map[string]bool)
 	for i, c := range t.Columns {
 		if c == nil {
@@ -71,8 +84,10 @@ func (t *Table) Validate() error {
 		}
 		seenCols[nameLower] = true
 	}
+	return nil
+}
 
-	// Check for duplicate constraint names (except empty names)
+func validateTableConstraints(t *Table) error {
 	seenConstr := make(map[string]bool)
 	for i, c := range t.Constraints {
 		if c == nil {
@@ -81,16 +96,19 @@ func (t *Table) Validate() error {
 		if err := c.Validate(); err != nil {
 			return err
 		}
-		if c.Name != "" {
-			nameLower := strings.ToLower(c.Name)
-			if seenConstr[nameLower] {
-				return &ValidationError{Entity: "table", Name: t.Name, Message: fmt.Sprintf("duplicate constraint name %q", c.Name)}
-			}
-			seenConstr[nameLower] = true
+		if c.Name == "" {
+			continue
 		}
+		nameLower := strings.ToLower(c.Name)
+		if seenConstr[nameLower] {
+			return &ValidationError{Entity: "table", Name: t.Name, Message: fmt.Sprintf("duplicate constraint name %q", c.Name)}
+		}
+		seenConstr[nameLower] = true
 	}
+	return nil
+}
 
-	// Check for duplicate index names (except empty names)
+func validateTableIndexes(t *Table) error {
 	seenIdx := make(map[string]bool)
 	for i, idx := range t.Indexes {
 		if idx == nil {
@@ -99,15 +117,15 @@ func (t *Table) Validate() error {
 		if err := idx.Validate(); err != nil {
 			return err
 		}
-		if idx.Name != "" {
-			nameLower := strings.ToLower(idx.Name)
-			if seenIdx[nameLower] {
-				return &ValidationError{Entity: "table", Name: t.Name, Message: fmt.Sprintf("duplicate index name %q", idx.Name)}
-			}
-			seenIdx[nameLower] = true
+		if idx.Name == "" {
+			continue
 		}
+		nameLower := strings.ToLower(idx.Name)
+		if seenIdx[nameLower] {
+			return &ValidationError{Entity: "table", Name: t.Name, Message: fmt.Sprintf("duplicate index name %q", idx.Name)}
+		}
+		seenIdx[nameLower] = true
 	}
-
 	return nil
 }
 
