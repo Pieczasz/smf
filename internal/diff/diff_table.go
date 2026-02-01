@@ -106,6 +106,9 @@ func compareOptions(oldT, newT *core.Table, td *TableDiff) {
 	}
 }
 
+// TODO: refactor this logic to remove nolint comment
+//
+//nolint:revive // Large function is necessary to map all table options comprehensively
 func tableOptionMap(t *core.Table) map[string]string {
 	o := t.Options
 	m := make(map[string]string, OptionsCount)
@@ -201,6 +204,9 @@ func (td *TableDiff) sort() {
 	sortNamed(td.ModifiedOptions)
 }
 
+// TODO: refactor this logic to remove nolint comment
+//
+//nolint:revive // Simple boolean conjunction for checking if all slices are empty
 func (td *TableDiff) isEmpty() bool {
 	return len(td.AddedColumns) == 0 &&
 		len(td.RemovedColumns) == 0 &&
