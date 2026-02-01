@@ -70,7 +70,7 @@ func diffCmd() *cobra.Command {
 		Use:   "diff <old.sql> <new.sql>",
 		Short: "Compare two schemas",
 		Args:  cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			return runDiff(args[0], args[1], flags)
 		},
 	}
@@ -116,7 +116,7 @@ func migrateCmd() *cobra.Command {
 from an old state (old.sql) to a new state (new.sql).
 You can specify the source and target database dialects using the --from and --to flags.`,
 		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			return runMigrate(args[0], args[1], flags)
 		},
 	}
@@ -182,7 +182,7 @@ Examples:
   smf apply --dsn "user:pass@tcp(localhost:3306)/mydb" --file migration.sql
   smf apply --dsn "user:pass@tcp(localhost:3306)/mydb" --file migration.sql --dry-run
   smf apply --dsn "user:pass@tcp(localhost:3306)/mydb" --file migration.sql --unsafe`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			return runApply(flags)
 		},
 	}

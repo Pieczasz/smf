@@ -7,103 +7,103 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var quoteIdentifierTests = []struct {
+	name     string
+	input    string
+	expected string
+	desc     string
+}{
+	{
+		name:     "simple_identifier",
+		input:    "users",
+		expected: "`users`",
+		desc:     "simple identifier without special chars",
+	},
+	{
+		name:     "identifier_with_spaces",
+		input:    "user table",
+		expected: "`user table`",
+		desc:     "identifier with spaces should be preserved",
+	},
+	{
+		name:     "identifier_with_backticks",
+		input:    "user`table",
+		expected: "`user``table`",
+		desc:     "backticks should be doubled (escaped)",
+	},
+	{
+		name:     "identifier_with_multiple_backticks",
+		input:    "tab`le`name",
+		expected: "`tab``le``name`",
+		desc:     "multiple backticks should all be doubled",
+	},
+	{
+		name:     "identifier_with_trailing_spaces",
+		input:    "  users  ",
+		expected: "`users`",
+		desc:     "leading/trailing spaces should be trimmed",
+	},
+	{
+		name:     "identifier_with_numbers",
+		input:    "user123",
+		expected: "`user123`",
+		desc:     "identifier with numbers",
+	},
+	{
+		name:     "identifier_with_underscore",
+		input:    "user_data",
+		expected: "`user_data`",
+		desc:     "identifier with underscores",
+	},
+	{
+		name:     "mysql_keyword",
+		input:    "select",
+		expected: "`select`",
+		desc:     "MySQL keywords should still be quoted",
+	},
+	{
+		name:     "identifier_with_hyphen",
+		input:    "user-data",
+		expected: "`user-data`",
+		desc:     "identifier with hyphens",
+	},
+	{
+		name:     "identifier_with_unicode",
+		input:    "用户表",
+		expected: "`用户表`",
+		desc:     "identifier with unicode characters",
+	},
+	{
+		name:     "empty_string",
+		input:    "",
+		expected: "``",
+		desc:     "empty string should result in empty quoted identifier",
+	},
+	{
+		name:     "only_spaces",
+		input:    "   ",
+		expected: "``",
+		desc:     "only spaces should trim to empty, then quote",
+	},
+	{
+		name:     "identifier_at_max_mysql_length",
+		input:    "a",
+		expected: "`a`",
+		desc:     "minimum length identifier",
+	},
+	{
+		name:     "complex_identifier",
+		input:    "`schema`.`table`",
+		expected: "```schema``.``table```",
+		desc:     "complex identifier with backticks and dots",
+	},
+}
+
 func TestQuoteIdentifier(t *testing.T) {
 	gen := NewMySQLGenerator()
 	require.NotNil(t, gen)
 
-	tests := []struct {
-		name     string
-		input    string
-		expected string
-		desc     string
-	}{
-		{
-			name:     "simple_identifier",
-			input:    "users",
-			expected: "`users`",
-			desc:     "simple identifier without special chars",
-		},
-		{
-			name:     "identifier_with_spaces",
-			input:    "user table",
-			expected: "`user table`",
-			desc:     "identifier with spaces should be preserved",
-		},
-		{
-			name:     "identifier_with_backticks",
-			input:    "user`table",
-			expected: "`user``table`",
-			desc:     "backticks should be doubled (escaped)",
-		},
-		{
-			name:     "identifier_with_multiple_backticks",
-			input:    "tab`le`name",
-			expected: "`tab``le``name`",
-			desc:     "multiple backticks should all be doubled",
-		},
-		{
-			name:     "identifier_with_trailing_spaces",
-			input:    "  users  ",
-			expected: "`users`",
-			desc:     "leading/trailing spaces should be trimmed",
-		},
-		{
-			name:     "identifier_with_numbers",
-			input:    "user123",
-			expected: "`user123`",
-			desc:     "identifier with numbers",
-		},
-		{
-			name:     "identifier_with_underscore",
-			input:    "user_data",
-			expected: "`user_data`",
-			desc:     "identifier with underscores",
-		},
-		{
-			name:     "mysql_keyword",
-			input:    "select",
-			expected: "`select`",
-			desc:     "MySQL keywords should still be quoted",
-		},
-		{
-			name:     "identifier_with_hyphen",
-			input:    "user-data",
-			expected: "`user-data`",
-			desc:     "identifier with hyphens",
-		},
-		{
-			name:     "identifier_with_unicode",
-			input:    "用户表",
-			expected: "`用户表`",
-			desc:     "identifier with unicode characters",
-		},
-		{
-			name:     "empty_string",
-			input:    "",
-			expected: "``",
-			desc:     "empty string should result in empty quoted identifier",
-		},
-		{
-			name:     "only_spaces",
-			input:    "   ",
-			expected: "``",
-			desc:     "only spaces should trim to empty, then quote",
-		},
-		{
-			name:     "identifier_at_max_mysql_length",
-			input:    "a",
-			expected: "`a`",
-			desc:     "minimum length identifier",
-		},
-		{
-			name:     "complex_identifier",
-			input:    "`schema`.`table`",
-			expected: "```schema``.``table```",
-			desc:     "complex identifier with backticks and dots",
-		},
-	}
-
-	for _, tt := range tests {
+	for _, tt := range quoteIdentifierTests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := gen.QuoteIdentifier(tt.input)
 			assert.Equal(t, tt.expected, result, tt.desc)
@@ -124,6 +124,7 @@ func TestQuoteIdentifierEdgeCases(t *testing.T) {
 			name:  "result_is_quoted",
 			input: "test",
 			check: func(t *testing.T, result string) {
+				t.Helper()
 				assert.True(t, len(result) > 0, "result should not be empty")
 				assert.Equal(t, '`', rune(result[0]), "result should start with backtick")
 				assert.Equal(t, '`', rune(result[len(result)-1]), "result should end with backtick")
@@ -134,6 +135,7 @@ func TestQuoteIdentifierEdgeCases(t *testing.T) {
 			name:  "preserves_content_structure",
 			input: "my_table",
 			check: func(t *testing.T, result string) {
+				t.Helper()
 				assert.Equal(t, "`my_table`", result)
 			},
 			desc: "quoted identifier should preserve the content",
@@ -142,6 +144,7 @@ func TestQuoteIdentifierEdgeCases(t *testing.T) {
 			name:  "idempotency_is_not_required",
 			input: "already`quoted",
 			check: func(t *testing.T, result string) {
+				t.Helper()
 				result2 := gen.QuoteIdentifier(result)
 				assert.NotEqual(t, result, result2, "quoting again produces different result (backticks get escaped again)")
 			},

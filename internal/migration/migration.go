@@ -106,55 +106,81 @@ func (m *Migration) Dedupe() {
 	out := make([]core.Operation, 0, n)
 	for i := range m.Operations {
 		op := m.Operations[i]
-		op.SQL = strings.TrimSpace(op.SQL)
-		op.RollbackSQL = strings.TrimSpace(op.RollbackSQL)
-		op.UnresolvedReason = strings.TrimSpace(op.UnresolvedReason)
+		m.normalizeOperation(&op)
 
-		switch op.Kind {
-		case core.OperationSQL:
-			if op.SQL == "" && op.RollbackSQL == "" {
-				continue
-			}
-			if op.RollbackSQL != "" {
-				if _, ok := seenRollback[op.RollbackSQL]; ok {
-					op.RollbackSQL = ""
-				} else {
-					seenRollback[op.RollbackSQL] = struct{}{}
-				}
-			}
-			out = append(out, op)
-		case core.OperationNote:
-			if op.SQL == "" {
-				continue
-			}
-			if _, ok := seenNote[op.SQL]; ok {
-				continue
-			}
-			seenNote[op.SQL] = struct{}{}
-			out = append(out, op)
-		case core.OperationBreaking:
-			if op.SQL == "" {
-				continue
-			}
-			if _, ok := seenBreaking[op.SQL]; ok {
-				continue
-			}
-			seenBreaking[op.SQL] = struct{}{}
-			out = append(out, op)
-		case core.OperationUnresolved:
-			if op.UnresolvedReason == "" {
-				continue
-			}
-			if _, ok := seenUnresolved[op.UnresolvedReason]; ok {
-				continue
-			}
-			seenUnresolved[op.UnresolvedReason] = struct{}{}
-			out = append(out, op)
-		default:
+		if m.shouldIncludeOperationWithDedup(&op, seenNote, seenBreaking, seenUnresolved, seenRollback) {
 			out = append(out, op)
 		}
 	}
 	m.Operations = out
+}
+
+func (m *Migration) normalizeOperation(op *core.Operation) {
+	op.SQL = strings.TrimSpace(op.SQL)
+	op.RollbackSQL = strings.TrimSpace(op.RollbackSQL)
+	op.UnresolvedReason = strings.TrimSpace(op.UnresolvedReason)
+}
+
+func (m *Migration) shouldIncludeOperationWithDedup(op *core.Operation, seenNote, seenBreaking, seenUnresolved, seenRollback map[string]struct{}) bool {
+	switch op.Kind {
+	case core.OperationSQL:
+		return m.shouldIncludeSQLWithDedup(op, seenRollback)
+	case core.OperationNote:
+		return m.shouldIncludeNote(*op, seenNote)
+	case core.OperationBreaking:
+		return m.shouldIncludeBreaking(*op, seenBreaking)
+	case core.OperationUnresolved:
+		return m.shouldIncludeUnresolved(*op, seenUnresolved)
+	default:
+		return true
+	}
+}
+
+func (m *Migration) shouldIncludeSQLWithDedup(op *core.Operation, seenRollback map[string]struct{}) bool {
+	if op.SQL == "" && op.RollbackSQL == "" {
+		return false
+	}
+	if op.RollbackSQL != "" {
+		if _, ok := seenRollback[op.RollbackSQL]; ok {
+			op.RollbackSQL = ""
+		} else {
+			seenRollback[op.RollbackSQL] = struct{}{}
+		}
+	}
+	return true
+}
+
+func (m *Migration) shouldIncludeNote(op core.Operation, seenNote map[string]struct{}) bool {
+	if op.SQL == "" {
+		return false
+	}
+	if _, ok := seenNote[op.SQL]; ok {
+		return false
+	}
+	seenNote[op.SQL] = struct{}{}
+	return true
+}
+
+func (m *Migration) shouldIncludeBreaking(op core.Operation, seenBreaking map[string]struct{}) bool {
+	if op.SQL == "" {
+		return false
+	}
+	if _, ok := seenBreaking[op.SQL]; ok {
+		return false
+	}
+	seenBreaking[op.SQL] = struct{}{}
+	return true
+}
+
+func (m *Migration) shouldIncludeUnresolved(op core.Operation, seenUnresolved map[string]struct{}) bool {
+	if op.UnresolvedReason == "" {
+		return false
+	}
+	if _, ok := seenUnresolved[op.UnresolvedReason]; ok {
+		return false
+	}
+	seenUnresolved[op.UnresolvedReason] = struct{}{}
+	return true
 }
 
 func (m *Migration) filterByKind(kind core.OperationKind, fieldFn func(core.Operation) string) []string {

@@ -76,6 +76,30 @@ func (g *Generator) GenerateMigration(schemaDiff *diff.SchemaDiff) *migration.Mi
 // A user provides options to customize the migration process.
 func (g *Generator) GenerateMigrationWithOptions(schemaDiff *diff.SchemaDiff, opts dialect.MigrationOptions) *migration.Migration {
 	m := &migration.Migration{}
+
+	g.addBreakingChangeWarnings(m, schemaDiff)
+
+	if !opts.IncludeUnsafe {
+		m.AddNote("Safe mode: destructive drops are avoided (tables/columns are renamed to __smf_backup_* instead of dropped) to enable a reliable rollback.")
+	}
+
+	pendingFKs, pendingFKRollback := g.processAddedTables(m, schemaDiff)
+	fks, fkRB := g.processModifiedTables(m, schemaDiff, &opts)
+	pendingFKs = append(pendingFKs, fks...)
+	pendingFKRollback = append(pendingFKRollback, fkRB...)
+
+	g.addPendingForeignKeys(m, pendingFKs, pendingFKRollback)
+	g.processRemovedTables(m, schemaDiff, &opts)
+
+	if hasPotentiallyLockingStatements(m.Plan()) {
+		m.AddNote("Lock-time warning: ALTER TABLE / index changes may lock or rebuild tables; for large tables consider online schema change tools and off-peak execution.")
+	}
+
+	m.Dedupe()
+	return m
+}
+
+func (g *Generator) addBreakingChangeWarnings(m *migration.Migration, schemaDiff *diff.SchemaDiff) {
 	analyzer := diff.NewBreakingChangeAnalyzer()
 	breakingChanges := analyzer.Analyze(schemaDiff)
 	for i := range breakingChanges {
@@ -92,11 +116,9 @@ func (g *Generator) GenerateMigrationWithOptions(schemaDiff *diff.SchemaDiff, op
 			m.AddNote(rec)
 		}
 	}
+}
 
-	if !opts.IncludeUnsafe {
-		m.AddNote("Safe mode: destructive drops are avoided (tables/columns are renamed to __smf_backup_* instead of dropped) to enable a reliable rollback.")
-	}
-
+func (g *Generator) processAddedTables(m *migration.Migration, schemaDiff *diff.SchemaDiff) ([]string, []string) {
 	estimatedFKs := len(schemaDiff.AddedTables) * 2
 	pendingFKs := make([]string, 0, estimatedFKs)
 	pendingFKRollback := make([]string, 0, estimatedFKs)
@@ -117,16 +139,19 @@ func (g *Generator) GenerateMigrationWithOptions(schemaDiff *diff.SchemaDiff, op
 			}
 		}
 	}
+	return pendingFKs, pendingFKRollback
+}
+
+func (g *Generator) processModifiedTables(m *migration.Migration, schemaDiff *diff.SchemaDiff, opts *dialect.MigrationOptions) ([]string, []string) {
+	var pendingFKs, pendingFKRollback []string
 
 	for _, td := range schemaDiff.ModifiedTables {
-		result := g.generateAlterTable(td, &opts)
+		result := g.generateAlterTable(td, opts)
 
 		pairCount := min(len(result.Statements), len(result.Rollback))
-
 		for i := range pairCount {
 			m.AddStatementWithRollback(result.Statements[i], result.Rollback[i])
 		}
-
 		for i := pairCount; i < len(result.Statements); i++ {
 			m.AddStatement(result.Statements[i])
 		}
@@ -134,19 +159,25 @@ func (g *Generator) GenerateMigrationWithOptions(schemaDiff *diff.SchemaDiff, op
 		pendingFKs = append(pendingFKs, result.FKStatements...)
 		pendingFKRollback = append(pendingFKRollback, result.FKRollback...)
 	}
+	return pendingFKs, pendingFKRollback
+}
 
-	if len(pendingFKs) > 0 {
-		m.AddNote("Foreign keys added after table creation to avoid dependency issues.")
-
-		for i, stmt := range pendingFKs {
-			if i < len(pendingFKRollback) {
-				m.AddStatementWithRollback(stmt, pendingFKRollback[i])
-			} else {
-				m.AddStatement(stmt)
-			}
-		}
+func (g *Generator) addPendingForeignKeys(m *migration.Migration, pendingFKs, pendingFKRollback []string) {
+	if len(pendingFKs) == 0 {
+		return
 	}
 
+	m.AddNote("Foreign keys added after table creation to avoid dependency issues.")
+	for i, stmt := range pendingFKs {
+		if i < len(pendingFKRollback) {
+			m.AddStatementWithRollback(stmt, pendingFKRollback[i])
+		} else {
+			m.AddStatement(stmt)
+		}
+	}
+}
+
+func (g *Generator) processRemovedTables(m *migration.Migration, schemaDiff *diff.SchemaDiff, opts *dialect.MigrationOptions) {
 	for _, t := range schemaDiff.RemovedTables {
 		if opts.IncludeUnsafe {
 			m.AddStatementWithRollback(g.GenerateDropTable(t), fmt.Sprintf("-- cannot auto-restore dropped table %s; restore from backup", g.QuoteIdentifier(t.Name)))
@@ -157,20 +188,28 @@ func (g *Generator) GenerateMigrationWithOptions(schemaDiff *diff.SchemaDiff, op
 		down := fmt.Sprintf("RENAME TABLE %s TO %s;", g.QuoteIdentifier(backup), g.QuoteIdentifier(t.Name))
 		m.AddStatementWithRollback(up, down)
 	}
-
-	if hasPotentiallyLockingStatements(m.Plan()) {
-		m.AddNote("Lock-time warning: ALTER TABLE / index changes may lock or rebuild tables; for large tables consider online schema change tools and off-peak execution.")
-	}
-
-	m.Dedupe()
-
-	return m
 }
 
 // GenerateCreateTable generate an SQL statement to create a table, depending on Table struct representation.
 func (g *Generator) GenerateCreateTable(t *core.Table) (string, []string) {
 	name := g.QuoteIdentifier(t.Name)
 
+	lines, fks := g.buildTableDefinitionLines(t)
+	options := g.tableOptions(t)
+	create := fmt.Sprintf("CREATE TABLE %s (\n%s\n)%s;", name, strings.Join(lines, ",\n"), options)
+
+	var fkStmts []string
+	for _, fk := range fks {
+		stmt := g.addConstraint(name, fk)
+		if stmt != "" {
+			fkStmts = append(fkStmts, stmt)
+		}
+	}
+
+	return create, fkStmts
+}
+
+func (g *Generator) buildTableDefinitionLines(t *core.Table) ([]string, []*core.Constraint) {
 	var lines []string
 	for _, c := range t.Columns {
 		if c == nil {
@@ -202,18 +241,7 @@ func (g *Generator) GenerateCreateTable(t *core.Table) (string, []string) {
 		}
 	}
 
-	options := g.tableOptions(t)
-	create := fmt.Sprintf("CREATE TABLE %s (\n%s\n)%s;", name, strings.Join(lines, ",\n"), options)
-
-	var fkStmts []string
-	for _, fk := range fks {
-		stmt := g.addConstraint(name, fk)
-		if stmt != "" {
-			fkStmts = append(fkStmts, stmt)
-		}
-	}
-
-	return create, fkStmts
+	return lines, fks
 }
 
 // GenerateDropTable generate an SQL statement to drop a table.

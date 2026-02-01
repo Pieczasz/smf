@@ -457,117 +457,117 @@ func TestMigrationAddUnresolved(t *testing.T) {
 	}
 }
 
-func TestMigrationDedupe(t *testing.T) {
-	tests := []struct {
-		name       string
-		operations []core.Operation
-		want       []core.Operation
-	}{
-		{name: "empty operations", operations: nil, want: nil},
-		{
-			name: "no duplicates - unchanged",
-			operations: []core.Operation{
-				{Kind: core.OperationSQL, SQL: "CREATE TABLE users"},
-				{Kind: core.OperationNote, SQL: "Note 1"},
-				{Kind: core.OperationBreaking, SQL: "Breaking 1"},
-			},
-			want: []core.Operation{
-				{Kind: core.OperationSQL, SQL: "CREATE TABLE users"},
-				{Kind: core.OperationNote, SQL: "Note 1"},
-				{Kind: core.OperationBreaking, SQL: "Breaking 1"},
-			},
+var migrationDedupeTests = []struct {
+	name       string
+	operations []core.Operation
+	want       []core.Operation
+}{
+	{name: "empty operations", operations: nil, want: nil},
+	{
+		name: "no duplicates - unchanged",
+		operations: []core.Operation{
+			{Kind: core.OperationSQL, SQL: "CREATE TABLE users"},
+			{Kind: core.OperationNote, SQL: "Note 1"},
+			{Kind: core.OperationBreaking, SQL: "Breaking 1"},
 		},
-		{
-			name: "duplicate notes are removed",
-			operations: []core.Operation{
-				{Kind: core.OperationNote, SQL: "Same note"},
-				{Kind: core.OperationNote, SQL: "Same note"},
-				{Kind: core.OperationNote, SQL: "Different note"},
-			},
-			want: []core.Operation{
-				{Kind: core.OperationNote, SQL: "Same note"},
-				{Kind: core.OperationNote, SQL: "Different note"},
-			},
+		want: []core.Operation{
+			{Kind: core.OperationSQL, SQL: "CREATE TABLE users"},
+			{Kind: core.OperationNote, SQL: "Note 1"},
+			{Kind: core.OperationBreaking, SQL: "Breaking 1"},
 		},
-		{
-			name: "duplicate breaking notes are removed",
-			operations: []core.Operation{
-				{Kind: core.OperationBreaking, SQL: "Breaking change"},
-				{Kind: core.OperationBreaking, SQL: "Breaking change"},
-				{Kind: core.OperationBreaking, SQL: "Another breaking"},
-			},
-			want: []core.Operation{
-				{Kind: core.OperationBreaking, SQL: "Breaking change"},
-				{Kind: core.OperationBreaking, SQL: "Another breaking"},
-			},
+	},
+	{
+		name: "duplicate notes are removed",
+		operations: []core.Operation{
+			{Kind: core.OperationNote, SQL: "Same note"},
+			{Kind: core.OperationNote, SQL: "Same note"},
+			{Kind: core.OperationNote, SQL: "Different note"},
 		},
-		{
-			name: "duplicate unresolved notes are removed",
-			operations: []core.Operation{
-				{Kind: core.OperationUnresolved, UnresolvedReason: "Cannot resolve"},
-				{Kind: core.OperationUnresolved, UnresolvedReason: "Cannot resolve"},
-				{Kind: core.OperationUnresolved, UnresolvedReason: "Different issue"},
-			},
-			want: []core.Operation{
-				{Kind: core.OperationUnresolved, UnresolvedReason: "Cannot resolve"},
-				{Kind: core.OperationUnresolved, UnresolvedReason: "Different issue"},
-			},
+		want: []core.Operation{
+			{Kind: core.OperationNote, SQL: "Same note"},
+			{Kind: core.OperationNote, SQL: "Different note"},
 		},
-		{
-			name: "duplicate rollback SQL is cleared on duplicate",
-			operations: []core.Operation{
-				{Kind: core.OperationSQL, SQL: "CREATE TABLE users", RollbackSQL: "DROP TABLE users"},
-				{Kind: core.OperationSQL, SQL: "CREATE TABLE posts", RollbackSQL: "DROP TABLE users"},
-			},
-			want: []core.Operation{
-				{Kind: core.OperationSQL, SQL: "CREATE TABLE users", RollbackSQL: "DROP TABLE users"},
-				{Kind: core.OperationSQL, SQL: "CREATE TABLE posts", RollbackSQL: ""},
-			},
+	},
+	{
+		name: "duplicate breaking notes are removed",
+		operations: []core.Operation{
+			{Kind: core.OperationBreaking, SQL: "Breaking change"},
+			{Kind: core.OperationBreaking, SQL: "Breaking change"},
+			{Kind: core.OperationBreaking, SQL: "Another breaking"},
 		},
-		{
-			name: "empty SQL operations are removed",
-			operations: []core.Operation{
-				{Kind: core.OperationSQL, SQL: "", RollbackSQL: ""},
-				{Kind: core.OperationSQL, SQL: "CREATE TABLE users"},
-			},
-			want: []core.Operation{
-				{Kind: core.OperationSQL, SQL: "CREATE TABLE users"},
-			},
+		want: []core.Operation{
+			{Kind: core.OperationBreaking, SQL: "Breaking change"},
+			{Kind: core.OperationBreaking, SQL: "Another breaking"},
 		},
-		{
-			name: "whitespace is trimmed before deduplication",
-			operations: []core.Operation{
-				{Kind: core.OperationNote, SQL: "  Note  "},
-				{Kind: core.OperationNote, SQL: "Note"},
-			},
-			want: []core.Operation{
-				{Kind: core.OperationNote, SQL: "Note"},
-			},
+	},
+	{
+		name: "duplicate unresolved notes are removed",
+		operations: []core.Operation{
+			{Kind: core.OperationUnresolved, UnresolvedReason: "Cannot resolve"},
+			{Kind: core.OperationUnresolved, UnresolvedReason: "Cannot resolve"},
+			{Kind: core.OperationUnresolved, UnresolvedReason: "Different issue"},
 		},
-		{
-			name: "complex mixed scenario",
-			operations: []core.Operation{
-				{Kind: core.OperationSQL, SQL: "CREATE TABLE users", RollbackSQL: "DROP TABLE users"},
-				{Kind: core.OperationNote, SQL: "Note 1"},
-				{Kind: core.OperationBreaking, SQL: "Breaking 1"},
-				{Kind: core.OperationUnresolved, UnresolvedReason: "Issue 1"},
-				{Kind: core.OperationSQL, SQL: "CREATE TABLE posts", RollbackSQL: "DROP TABLE users"},
-				{Kind: core.OperationNote, SQL: "Note 1"},
-				{Kind: core.OperationBreaking, SQL: "Breaking 1"},
-				{Kind: core.OperationUnresolved, UnresolvedReason: "Issue 1"},
-				{Kind: core.OperationNote, SQL: "   "},
-			},
-			want: []core.Operation{
-				{Kind: core.OperationSQL, SQL: "CREATE TABLE users", RollbackSQL: "DROP TABLE users"},
-				{Kind: core.OperationNote, SQL: "Note 1"},
-				{Kind: core.OperationBreaking, SQL: "Breaking 1"},
-				{Kind: core.OperationUnresolved, UnresolvedReason: "Issue 1"},
-				{Kind: core.OperationSQL, SQL: "CREATE TABLE posts", RollbackSQL: ""},
-			},
+		want: []core.Operation{
+			{Kind: core.OperationUnresolved, UnresolvedReason: "Cannot resolve"},
+			{Kind: core.OperationUnresolved, UnresolvedReason: "Different issue"},
 		},
-	}
+	},
+	{
+		name: "duplicate rollback SQL is cleared on duplicate",
+		operations: []core.Operation{
+			{Kind: core.OperationSQL, SQL: "CREATE TABLE users", RollbackSQL: "DROP TABLE users"},
+			{Kind: core.OperationSQL, SQL: "CREATE TABLE posts", RollbackSQL: "DROP TABLE users"},
+		},
+		want: []core.Operation{
+			{Kind: core.OperationSQL, SQL: "CREATE TABLE users", RollbackSQL: "DROP TABLE users"},
+			{Kind: core.OperationSQL, SQL: "CREATE TABLE posts", RollbackSQL: ""},
+		},
+	},
+	{
+		name: "empty SQL operations are removed",
+		operations: []core.Operation{
+			{Kind: core.OperationSQL, SQL: "", RollbackSQL: ""},
+			{Kind: core.OperationSQL, SQL: "CREATE TABLE users"},
+		},
+		want: []core.Operation{
+			{Kind: core.OperationSQL, SQL: "CREATE TABLE users"},
+		},
+	},
+	{
+		name: "whitespace is trimmed before deduplication",
+		operations: []core.Operation{
+			{Kind: core.OperationNote, SQL: "  Note  "},
+			{Kind: core.OperationNote, SQL: "Note"},
+		},
+		want: []core.Operation{
+			{Kind: core.OperationNote, SQL: "Note"},
+		},
+	},
+	{
+		name: "complex mixed scenario",
+		operations: []core.Operation{
+			{Kind: core.OperationSQL, SQL: "CREATE TABLE users", RollbackSQL: "DROP TABLE users"},
+			{Kind: core.OperationNote, SQL: "Note 1"},
+			{Kind: core.OperationBreaking, SQL: "Breaking 1"},
+			{Kind: core.OperationUnresolved, UnresolvedReason: "Issue 1"},
+			{Kind: core.OperationSQL, SQL: "CREATE TABLE posts", RollbackSQL: "DROP TABLE users"},
+			{Kind: core.OperationNote, SQL: "Note 1"},
+			{Kind: core.OperationBreaking, SQL: "Breaking 1"},
+			{Kind: core.OperationUnresolved, UnresolvedReason: "Issue 1"},
+			{Kind: core.OperationNote, SQL: "   "},
+		},
+		want: []core.Operation{
+			{Kind: core.OperationSQL, SQL: "CREATE TABLE users", RollbackSQL: "DROP TABLE users"},
+			{Kind: core.OperationNote, SQL: "Note 1"},
+			{Kind: core.OperationBreaking, SQL: "Breaking 1"},
+			{Kind: core.OperationUnresolved, UnresolvedReason: "Issue 1"},
+			{Kind: core.OperationSQL, SQL: "CREATE TABLE posts", RollbackSQL: ""},
+		},
+	},
+}
 
-	for _, tt := range tests {
+func TestMigrationDedupe(t *testing.T) {
+	for _, tt := range migrationDedupeTests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := &Migration{Operations: tt.operations}
 			m.Dedupe()

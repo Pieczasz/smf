@@ -11,72 +11,7 @@ import (
 
 func TestBreakingChangeAnalyzer(t *testing.T) {
 	t.Run("all severities and types", func(t *testing.T) {
-		oldDB := &core.Database{Tables: []*core.Table{
-			{
-				Name: "users",
-				Columns: []*core.Column{
-					{Name: "id", TypeRaw: "INT", Type: core.NormalizeDataType("INT"), Nullable: false, PrimaryKey: true, AutoIncrement: true, Charset: "utf8mb4", Collate: "utf8mb4_unicode_ci", Comment: "old"},
-					{Name: "name", TypeRaw: "VARCHAR(100)", Type: core.NormalizeDataType("VARCHAR(100)"), Nullable: true, DefaultValue: strPtr("old"), Comment: "old"},
-					{Name: "bio", TypeRaw: "TEXT", Type: core.NormalizeDataType("TEXT"), Nullable: true},
-					{Name: "gen", TypeRaw: "INT", Type: core.NormalizeDataType("INT"), Nullable: true, IsGenerated: true, GenerationExpression: "id + 1", GenerationStorage: core.GenerationVirtual},
-				},
-				Constraints: []*core.Constraint{
-					{Name: "PRIMARY", Type: core.ConstraintPrimaryKey, Columns: []string{"id"}},
-					{Name: "uq_users_name", Type: core.ConstraintUnique, Columns: []string{"name"}},
-				},
-				Indexes: []*core.Index{
-					{Name: "idx_name", Columns: []core.IndexColumn{{Name: "name"}}, Unique: false, Type: core.IndexTypeBTree},
-				},
-				Options: core.TableOptions{Engine: "InnoDB", Charset: "utf8mb4", Collate: "utf8mb4_unicode_ci"},
-			},
-			{
-				Name:        "to_drop",
-				Columns:     []*core.Column{{Name: "id", TypeRaw: "INT", Type: core.NormalizeDataType("INT"), Nullable: false, PrimaryKey: true}},
-				Constraints: []*core.Constraint{{Name: "PRIMARY", Type: core.ConstraintPrimaryKey, Columns: []string{"id"}}},
-			},
-		}}
-
-		newDB := &core.Database{Tables: []*core.Table{
-			{
-				Name: "users",
-				Columns: []*core.Column{
-					// type widening: INT -> BIGINT (INFO)
-					{Name: "id", TypeRaw: "BIGINT", Type: core.NormalizeDataType("BIGINT"), Nullable: false, PrimaryKey: true, AutoIncrement: true, Charset: "utf8mb4", Collate: "utf8mb4_unicode_ci", Comment: "old"},
-					// length shrink + NOT NULL + default change + comment change
-					{Name: "name", TypeRaw: "VARCHAR(50)", Type: core.NormalizeDataType("VARCHAR(50)"), Nullable: false, DefaultValue: strPtr("new"), Comment: "new"},
-					// dropped column (CRITICAL)
-					// bio removed
-					// generated expression change (BREAKING)
-					{Name: "gen", TypeRaw: "INT", Type: core.NormalizeDataType("INT"), Nullable: true, IsGenerated: true, GenerationExpression: "id + 2", GenerationStorage: core.GenerationVirtual},
-					// new NOT NULL without a default (BREAKING)
-					{Name: "email", TypeRaw: "VARCHAR(255)", Type: core.NormalizeDataType("VARCHAR(255)"), Nullable: false},
-					// column rename: old_col -> renamed_col (reported via rename heuristic)
-					{Name: "renamed_col", TypeRaw: "INT", Type: core.NormalizeDataType("INT"), Nullable: true, Comment: "same"},
-				},
-				Constraints: []*core.Constraint{
-					// PK remains
-					{Name: "PRIMARY", Type: core.ConstraintPrimaryKey, Columns: []string{"id"}},
-					// modify unique constraint (WARNING)
-					{Name: "uq_users_name", Type: core.ConstraintUnique, Columns: []string{"email"}},
-					// add check constraint (BREAKING)
-					{Name: "chk_email", Type: core.ConstraintCheck, Columns: []string{"email"}, CheckExpression: "email <> ''"},
-				},
-				Indexes: []*core.Index{
-					// modify index columns (WARNING)
-					{Name: "idx_name", Columns: []core.IndexColumn{{Name: "email"}}, Unique: false, Type: core.IndexTypeBTree},
-					// add unique index (BREAKING)
-					{Name: "uidx_email", Columns: []core.IndexColumn{{Name: "email"}}, Unique: true, Type: core.IndexTypeBTree},
-					// add fulltext index (INFO)
-					{Name: "ft_name", Columns: []core.IndexColumn{{Name: "name"}}, Unique: false, Type: core.IndexTypeFullText},
-				},
-				Options: core.TableOptions{Engine: "MyISAM", Charset: "latin1", Collate: "latin1_swedish_ci"},
-			},
-		}}
-
-		oldUsers := oldDB.FindTable("users")
-		require.NotNil(t, oldUsers)
-		oldUsers.Columns = append(oldUsers.Columns, &core.Column{Name: "old_col", TypeRaw: "INT", Type: core.NormalizeDataType("INT"), Nullable: true, Comment: "same"})
-
+		oldDB, newDB := setupBreakingChangeTestDBs()
 		d := Diff(oldDB, newDB, DefaultOptions())
 		require.NotNil(t, d)
 
@@ -84,23 +19,7 @@ func TestBreakingChangeAnalyzer(t *testing.T) {
 		changes := an.Analyze(d)
 		require.NotEmpty(t, changes)
 
-		assert.True(t, hasBC(changes, SeverityInfo, "users", "id", "type changes"))
-		assert.True(t, hasBC(changes, SeverityBreaking, "users", "name", "becomes NOT NULL"))
-		assert.True(t, hasBC(changes, SeverityBreaking, "users", "name", "length shrinks"))
-		assert.True(t, hasBC(changes, SeverityWarning, "users", "name", "Default value changes"))
-		assert.True(t, hasBC(changes, SeverityInfo, "users", "name", "comment"))
-		assert.True(t, hasBC(changes, SeverityCritical, "users", "bio", "Column will be dropped"))
-		assert.True(t, hasBC(changes, SeverityBreaking, "users", "gen", "Generated column expression changed"))
-		assert.True(t, hasBC(changes, SeverityBreaking, "users", "email", "Adding NOT NULL column"))
-		assert.True(t, hasBC(changes, SeverityBreaking, "users", "old_col->renamed_col", "Column rename detected"))
-		assert.True(t, hasBC(changes, SeverityWarning, "users", "idx_name", "Index modified"))
-		assert.True(t, hasBC(changes, SeverityBreaking, "users", "uidx_email", "Unique index added"))
-
-		assert.True(t, hasBC(changes, SeverityBreaking, "users", "ENGINE", "Storage engine changes"))
-		assert.True(t, hasBC(changes, SeverityWarning, "users", "CHARSET", "Character set changes"))
-		assert.True(t, hasBC(changes, SeverityWarning, "users", "COLLATE", "Collation changes"))
-
-		assert.True(t, hasBC(changes, SeverityCritical, "to_drop", "to_drop", "Table will be dropped"))
+		assertAllBreakingChanges(t, changes)
 	})
 
 	t.Run("type conversion safety", func(t *testing.T) {
@@ -185,4 +104,77 @@ func stringContainsFold(s, sub string) bool {
 
 func strPtr(s string) *string {
 	return &s
+}
+
+func setupBreakingChangeTestDBs() (*core.Database, *core.Database) {
+	oldDB := &core.Database{Tables: []*core.Table{
+		{
+			Name: "users",
+			Columns: []*core.Column{
+				{Name: "id", TypeRaw: "INT", Type: core.NormalizeDataType("INT"), Nullable: false, PrimaryKey: true, AutoIncrement: true, Charset: "utf8mb4", Collate: "utf8mb4_unicode_ci", Comment: "old"},
+				{Name: "name", TypeRaw: "VARCHAR(100)", Type: core.NormalizeDataType("VARCHAR(100)"), Nullable: true, DefaultValue: strPtr("old"), Comment: "old"},
+				{Name: "bio", TypeRaw: "TEXT", Type: core.NormalizeDataType("TEXT"), Nullable: true},
+				{Name: "gen", TypeRaw: "INT", Type: core.NormalizeDataType("INT"), Nullable: true, IsGenerated: true, GenerationExpression: "id + 1", GenerationStorage: core.GenerationVirtual},
+				{Name: "old_col", TypeRaw: "INT", Type: core.NormalizeDataType("INT"), Nullable: true, Comment: "same"},
+			},
+			Constraints: []*core.Constraint{
+				{Name: "PRIMARY", Type: core.ConstraintPrimaryKey, Columns: []string{"id"}},
+				{Name: "uq_users_name", Type: core.ConstraintUnique, Columns: []string{"name"}},
+			},
+			Indexes: []*core.Index{
+				{Name: "idx_name", Columns: []core.IndexColumn{{Name: "name"}}, Unique: false, Type: core.IndexTypeBTree},
+			},
+			Options: core.TableOptions{Engine: "InnoDB", Charset: "utf8mb4", Collate: "utf8mb4_unicode_ci"},
+		},
+		{
+			Name:        "to_drop",
+			Columns:     []*core.Column{{Name: "id", TypeRaw: "INT", Type: core.NormalizeDataType("INT"), Nullable: false, PrimaryKey: true}},
+			Constraints: []*core.Constraint{{Name: "PRIMARY", Type: core.ConstraintPrimaryKey, Columns: []string{"id"}}},
+		},
+	}}
+
+	newDB := &core.Database{Tables: []*core.Table{
+		{
+			Name: "users",
+			Columns: []*core.Column{
+				{Name: "id", TypeRaw: "BIGINT", Type: core.NormalizeDataType("BIGINT"), Nullable: false, PrimaryKey: true, AutoIncrement: true, Charset: "utf8mb4", Collate: "utf8mb4_unicode_ci", Comment: "old"},
+				{Name: "name", TypeRaw: "VARCHAR(50)", Type: core.NormalizeDataType("VARCHAR(50)"), Nullable: false, DefaultValue: strPtr("new"), Comment: "new"},
+				{Name: "gen", TypeRaw: "INT", Type: core.NormalizeDataType("INT"), Nullable: true, IsGenerated: true, GenerationExpression: "id + 2", GenerationStorage: core.GenerationVirtual},
+				{Name: "email", TypeRaw: "VARCHAR(255)", Type: core.NormalizeDataType("VARCHAR(255)"), Nullable: false},
+				{Name: "renamed_col", TypeRaw: "INT", Type: core.NormalizeDataType("INT"), Nullable: true, Comment: "same"},
+			},
+			Constraints: []*core.Constraint{
+				{Name: "PRIMARY", Type: core.ConstraintPrimaryKey, Columns: []string{"id"}},
+				{Name: "uq_users_name", Type: core.ConstraintUnique, Columns: []string{"email"}},
+				{Name: "chk_email", Type: core.ConstraintCheck, Columns: []string{"email"}, CheckExpression: "email <> ''"},
+			},
+			Indexes: []*core.Index{
+				{Name: "idx_name", Columns: []core.IndexColumn{{Name: "email"}}, Unique: false, Type: core.IndexTypeBTree},
+				{Name: "uidx_email", Columns: []core.IndexColumn{{Name: "email"}}, Unique: true, Type: core.IndexTypeBTree},
+				{Name: "ft_name", Columns: []core.IndexColumn{{Name: "name"}}, Unique: false, Type: core.IndexTypeFullText},
+			},
+			Options: core.TableOptions{Engine: "MyISAM", Charset: "latin1", Collate: "latin1_swedish_ci"},
+		},
+	}}
+
+	return oldDB, newDB
+}
+
+func assertAllBreakingChanges(t *testing.T, changes []BreakingChange) {
+	t.Helper()
+	assert.True(t, hasBC(changes, SeverityInfo, "users", "id", "type changes"))
+	assert.True(t, hasBC(changes, SeverityBreaking, "users", "name", "becomes NOT NULL"))
+	assert.True(t, hasBC(changes, SeverityBreaking, "users", "name", "length shrinks"))
+	assert.True(t, hasBC(changes, SeverityWarning, "users", "name", "Default value changes"))
+	assert.True(t, hasBC(changes, SeverityInfo, "users", "name", "comment"))
+	assert.True(t, hasBC(changes, SeverityCritical, "users", "bio", "Column will be dropped"))
+	assert.True(t, hasBC(changes, SeverityBreaking, "users", "gen", "Generated column expression changed"))
+	assert.True(t, hasBC(changes, SeverityBreaking, "users", "email", "Adding NOT NULL column"))
+	assert.True(t, hasBC(changes, SeverityBreaking, "users", "old_col->renamed_col", "Column rename detected"))
+	assert.True(t, hasBC(changes, SeverityWarning, "users", "idx_name", "Index modified"))
+	assert.True(t, hasBC(changes, SeverityBreaking, "users", "uidx_email", "Unique index added"))
+	assert.True(t, hasBC(changes, SeverityBreaking, "users", "ENGINE", "Storage engine changes"))
+	assert.True(t, hasBC(changes, SeverityWarning, "users", "CHARSET", "Character set changes"))
+	assert.True(t, hasBC(changes, SeverityWarning, "users", "COLLATE", "Collation changes"))
+	assert.True(t, hasBC(changes, SeverityCritical, "to_drop", "to_drop", "Table will be dropped"))
 }

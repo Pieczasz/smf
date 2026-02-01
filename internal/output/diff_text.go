@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"smf/internal/core"
 	"smf/internal/diff"
 )
 
@@ -16,47 +17,68 @@ func formatDiffText(d *diff.SchemaDiff) string {
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "Schema differences:\n")
 
-	if len(d.Warnings) > 0 {
-		fmt.Fprintf(&sb, "\nWarnings:\n")
-		for _, w := range d.Warnings {
+	writeDiffWarnings(&sb, d.Warnings)
+	writeAddedTables(&sb, d.AddedTables)
+	writeRemovedTables(&sb, d.RemovedTables)
+	writeModifiedTables(&sb, d.ModifiedTables)
+
+	return sb.String()
+}
+
+func writeDiffWarnings(sb *strings.Builder, warnings []string) {
+	if len(warnings) > 0 {
+		fmt.Fprintf(sb, "\nWarnings:\n")
+		for _, w := range warnings {
 			w = strings.TrimSpace(w)
 			if w == "" {
 				continue
 			}
-			fmt.Fprintf(&sb, "  - %s\n", w)
+			fmt.Fprintf(sb, "  - %s\n", w)
 		}
 	}
+}
 
-	if len(d.AddedTables) > 0 {
-		fmt.Fprintf(&sb, "\nAdded tables:\n")
-		for _, at := range d.AddedTables {
-			fmt.Fprintf(&sb, "  - %s\n", at.Name)
+func writeAddedTables(sb *strings.Builder, tables []*core.Table) {
+	if len(tables) > 0 {
+		fmt.Fprintf(sb, "\nAdded tables:\n")
+		for _, at := range tables {
+			fmt.Fprintf(sb, "  - %s\n", at.Name)
 		}
 	}
+}
 
-	if len(d.RemovedTables) > 0 {
-		fmt.Fprintf(&sb, "\nRemoved tables:\n")
-		for _, rt := range d.RemovedTables {
-			fmt.Fprintf(&sb, "  - %s\n", rt.Name)
+func writeRemovedTables(sb *strings.Builder, tables []*core.Table) {
+	if len(tables) > 0 {
+		fmt.Fprintf(sb, "\nRemoved tables:\n")
+		for _, rt := range tables {
+			fmt.Fprintf(sb, "  - %s\n", rt.Name)
 		}
 	}
+}
 
-	if len(d.ModifiedTables) > 0 {
-		fmt.Fprintf(&sb, "\nModified tables:\n")
-		for _, mt := range d.ModifiedTables {
-			writeTableDiffText(&sb, mt)
+func writeModifiedTables(sb *strings.Builder, tables []*diff.TableDiff) {
+	if len(tables) > 0 {
+		fmt.Fprintf(sb, "\nModified tables:\n")
+		for _, mt := range tables {
+			writeTableDiffText(sb, mt)
 		}
 	}
-
-	return sb.String()
 }
 
 func writeTableDiffText(sb *strings.Builder, mt *diff.TableDiff) {
 	fmt.Fprintf(sb, "\n  - %s\n", mt.Name)
 
-	if len(mt.Warnings) > 0 {
+	writeTableWarnings(sb, mt.Warnings)
+	writeModifiedOptions(sb, mt.ModifiedOptions)
+	writeColumns(sb, mt)
+	writeConstraints(sb, mt)
+	writeIndexes(sb, mt)
+}
+
+func writeTableWarnings(sb *strings.Builder, warnings []string) {
+	if len(warnings) > 0 {
 		fmt.Fprintf(sb, "    Warnings:\n")
-		for _, w := range mt.Warnings {
+		for _, w := range warnings {
 			w = strings.TrimSpace(w)
 			if w == "" {
 				continue
@@ -64,14 +86,18 @@ func writeTableDiffText(sb *strings.Builder, mt *diff.TableDiff) {
 			fmt.Fprintf(sb, "      - %s\n", w)
 		}
 	}
+}
 
-	if len(mt.ModifiedOptions) > 0 {
+func writeModifiedOptions(sb *strings.Builder, options []*diff.TableOptionChange) {
+	if len(options) > 0 {
 		fmt.Fprintf(sb, "    Options changed:\n")
-		for _, mo := range mt.ModifiedOptions {
+		for _, mo := range options {
 			fmt.Fprintf(sb, "      - %s: %q -> %q\n", mo.Name, mo.Old, mo.New)
 		}
 	}
+}
 
+func writeColumns(sb *strings.Builder, mt *diff.TableDiff) {
 	if len(mt.AddedColumns) > 0 {
 		fmt.Fprintf(sb, "    Added columns:\n")
 		for _, ac := range mt.AddedColumns {
@@ -95,7 +121,9 @@ func writeTableDiffText(sb *strings.Builder, mt *diff.TableDiff) {
 			}
 		}
 	}
+}
 
+func writeConstraints(sb *strings.Builder, mt *diff.TableDiff) {
 	if len(mt.AddedConstraints) > 0 {
 		fmt.Fprintf(sb, "    Added constraints:\n")
 		for _, c := range mt.AddedConstraints {
@@ -116,24 +144,31 @@ func writeTableDiffText(sb *strings.Builder, mt *diff.TableDiff) {
 			if mc == nil {
 				continue
 			}
-			name := mc.Name
-			if name == "" {
-				switch {
-				case mc.New != nil:
-					name = string(mc.New.Type)
-				case mc.Old != nil:
-					name = string(mc.Old.Type)
-				default:
-					name = "(unnamed)"
-				}
-			}
+			name := getConstraintName(mc)
 			fmt.Fprintf(sb, "      - %s:\n", name)
 			for _, fc := range mc.Changes {
 				fmt.Fprintf(sb, "        - %s: %q -> %q\n", fc.Field, fc.Old, fc.New)
 			}
 		}
 	}
+}
 
+func getConstraintName(mc *diff.ConstraintChange) string {
+	name := mc.Name
+	if name == "" {
+		switch {
+		case mc.New != nil:
+			name = string(mc.New.Type)
+		case mc.Old != nil:
+			name = string(mc.Old.Type)
+		default:
+			name = "(unnamed)"
+		}
+	}
+	return name
+}
+
+func writeIndexes(sb *strings.Builder, mt *diff.TableDiff) {
 	if len(mt.AddedIndexes) > 0 {
 		fmt.Fprintf(sb, "    Added indexes:\n")
 		for _, idx := range mt.AddedIndexes {

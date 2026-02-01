@@ -10,10 +10,7 @@ import (
 	"smf/internal/core"
 )
 
-func TestMySQLParserBasic(t *testing.T) {
-	p := NewSQLParser()
-
-	sql := `
+const mysqlBasicSchema = `
 CREATE TABLE all_features (
     id INT AUTO_INCREMENT,
     t_tinyint TINYINT NOT NULL,
@@ -45,10 +42,19 @@ CREATE TABLE related_features (
 );
 `
 
-	db, err := p.ParseSchema(sql)
+func TestMySQLParserBasic(t *testing.T) {
+	p := NewSQLParser()
+	db, err := p.ParseSchema(mysqlBasicSchema)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(db.Tables))
 
+	assertMultiColumnPrimaryKey(t, db)
+	assertAllFeaturesTable(t, db)
+	assertRelatedFeaturesForeignKey(t, db)
+}
+
+func assertMultiColumnPrimaryKey(t *testing.T, db *core.Database) {
+	t.Helper()
 	mcpk := db.FindTable("multi_column_pk")
 	require.NotNil(t, mcpk)
 	assert.True(t, mcpk.FindColumn("a").PrimaryKey)
@@ -63,7 +69,10 @@ CREATE TABLE related_features (
 	}
 	require.NotNil(t, pkConstraint)
 	assert.Equal(t, []string{"a", "b"}, pkConstraint.Columns)
+}
 
+func assertAllFeaturesTable(t *testing.T, db *core.Database) {
+	t.Helper()
 	af := db.FindTable("all_features")
 	require.NotNil(t, af)
 	assert.Equal(t, "Comprehensive table", af.Comment)
@@ -103,20 +112,28 @@ CREATE TABLE related_features (
 	assert.Equal(t, core.GenerationStored, gColStored.GenerationStorage)
 
 	assert.Len(t, af.Constraints, 3)
+	assert.Len(t, af.Indexes, 2)
 
+	assertCheckConstraint(t, af)
+}
+
+func assertCheckConstraint(t *testing.T, table *core.Table) {
+	t.Helper()
 	var checkFound bool
-	for _, c := range af.Constraints {
+	for _, c := range table.Constraints {
 		if c.Type == core.ConstraintCheck {
 			checkFound = true
 			assert.Contains(t, c.CheckExpression, "id")
 		}
 	}
 	assert.True(t, checkFound)
+}
 
-	assert.Len(t, af.Indexes, 2)
-
+func assertRelatedFeaturesForeignKey(t *testing.T, db *core.Database) {
+	t.Helper()
 	rf := db.FindTable("related_features")
 	require.NotNil(t, rf)
+
 	var fkFound bool
 	for _, c := range rf.Constraints {
 		if c.Type == core.ConstraintForeignKey {

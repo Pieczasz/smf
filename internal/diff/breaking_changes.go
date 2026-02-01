@@ -229,7 +229,7 @@ func (a *BreakingChangeAnalyzer) determineTypeMigrationSeverity(oldType, newType
 	return SeverityBreaking
 }
 
-func (a *BreakingChangeAnalyzer) isWideningConversion(old, new string) bool {
+func (a *BreakingChangeAnalyzer) isWideningConversion(oldType, newType string) bool {
 	widening := map[string][]string{
 		"tinyint":    {"smallint", "mediumint", "int", "bigint"},
 		"smallint":   {"mediumint", "int", "bigint"},
@@ -243,10 +243,10 @@ func (a *BreakingChangeAnalyzer) isWideningConversion(old, new string) bool {
 		"mediumtext": {"longtext"},
 	}
 
-	for oldType, widerTypes := range widening {
-		if strings.Contains(old, oldType) {
+	for baseType, widerTypes := range widening {
+		if strings.Contains(oldType, baseType) {
 			for _, wider := range widerTypes {
-				if strings.Contains(new, wider) {
+				if strings.Contains(newType, wider) {
 					return true
 				}
 			}
@@ -255,11 +255,11 @@ func (a *BreakingChangeAnalyzer) isWideningConversion(old, new string) bool {
 	return false
 }
 
-func (a *BreakingChangeAnalyzer) isNarrowingConversion(old, new string) bool {
-	return a.isWideningConversion(new, old)
+func (a *BreakingChangeAnalyzer) isNarrowingConversion(oldType, newType string) bool {
+	return a.isWideningConversion(newType, oldType)
 }
 
-func (a *BreakingChangeAnalyzer) isIncompatibleConversion(old, new string) bool {
+func (a *BreakingChangeAnalyzer) isIncompatibleConversion(oldType, newType string) bool {
 	incompatible := [][2]string{
 		{"int", "varchar"},
 		{"varchar", "int"},
@@ -270,7 +270,7 @@ func (a *BreakingChangeAnalyzer) isIncompatibleConversion(old, new string) bool 
 	}
 
 	for _, pair := range incompatible {
-		if strings.Contains(old, pair[0]) && strings.Contains(new, pair[1]) {
+		if strings.Contains(oldType, pair[0]) && strings.Contains(newType, pair[1]) {
 			return true
 		}
 	}

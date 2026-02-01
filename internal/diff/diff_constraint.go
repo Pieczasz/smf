@@ -38,8 +38,33 @@ func markConstraintsForRebuild(oldItems, newItems []*core.Constraint, td *TableD
 		return
 	}
 
-	affectedCols := make(map[string]struct{}, len(td.ModifiedColumns))
-	for _, mc := range td.ModifiedColumns {
+	affectedCols := collectAffectedColumns(td.ModifiedColumns)
+	if len(affectedCols) == 0 {
+		return
+	}
+
+	oldMap := mapConstraintsByKey(oldItems, constraintKey)
+	newMap := mapConstraintsByKey(newItems, constraintKey)
+	already := collectAlreadyModifiedConstraints(td.ModifiedConstraints)
+
+	for key, oldC := range oldMap {
+		if shouldRebuildConstraint(key, oldC, newMap, already, affectedCols) {
+			newC := newMap[key]
+			td.ModifiedConstraints = append(td.ModifiedConstraints, &ConstraintChange{
+				Name:          newC.Name,
+				Old:           oldC,
+				New:           newC,
+				Changes:       nil,
+				RebuildOnly:   true,
+				RebuildReason: "dependent column modified",
+			})
+		}
+	}
+}
+
+func collectAffectedColumns(modifiedColumns []*ColumnChange) map[string]struct{} {
+	affectedCols := make(map[string]struct{}, len(modifiedColumns))
+	for _, mc := range modifiedColumns {
 		if mc == nil {
 			continue
 		}
@@ -49,15 +74,12 @@ func markConstraintsForRebuild(oldItems, newItems []*core.Constraint, td *TableD
 		}
 		affectedCols[name] = struct{}{}
 	}
-	if len(affectedCols) == 0 {
-		return
-	}
+	return affectedCols
+}
 
-	oldMap := mapConstraintsByKey(oldItems, constraintKey)
-	newMap := mapConstraintsByKey(newItems, constraintKey)
-
-	already := make(map[string]struct{}, len(td.ModifiedConstraints))
-	for _, mc := range td.ModifiedConstraints {
+func collectAlreadyModifiedConstraints(modifiedConstraints []*ConstraintChange) map[string]struct{} {
+	already := make(map[string]struct{}, len(modifiedConstraints))
+	for _, mc := range modifiedConstraints {
 		if mc == nil {
 			continue
 		}
@@ -67,30 +89,21 @@ func markConstraintsForRebuild(oldItems, newItems []*core.Constraint, td *TableD
 			already[constraintKey(mc.Old)] = struct{}{}
 		}
 	}
+	return already
+}
 
-	for key, oldC := range oldMap {
-		newC, ok := newMap[key]
-		if !ok {
-			continue
-		}
-		if _, ok := already[key]; ok {
-			continue
-		}
-		if !equalConstraint(oldC, newC) {
-			continue
-		}
-		if !constraintTouchesColumns(newC, affectedCols) {
-			continue
-		}
-		td.ModifiedConstraints = append(td.ModifiedConstraints, &ConstraintChange{
-			Name:          newC.Name,
-			Old:           oldC,
-			New:           newC,
-			Changes:       nil,
-			RebuildOnly:   true,
-			RebuildReason: "dependent column modified",
-		})
+func shouldRebuildConstraint(key string, oldC *core.Constraint, newMap map[string]*core.Constraint, already map[string]struct{}, affectedCols map[string]struct{}) bool {
+	newC, ok := newMap[key]
+	if !ok {
+		return false
 	}
+	if _, ok := already[key]; ok {
+		return false
+	}
+	if !equalConstraint(oldC, newC) {
+		return false
+	}
+	return constraintTouchesColumns(newC, affectedCols)
 }
 
 func constraintTouchesColumns(c *core.Constraint, cols map[string]struct{}) bool {

@@ -9,8 +9,8 @@ import (
 	"smf/internal/parser"
 )
 
-func TestDiffFull(t *testing.T) {
-	oldSQL := `
+var (
+	diffTestOldSQL = `
 CREATE TABLE std_options (
     id INT PRIMARY KEY
 )
@@ -70,7 +70,7 @@ CREATE TABLE related_features (
     CONSTRAINT fk_related FOREIGN KEY (f_id) REFERENCES all_features(id) ON DELETE CASCADE ON UPDATE RESTRICT
 );`
 
-	newSQL := `
+	diffTestNewSQL = `
 CREATE TABLE std_options (
     id INT PRIMARY KEY
 )
@@ -129,11 +129,13 @@ CREATE TABLE related_features (
     f_id INT,
     CONSTRAINT fk_related FOREIGN KEY (f_id) REFERENCES all_features(id) ON DELETE RESTRICT ON UPDATE RESTRICT
 );`
+)
 
+func TestDiffFull(t *testing.T) {
 	p := parser.NewSQLParser()
-	oldDB, err := p.ParseSchema(oldSQL)
+	oldDB, err := p.ParseSchema(diffTestOldSQL)
 	require.NoError(t, err)
-	newDB, err := p.ParseSchema(newSQL)
+	newDB, err := p.ParseSchema(diffTestNewSQL)
 	require.NoError(t, err)
 
 	d := Diff(oldDB, newDB, DefaultOptions())
@@ -143,54 +145,11 @@ CREATE TABLE related_features (
 	assert.Empty(t, d.RemovedTables)
 	require.GreaterOrEqual(t, len(d.ModifiedTables), 4)
 
-	std := findTableDiff(t, d, "std_options")
-	assertOptionChange(t, std, "ENGINE")
-	assertOptionChange(t, std, "AUTO_INCREMENT")
-	assertOptionChange(t, std, "AVG_ROW_LENGTH")
-	assertOptionChange(t, std, "CHECKSUM")
-	assertOptionChange(t, std, "COMPRESSION")
-	assertOptionChange(t, std, "KEY_BLOCK_SIZE")
-	assertOptionChange(t, std, "MAX_ROWS")
-	assertOptionChange(t, std, "MIN_ROWS")
-	assertOptionChange(t, std, "DELAY_KEY_WRITE")
-	assertOptionChange(t, std, "ROW_FORMAT")
-	assertOptionChange(t, std, "TABLESPACE")
-	assertOptionChange(t, std, "DATA DIRECTORY")
-	assertOptionChange(t, std, "INDEX DIRECTORY")
-	assertOptionChange(t, std, "ENCRYPTION")
-	assertOptionChange(t, std, "STATS_AUTO_RECALC")
-	assertOptionChange(t, std, "STATS_SAMPLE_PAGES")
-	assertOptionChange(t, std, "INSERT_METHOD")
-
-	stdNum := findTableDiff(t, d, "std_options_numeric")
-	assertOptionChange(t, stdNum, "STATS_AUTO_RECALC")
-	assertOptionChange(t, stdNum, "STATS_SAMPLE_PAGES")
-
-	add := findTableDiff(t, d, "add_options")
-	assertOptionChange(t, add, "CONNECTION")
-	assertOptionChange(t, add, "PASSWORD")
-	assertOptionChange(t, add, "AUTOEXTEND_SIZE")
-	assertOptionChange(t, add, "PAGE_CHECKSUM")
-	assertOptionChange(t, add, "TRANSACTIONAL")
-
-	af := findTableDiff(t, d, "all_features")
-	assertOptionChange(t, af, "COMMENT")
-
-	assert.True(t, hasColumnChange(af, "t_tinyint"))
-	assert.True(t, hasColumnChange(af, "t_varchar"))
-	assert.True(t, hasColumnChange(af, "t_enum"))
-	assert.True(t, hasColumnChange(af, "t_timestamp"))
-	assert.True(t, hasColumnChange(af, "g_col"))
-	assert.True(t, hasColumnChange(af, "g_col_stored"))
-	assert.True(t, hasAddedColumn(af, "new_col"))
-	assert.True(t, hasRemovedColumn(af, "t_text"))
-
-	assert.True(t, hasModifiedConstraint(af, "chk_positive"))
-	assert.True(t, hasModifiedConstraint(af, "idx_unique_varchar"))
-	assert.True(t, hasModifiedIndex(af, "idx_regular"))
-
-	rf := findTableDiff(t, d, "related_features")
-	assert.True(t, hasModifiedConstraint(rf, "fk_related"))
+	assertStdOptionsChanges(t, d)
+	assertStdOptionsNumericChanges(t, d)
+	assertAddOptionsChanges(t, d)
+	assertAllFeaturesChanges(t, d)
+	assertRelatedFeaturesChanges(t, d)
 }
 
 func findTableDiff(t *testing.T, d *SchemaDiff, name string) *TableDiff {
@@ -258,4 +217,66 @@ func hasModifiedIndex(td *TableDiff, indexName string) bool {
 		}
 	}
 	return false
+}
+
+func assertStdOptionsChanges(t *testing.T, d *SchemaDiff) {
+	t.Helper()
+	std := findTableDiff(t, d, "std_options")
+	assertOptionChange(t, std, "ENGINE")
+	assertOptionChange(t, std, "AUTO_INCREMENT")
+	assertOptionChange(t, std, "AVG_ROW_LENGTH")
+	assertOptionChange(t, std, "CHECKSUM")
+	assertOptionChange(t, std, "COMPRESSION")
+	assertOptionChange(t, std, "KEY_BLOCK_SIZE")
+	assertOptionChange(t, std, "MAX_ROWS")
+	assertOptionChange(t, std, "MIN_ROWS")
+	assertOptionChange(t, std, "DELAY_KEY_WRITE")
+	assertOptionChange(t, std, "ROW_FORMAT")
+	assertOptionChange(t, std, "TABLESPACE")
+	assertOptionChange(t, std, "DATA DIRECTORY")
+	assertOptionChange(t, std, "INDEX DIRECTORY")
+	assertOptionChange(t, std, "ENCRYPTION")
+	assertOptionChange(t, std, "STATS_AUTO_RECALC")
+	assertOptionChange(t, std, "STATS_SAMPLE_PAGES")
+	assertOptionChange(t, std, "INSERT_METHOD")
+}
+
+func assertStdOptionsNumericChanges(t *testing.T, d *SchemaDiff) {
+	t.Helper()
+	stdNum := findTableDiff(t, d, "std_options_numeric")
+	assertOptionChange(t, stdNum, "STATS_AUTO_RECALC")
+	assertOptionChange(t, stdNum, "STATS_SAMPLE_PAGES")
+}
+
+func assertAddOptionsChanges(t *testing.T, d *SchemaDiff) {
+	t.Helper()
+	add := findTableDiff(t, d, "add_options")
+	assertOptionChange(t, add, "CONNECTION")
+	assertOptionChange(t, add, "PASSWORD")
+	assertOptionChange(t, add, "AUTOEXTEND_SIZE")
+	assertOptionChange(t, add, "PAGE_CHECKSUM")
+	assertOptionChange(t, add, "TRANSACTIONAL")
+}
+
+func assertAllFeaturesChanges(t *testing.T, d *SchemaDiff) {
+	t.Helper()
+	af := findTableDiff(t, d, "all_features")
+	assertOptionChange(t, af, "COMMENT")
+	assert.True(t, hasColumnChange(af, "t_tinyint"))
+	assert.True(t, hasColumnChange(af, "t_varchar"))
+	assert.True(t, hasColumnChange(af, "t_enum"))
+	assert.True(t, hasColumnChange(af, "t_timestamp"))
+	assert.True(t, hasColumnChange(af, "g_col"))
+	assert.True(t, hasColumnChange(af, "g_col_stored"))
+	assert.True(t, hasAddedColumn(af, "new_col"))
+	assert.True(t, hasRemovedColumn(af, "t_text"))
+	assert.True(t, hasModifiedConstraint(af, "chk_positive"))
+	assert.True(t, hasModifiedConstraint(af, "idx_unique_varchar"))
+	assert.True(t, hasModifiedIndex(af, "idx_regular"))
+}
+
+func assertRelatedFeaturesChanges(t *testing.T, d *SchemaDiff) {
+	t.Helper()
+	rf := findTableDiff(t, d, "related_features")
+	assert.True(t, hasModifiedConstraint(rf, "fk_related"))
 }

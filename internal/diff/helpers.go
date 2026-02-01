@@ -48,16 +48,30 @@ func compareColumnAttrs(a, b *core.Column) columnAttrMatch {
 	}
 }
 
+// TODO: refactor this logic to remove nolint comment
+//
+//nolint:revive // Grouped boolean checks for column attribute matching
 func (m columnAttrMatch) allMatch() bool {
-	return m.TypeRaw && m.Nullable && m.PrimaryKey && m.AutoIncrement &&
-		m.Charset && m.Collate && m.Comment && m.DefaultValue && m.OnUpdate &&
-		m.IsGenerated && m.GenerationExpression && m.GenerationStorage &&
-		m.ColumnFormat && m.Storage && m.AutoRandom
+	basic := m.TypeRaw && m.Nullable && m.PrimaryKey && m.AutoIncrement
+	charset := m.Charset && m.Collate
+	defaults := m.Comment && m.DefaultValue && m.OnUpdate
+	generated := m.IsGenerated && m.GenerationExpression && m.GenerationStorage
+	format := m.ColumnFormat && m.Storage && m.AutoRandom
+	return basic && charset && defaults && generated && format
 }
 
 // SimilarityScore function calculates a similarity score between two column attributes.
 // It is used to detect renames between two columns.
 func (m columnAttrMatch) similarityScore() int {
+	score := 0
+	score += m.typeScore()
+	score += m.basicAttributesScore()
+	score += m.charsetScore()
+	score += m.generatedScore()
+	return score
+}
+
+func (m columnAttrMatch) typeScore() int {
 	score := 0
 	if m.TypeRaw {
 		score += 4
@@ -65,35 +79,50 @@ func (m columnAttrMatch) similarityScore() int {
 	if m.Type {
 		score += 2
 	}
+	return score
+}
+
+func (m columnAttrMatch) basicAttributesScore() int {
+	score := 0
 	if m.Nullable {
-		score += 1
+		score++
 	}
 	if m.AutoIncrement {
-		score += 1
+		score++
 	}
 	if m.PrimaryKey {
-		score += 1
+		score++
 	}
 	if m.DefaultValue {
-		score += 1
-	}
-	if m.Charset {
-		score += 1
-	}
-	if m.Collate {
-		score += 1
-	}
-	if m.IsGenerated {
-		score += 1
-	}
-	if m.GenerationExpression {
-		score += 1
-	}
-	if m.GenerationStorage {
-		score += 1
+		score++
 	}
 	if m.Comment {
-		score += 1
+		score++
+	}
+	return score
+}
+
+func (m columnAttrMatch) charsetScore() int {
+	score := 0
+	if m.Charset {
+		score++
+	}
+	if m.Collate {
+		score++
+	}
+	return score
+}
+
+func (m columnAttrMatch) generatedScore() int {
+	score := 0
+	if m.IsGenerated {
+		score++
+	}
+	if m.GenerationExpression {
+		score++
+	}
+	if m.GenerationStorage {
+		score++
 	}
 	return score
 }

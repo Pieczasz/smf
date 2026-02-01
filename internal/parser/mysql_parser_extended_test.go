@@ -132,35 +132,16 @@ CREATE TABLE col_opts (
 	require.NotNil(t, tbl)
 
 	require.Len(t, tbl.Constraints, 3)
-	var uniq *core.Constraint
-	for _, c := range tbl.Constraints {
-		if c.Type == core.ConstraintUnique && len(c.Columns) == 1 && c.Columns[0] == "c1" {
-			uniq = c
-			break
-		}
-	}
-	assert.NotNil(t, uniq, "Missing UNIQUE constraint for c1")
+	assert.NotNil(t, findSingleColumnConstraint(tbl, core.ConstraintUnique, "c1"), "Missing UNIQUE constraint for c1")
 
 	c2 := tbl.FindColumn("c2")
 	assert.Equal(t, "my comment", c2.Comment)
 
-	var check *core.Constraint
-	for _, c := range tbl.Constraints {
-		if c.Type == core.ConstraintCheck && len(c.Columns) == 1 && c.Columns[0] == "c4" {
-			check = c
-			break
-		}
-	}
+	check := findSingleColumnConstraint(tbl, core.ConstraintCheck, "c4")
 	assert.NotNil(t, check, "Missing CHECK constraint for c4")
 	assert.Equal(t, "`c4`>10", check.CheckExpression)
 
-	var fk *core.Constraint
-	for _, c := range tbl.Constraints {
-		if c.Type == core.ConstraintForeignKey && len(c.Columns) == 1 && c.Columns[0] == "c5" {
-			fk = c
-			break
-		}
-	}
+	fk := findSingleColumnConstraint(tbl, core.ConstraintForeignKey, "c5")
 	assert.NotNil(t, fk, "Missing FK constraint for c5")
 	assert.Equal(t, "other_table", fk.ReferencedTable)
 	assert.Equal(t, []string{"id"}, fk.ReferencedColumns)
@@ -178,6 +159,28 @@ CREATE TABLE col_opts (
 
 	c9 := tbl.FindColumn("c9")
 	assert.Equal(t, `{"x":1}`, c9.SecondaryEngineAttribute)
+}
+
+func findSingleColumnConstraint(table *core.Table, constraintType core.ConstraintType, col string) *core.Constraint {
+	if table == nil {
+		return nil
+	}
+	for _, c := range table.Constraints {
+		if c == nil {
+			continue
+		}
+		if c.Type != constraintType {
+			continue
+		}
+		if len(c.Columns) != 1 {
+			continue
+		}
+		if c.Columns[0] != col {
+			continue
+		}
+		return c
+	}
+	return nil
 }
 
 func TestMySQLParserRowFormats(t *testing.T) {

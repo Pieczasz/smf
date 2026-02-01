@@ -55,11 +55,10 @@ func TestBasicMigration(t *testing.T) {
 	assert.Contains(t, out, "DROP TABLE")
 	assert.Contains(t, out, "BREAKING CHANGES")
 
-	f, err := os.CreateTemp("", "smf-migration-*.sql")
+	f, err := os.CreateTemp(t.TempDir(), "smf-migration-*.sql")
 	require.NoError(t, err)
 	name := f.Name()
 	require.NoError(t, f.Close())
-	defer func() { _ = os.Remove(name) }()
 
 	require.NoError(t, output.SaveMigrationToFile(mig, name))
 	b, err := os.ReadFile(name)

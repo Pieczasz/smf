@@ -11,50 +11,75 @@ func (td *TableDiff) detectColumnRenames() {
 		return
 	}
 
-	usedAdded := make(map[int]struct{}, len(td.AddedColumns))
-	maxRenames := max(len(td.AddedColumns), len(td.RemovedColumns))
-
-	renames := make([]*ColumnRename, 0, maxRenames)
-
-	removedTokens := make([][]string, len(td.RemovedColumns))
-	for i, c := range td.RemovedColumns {
-		removedTokens[i] = tokenizeName(c.Name)
-	}
-	addedTokens := make([][]string, len(td.AddedColumns))
-	for i, c := range td.AddedColumns {
-		addedTokens[i] = tokenizeName(c.Name)
-	}
-
-	for i, oldC := range td.RemovedColumns {
-		bestIdx := -1
-		bestScore := -1
-		for j, newC := range td.AddedColumns {
-			if _, ok := usedAdded[j]; ok {
-				continue
-			}
-			score := renameSimilarityScore(oldC, newC)
-			if score > bestScore {
-				bestScore = score
-				bestIdx = j
-			}
-		}
-		if bestIdx >= 0 && bestScore >= renameDetectionScoreThreshold {
-			newC := td.AddedColumns[bestIdx]
-			if !renameEvidenceWithTokens(oldC, newC, removedTokens[i], addedTokens[bestIdx]) {
-				continue
-			}
-			if !strings.EqualFold(oldC.TypeRaw, newC.TypeRaw) {
-				continue
-			}
-			usedAdded[bestIdx] = struct{}{}
-			renames = append(renames, &ColumnRename{Old: oldC, New: newC, Score: bestScore})
-		}
-	}
-
+	renames := td.findColumnRenames()
 	if len(renames) == 0 {
 		return
 	}
 
+	td.applyColumnRenames(renames)
+}
+
+func (td *TableDiff) findColumnRenames() []*ColumnRename {
+	usedAdded := make(map[int]struct{}, len(td.AddedColumns))
+	maxRenames := max(len(td.AddedColumns), len(td.RemovedColumns))
+	renames := make([]*ColumnRename, 0, maxRenames)
+
+	removedTokens := td.tokenizeColumns(td.RemovedColumns)
+	addedTokens := td.tokenizeColumns(td.AddedColumns)
+
+	for i, oldC := range td.RemovedColumns {
+		bestIdx, bestScore := td.findBestRenameMatch(oldC, usedAdded)
+		if bestIdx < 0 || bestScore < renameDetectionScoreThreshold {
+			continue
+		}
+
+		newC := td.AddedColumns[bestIdx]
+		if !td.isValidRename(oldC, newC, removedTokens[i], addedTokens[bestIdx]) {
+			continue
+		}
+
+		usedAdded[bestIdx] = struct{}{}
+		renames = append(renames, &ColumnRename{Old: oldC, New: newC, Score: bestScore})
+	}
+
+	return renames
+}
+
+func (td *TableDiff) tokenizeColumns(columns []*core.Column) [][]string {
+	tokens := make([][]string, len(columns))
+	for i, c := range columns {
+		tokens[i] = tokenizeName(c.Name)
+	}
+	return tokens
+}
+
+func (td *TableDiff) findBestRenameMatch(oldC *core.Column, usedAdded map[int]struct{}) (int, int) {
+	bestIdx := -1
+	bestScore := -1
+	for j, newC := range td.AddedColumns {
+		if _, ok := usedAdded[j]; ok {
+			continue
+		}
+		score := renameSimilarityScore(oldC, newC)
+		if score > bestScore {
+			bestScore = score
+			bestIdx = j
+		}
+	}
+	return bestIdx, bestScore
+}
+
+func (td *TableDiff) isValidRename(oldC, newC *core.Column, oldTokens, newTokens []string) bool {
+	if !renameEvidenceWithTokens(oldC, newC, oldTokens, newTokens) {
+		return false
+	}
+	if !strings.EqualFold(oldC.TypeRaw, newC.TypeRaw) {
+		return false
+	}
+	return true
+}
+
+func (td *TableDiff) applyColumnRenames(renames []*ColumnRename) {
 	removeOld := make(map[*core.Column]struct{}, len(renames))
 	removeNew := make(map[*core.Column]struct{}, len(renames))
 	for _, r := range renames {
@@ -141,9 +166,4 @@ func hasSharedTokens(a, b []string) bool {
 		}
 	}
 	return false
-}
-
-// hasSharedNameToken checks if two names share a common token (for non-cached usage).
-func hasSharedNameToken(a, b string) bool {
-	return hasSharedTokens(tokenizeName(a), tokenizeName(b))
 }

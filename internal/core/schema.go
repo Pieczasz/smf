@@ -296,32 +296,31 @@ func (t *Table) String() string {
 		t.Name, len(t.Columns), len(t.Constraints), len(t.Indexes))
 }
 
+type normalizeDataTypeRule struct {
+	dataType   DataType
+	substrings []string
+}
+
+var normalizeDataTypeRules = []normalizeDataTypeRule{
+	{dataType: DataTypeString, substrings: []string{"char", "text", "string", "enum", "set"}},
+	{dataType: DataTypeBoolean, substrings: []string{"bool", "tinyint(1)"}},
+	{dataType: DataTypeInt, substrings: []string{"int"}},
+	{dataType: DataTypeFloat, substrings: []string{"float", "double", "decimal", "numeric", "real"}},
+	{dataType: DataTypeDatetime, substrings: []string{"timestamp", "date", "time"}},
+	{dataType: DataTypeJSON, substrings: []string{"json"}},
+	{dataType: DataTypeUUID, substrings: []string{"uuid"}},
+	{dataType: DataTypeBinary, substrings: []string{"blob", "binary", "varbinary"}},
+}
+
 // NormalizeDataType normalizes a raw data type string to a DataType.
 func NormalizeDataType(rawType string) DataType {
-	rawType = strings.ToLower(strings.TrimSpace(rawType))
-
-	switch {
-	case containsAny(rawType, "char", "text", "string", "enum", "set"):
-		return DataTypeString
-	case strings.Contains(rawType, "bool") || strings.Contains(rawType, "tinyint(1)"):
-		return DataTypeBoolean
-	case strings.Contains(rawType, "int"):
-		return DataTypeInt
-	case containsAny(rawType, "float", "double", "decimal", "numeric", "real"):
-		return DataTypeFloat
-	case strings.Contains(rawType, "timestamp"):
-		return DataTypeDatetime
-	case containsAny(rawType, "date", "time"):
-		return DataTypeDatetime
-	case strings.Contains(rawType, "json"):
-		return DataTypeJSON
-	case strings.Contains(rawType, "uuid"):
-		return DataTypeUUID
-	case containsAny(rawType, "blob", "binary", "varbinary"):
-		return DataTypeBinary
-	default:
-		return DataTypeUnknown
+	normalized := strings.ToLower(strings.TrimSpace(rawType))
+	for _, rule := range normalizeDataTypeRules {
+		if containsAny(normalized, rule.substrings...) {
+			return rule.dataType
+		}
 	}
+	return DataTypeUnknown
 }
 
 func containsAny(s string, substrs ...string) bool {

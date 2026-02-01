@@ -76,10 +76,11 @@ linters:
         - name: var-naming
         - name: cyclomatic
           arguments:
-            - "10"
+            - 10
         - name: function-length
           arguments:
-            - statements: "50"
+            - 50
+            - 80
 
     misspell:
       locale: US

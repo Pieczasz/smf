@@ -6,108 +6,107 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+var analyzeStatementTests = []struct {
+	name              string
+	sql               string
+	wantDestructive   bool
+	wantBlocking      bool
+	wantTxSafe        bool
+	wantStatementType string
+}{
+	{
+		name:              "DROP TABLE is destructive and non-transactional",
+		sql:               "DROP TABLE users;",
+		wantDestructive:   true,
+		wantBlocking:      false,
+		wantTxSafe:        false,
+		wantStatementType: "DROP TABLE",
+	},
+	{
+		name:              "DROP DATABASE is destructive and non-transactional",
+		sql:               "DROP DATABASE mydb;",
+		wantDestructive:   true,
+		wantBlocking:      false,
+		wantTxSafe:        false,
+		wantStatementType: "DROP DATABASE",
+	},
+	{
+		name:              "TRUNCATE TABLE is destructive and non-transactional",
+		sql:               "TRUNCATE TABLE users;",
+		wantDestructive:   true,
+		wantBlocking:      true,
+		wantTxSafe:        false,
+		wantStatementType: "TRUNCATE TABLE",
+	},
+	{
+		name:              "DELETE is destructive but transactional",
+		sql:               "DELETE FROM users WHERE id = 1;",
+		wantDestructive:   true,
+		wantBlocking:      false,
+		wantTxSafe:        true,
+		wantStatementType: "DELETE",
+	},
+	{
+		name:              "CREATE TABLE is non-transactional",
+		sql:               "CREATE TABLE users (id INT PRIMARY KEY);",
+		wantDestructive:   false,
+		wantBlocking:      false,
+		wantTxSafe:        false,
+		wantStatementType: "CREATE TABLE",
+	},
+	{
+		name:              "CREATE INDEX is blocking and non-transactional",
+		sql:               "CREATE INDEX idx_name ON users(name);",
+		wantDestructive:   false,
+		wantBlocking:      true,
+		wantTxSafe:        false,
+		wantStatementType: "CREATE INDEX",
+	},
+	{
+		name:              "CREATE DATABASE is non-transactional",
+		sql:               "CREATE DATABASE mydb;",
+		wantDestructive:   false,
+		wantBlocking:      false,
+		wantTxSafe:        false,
+		wantStatementType: "CREATE DATABASE",
+	},
+	{
+		name:              "ALTER TABLE ADD COLUMN is blocking",
+		sql:               "ALTER TABLE users ADD COLUMN email VARCHAR(255);",
+		wantDestructive:   false,
+		wantBlocking:      true,
+		wantTxSafe:        false,
+		wantStatementType: "ALTER TABLE",
+	},
+	{
+		name:              "ALTER TABLE DROP COLUMN is destructive and blocking",
+		sql:               "ALTER TABLE users DROP COLUMN email;",
+		wantDestructive:   true,
+		wantBlocking:      true,
+		wantTxSafe:        false,
+		wantStatementType: "ALTER TABLE",
+	},
+	{
+		name:              "RENAME TABLE is blocking and non-transactional",
+		sql:               "RENAME TABLE old_users TO new_users;",
+		wantDestructive:   false,
+		wantBlocking:      true,
+		wantTxSafe:        false,
+		wantStatementType: "RENAME TABLE",
+	},
+	{
+		name:              "DROP INDEX is blocking",
+		sql:               "DROP INDEX idx_name ON users;",
+		wantDestructive:   false,
+		wantBlocking:      true,
+		wantTxSafe:        false,
+		wantStatementType: "DROP INDEX",
+	},
+}
+
 func TestStatementAnalyzerAnalyzeStatement(t *testing.T) {
 	analyzer := NewStatementAnalyzer()
-
-	tests := []struct {
-		name              string
-		sql               string
-		wantDestructive   bool
-		wantBlocking      bool
-		wantTxSafe        bool
-		wantStatementType string
-	}{
-		{
-			name:              "DROP TABLE is destructive and non-transactional",
-			sql:               "DROP TABLE users;",
-			wantDestructive:   true,
-			wantBlocking:      false,
-			wantTxSafe:        false,
-			wantStatementType: "DROP TABLE",
-		},
-		{
-			name:              "DROP DATABASE is destructive and non-transactional",
-			sql:               "DROP DATABASE mydb;",
-			wantDestructive:   true,
-			wantBlocking:      false,
-			wantTxSafe:        false,
-			wantStatementType: "DROP DATABASE",
-		},
-		{
-			name:              "TRUNCATE TABLE is destructive and non-transactional",
-			sql:               "TRUNCATE TABLE users;",
-			wantDestructive:   true,
-			wantBlocking:      true,
-			wantTxSafe:        false,
-			wantStatementType: "TRUNCATE TABLE",
-		},
-		{
-			name:              "DELETE is destructive but transactional",
-			sql:               "DELETE FROM users WHERE id = 1;",
-			wantDestructive:   true,
-			wantBlocking:      false,
-			wantTxSafe:        true,
-			wantStatementType: "DELETE",
-		},
-		{
-			name:              "CREATE TABLE is non-transactional",
-			sql:               "CREATE TABLE users (id INT PRIMARY KEY);",
-			wantDestructive:   false,
-			wantBlocking:      false,
-			wantTxSafe:        false,
-			wantStatementType: "CREATE TABLE",
-		},
-		{
-			name:              "CREATE INDEX is blocking and non-transactional",
-			sql:               "CREATE INDEX idx_name ON users(name);",
-			wantDestructive:   false,
-			wantBlocking:      true,
-			wantTxSafe:        false,
-			wantStatementType: "CREATE INDEX",
-		},
-		{
-			name:              "CREATE DATABASE is non-transactional",
-			sql:               "CREATE DATABASE mydb;",
-			wantDestructive:   false,
-			wantBlocking:      false,
-			wantTxSafe:        false,
-			wantStatementType: "CREATE DATABASE",
-		},
-		{
-			name:              "ALTER TABLE ADD COLUMN is blocking",
-			sql:               "ALTER TABLE users ADD COLUMN email VARCHAR(255);",
-			wantDestructive:   false,
-			wantBlocking:      true,
-			wantTxSafe:        false,
-			wantStatementType: "ALTER TABLE",
-		},
-		{
-			name:              "ALTER TABLE DROP COLUMN is destructive and blocking",
-			sql:               "ALTER TABLE users DROP COLUMN email;",
-			wantDestructive:   true,
-			wantBlocking:      true,
-			wantTxSafe:        false,
-			wantStatementType: "ALTER TABLE",
-		},
-		{
-			name:              "RENAME TABLE is blocking and non-transactional",
-			sql:               "RENAME TABLE old_users TO new_users;",
-			wantDestructive:   false,
-			wantBlocking:      true,
-			wantTxSafe:        false,
-			wantStatementType: "RENAME TABLE",
-		},
-		{
-			name:              "DROP INDEX is blocking",
-			sql:               "DROP INDEX idx_name ON users;",
-			wantDestructive:   false,
-			wantBlocking:      true,
-			wantTxSafe:        false,
-			wantStatementType: "DROP INDEX",
-		},
-	}
-
-	for _, tt := range tests {
+	for _, tt := range analyzeStatementTests {
 		t.Run(tt.name, func(t *testing.T) {
 			analysis := analyzer.AnalyzeStatement(tt.sql)
 

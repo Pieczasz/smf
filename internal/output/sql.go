@@ -37,32 +37,10 @@ func (sqlFormatter) FormatMigration(m *migration.Migration) (string, error) {
 	rb := m.RollbackStatements()
 
 	if len(sqlOps) == 0 {
-		sb.WriteString("\n-- No SQL statements generated.\n")
-		if len(rb) > 0 {
-			sb.WriteString("\n-- ROLLBACK SQL (run separately if needed)\n")
-			writeRollbackAsComments(&sb, rb)
-		}
-		return sb.String(), nil
+		return formatEmptyMigration(&sb, rb), nil
 	}
 
-	sb.WriteString("\n-- SQL\n")
-	for _, op := range sqlOps {
-		if op.SQL == "" {
-			continue
-		}
-		if op.Risk != "" && op.Risk != core.RiskInfo {
-			sb.WriteString("-- [" + string(op.Risk) + "]")
-			if op.RequiresLock {
-				sb.WriteString(" (may acquire locks)")
-			}
-			sb.WriteString("\n")
-		}
-		sb.WriteString(op.SQL)
-		if !strings.HasSuffix(op.SQL, ";") {
-			sb.WriteString(";")
-		}
-		sb.WriteString("\n")
-	}
+	writeSQLOperations(&sb, sqlOps)
 
 	if len(rb) > 0 {
 		sb.WriteString("\n-- ROLLBACK SQL (run separately)\n")
@@ -70,6 +48,40 @@ func (sqlFormatter) FormatMigration(m *migration.Migration) (string, error) {
 	}
 
 	return sb.String(), nil
+}
+
+func formatEmptyMigration(sb *strings.Builder, rb []string) string {
+	sb.WriteString("\n-- No SQL statements generated.\n")
+	if len(rb) > 0 {
+		sb.WriteString("\n-- ROLLBACK SQL (run separately if needed)\n")
+		writeRollbackAsComments(sb, rb)
+	}
+	return sb.String()
+}
+
+func writeSQLOperations(sb *strings.Builder, sqlOps []core.Operation) {
+	sb.WriteString("\n-- SQL\n")
+	for _, op := range sqlOps {
+		if op.SQL == "" {
+			continue
+		}
+		writeRiskComment(sb, op)
+		sb.WriteString(op.SQL)
+		if !strings.HasSuffix(op.SQL, ";") {
+			sb.WriteString(";")
+		}
+		sb.WriteString("\n")
+	}
+}
+
+func writeRiskComment(sb *strings.Builder, op core.Operation) {
+	if op.Risk != "" && op.Risk != core.RiskInfo {
+		sb.WriteString("-- [" + string(op.Risk) + "]")
+		if op.RequiresLock {
+			sb.WriteString(" (may acquire locks)")
+		}
+		sb.WriteString("\n")
+	}
 }
 
 // FormatRollbackSQL formats a migration's rollback statements as SQL.

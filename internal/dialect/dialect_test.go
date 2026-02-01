@@ -14,23 +14,23 @@ import (
 
 type mockGenerator struct{}
 
-func (m *mockGenerator) GenerateMigration(d *diff.SchemaDiff) *migration.Migration {
+func (m *mockGenerator) GenerateMigration(_ *diff.SchemaDiff) *migration.Migration {
 	return &migration.Migration{}
 }
 
-func (m *mockGenerator) GenerateMigrationWithOptions(d *diff.SchemaDiff, opts MigrationOptions) *migration.Migration {
+func (m *mockGenerator) GenerateMigrationWithOptions(_ *diff.SchemaDiff, _ MigrationOptions) *migration.Migration {
 	return &migration.Migration{}
 }
 
-func (m *mockGenerator) GenerateCreateTable(table *core.Table) (statement string, fkStatements []string) {
+func (m *mockGenerator) GenerateCreateTable(_ *core.Table) (statement string, fkStatements []string) {
 	return "CREATE TABLE", nil
 }
 
-func (m *mockGenerator) GenerateDropTable(table *core.Table) string {
+func (m *mockGenerator) GenerateDropTable(_ *core.Table) string {
 	return "DROP TABLE"
 }
 
-func (m *mockGenerator) GenerateAlterTable(d *diff.TableDiff) []string {
+func (m *mockGenerator) GenerateAlterTable(_ *diff.TableDiff) []string {
 	return []string{"ALTER TABLE"}
 }
 
@@ -44,7 +44,7 @@ func (m *mockGenerator) QuoteString(value string) string {
 
 type mockParser struct{}
 
-func (m *mockParser) Parse(sql string) (*core.Database, error) {
+func (m *mockParser) Parse(_ string) (*core.Database, error) {
 	return &core.Database{}, nil
 }
 
