@@ -128,6 +128,13 @@ func (g *Generator) generateIndexDrops(td *diff.TableDiff, table string, result 
 }
 
 func (g *Generator) generateColumnChanges(td *diff.TableDiff, table string, opts *dialect.MigrationOptions, result *AlterTableResult) {
+	g.generateColumnRenames(td, table, result)
+	g.generateColumnAdditions(td, table, result)
+	g.generateColumnModifications(td, table, result)
+	g.generateColumnRemovals(td, table, opts, result)
+}
+
+func (g *Generator) generateColumnRenames(td *diff.TableDiff, table string, result *AlterTableResult) {
 	for _, rc := range td.RenamedColumns {
 		if rc == nil || rc.Old == nil || rc.New == nil {
 			continue
@@ -136,7 +143,9 @@ func (g *Generator) generateColumnChanges(td *diff.TableDiff, table string, opts
 		down := fmt.Sprintf("ALTER TABLE %s CHANGE COLUMN %s %s;", table, g.QuoteIdentifier(rc.New.Name), g.columnDefinition(rc.Old))
 		result.Add(up, down)
 	}
+}
 
+func (g *Generator) generateColumnAdditions(td *diff.TableDiff, table string, result *AlterTableResult) {
 	for _, c := range td.AddedColumns {
 		if c == nil {
 			continue
@@ -145,7 +154,9 @@ func (g *Generator) generateColumnChanges(td *diff.TableDiff, table string, opts
 		down := fmt.Sprintf("ALTER TABLE %s DROP COLUMN %s;", table, g.QuoteIdentifier(c.Name))
 		result.Add(up, down)
 	}
+}
 
+func (g *Generator) generateColumnModifications(td *diff.TableDiff, table string, result *AlterTableResult) {
 	for _, ch := range td.ModifiedColumns {
 		if ch == nil || ch.New == nil || ch.Old == nil {
 			continue
@@ -154,8 +165,6 @@ func (g *Generator) generateColumnChanges(td *diff.TableDiff, table string, opts
 		down := fmt.Sprintf("ALTER TABLE %s MODIFY COLUMN %s;", table, g.columnDefinition(ch.Old))
 		result.Add(up, down)
 	}
-
-	g.generateColumnRemovals(td, table, opts, result)
 }
 
 func (g *Generator) generateColumnRemovals(td *diff.TableDiff, table string, opts *dialect.MigrationOptions, result *AlterTableResult) {
