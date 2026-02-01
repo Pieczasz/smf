@@ -438,10 +438,10 @@ func TestAddConstraintForeignKeyEmptyColumns(t *testing.T) {
 	g := NewMySQLGenerator()
 
 	c := &core.Constraint{
-		Name:             "fk_user",
-		Type:             core.ConstraintForeignKey,
-		Columns:          []string{},
-		ReferencedTable:  "users",
+		Name:              "fk_user",
+		Type:              core.ConstraintForeignKey,
+		Columns:           []string{},
+		ReferencedTable:   "users",
 		ReferencedColumns: []string{"id"},
 	}
 
