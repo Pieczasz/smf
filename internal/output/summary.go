@@ -27,44 +27,9 @@ func (summaryFormatter) FormatDiff(d *diff.SchemaDiff) (string, error) {
 	removedTables := len(d.RemovedTables)
 	modifiedTables := len(d.ModifiedTables)
 
-	var addedCols, removedCols, modifiedCols int
-	for _, t := range d.AddedTables {
-		addedCols += len(t.Columns)
-	}
-	for _, t := range d.RemovedTables {
-		removedCols += len(t.Columns)
-	}
-	for _, td := range d.ModifiedTables {
-		addedCols += len(td.AddedColumns)
-		removedCols += len(td.RemovedColumns)
-		modifiedCols += len(td.ModifiedColumns)
-	}
-
-	var addedIdx, removedIdx, modifiedIdx int
-	for _, t := range d.AddedTables {
-		addedIdx += len(t.Indexes)
-	}
-	for _, t := range d.RemovedTables {
-		removedIdx += len(t.Indexes)
-	}
-	for _, td := range d.ModifiedTables {
-		addedIdx += len(td.AddedIndexes)
-		removedIdx += len(td.RemovedIndexes)
-		modifiedIdx += len(td.ModifiedIndexes)
-	}
-
-	var addedConstr, removedConstr, modifiedConstr int
-	for _, t := range d.AddedTables {
-		addedConstr += len(t.Constraints)
-	}
-	for _, t := range d.RemovedTables {
-		removedConstr += len(t.Constraints)
-	}
-	for _, td := range d.ModifiedTables {
-		addedConstr += len(td.AddedConstraints)
-		removedConstr += len(td.RemovedConstraints)
-		modifiedConstr += len(td.ModifiedConstraints)
-	}
+	addedCols, removedCols, modifiedCols := countColumns(d)
+	addedIdx, removedIdx, modifiedIdx := countIndexes(d)
+	addedConstr, removedConstr, modifiedConstr := countConstraints(d)
 
 	sb.WriteString("Schema Diff Summary\n")
 	sb.WriteString("===================\n\n")
@@ -78,22 +43,72 @@ func (summaryFormatter) FormatDiff(d *diff.SchemaDiff) (string, error) {
 		fmt.Fprintf(&sb, "\nWarnings:    %d\n", len(d.Warnings))
 	}
 
-	// Show table names if any changes
-	if addedTables > 0 || removedTables > 0 || modifiedTables > 0 {
-		sb.WriteString("\nDetails:\n")
-		for _, t := range d.AddedTables {
-			fmt.Fprintf(&sb, "  + %s (new table)\n", t.Name)
-		}
-		for _, t := range d.RemovedTables {
-			fmt.Fprintf(&sb, "  - %s (removed table)\n", t.Name)
-		}
-		for _, td := range d.ModifiedTables {
-			changes := countTableChanges(td)
-			fmt.Fprintf(&sb, "  ~ %s (%s)\n", td.Name, changes)
-		}
-	}
+	writeTableDetails(&sb, d, addedTables, removedTables, modifiedTables)
 
 	return sb.String(), nil
+}
+
+func countColumns(d *diff.SchemaDiff) (added, removed, modified int) {
+	for _, t := range d.AddedTables {
+		added += len(t.Columns)
+	}
+	for _, t := range d.RemovedTables {
+		removed += len(t.Columns)
+	}
+	for _, td := range d.ModifiedTables {
+		added += len(td.AddedColumns)
+		removed += len(td.RemovedColumns)
+		modified += len(td.ModifiedColumns)
+	}
+	return
+}
+
+func countIndexes(d *diff.SchemaDiff) (added, removed, modified int) {
+	for _, t := range d.AddedTables {
+		added += len(t.Indexes)
+	}
+	for _, t := range d.RemovedTables {
+		removed += len(t.Indexes)
+	}
+	for _, td := range d.ModifiedTables {
+		added += len(td.AddedIndexes)
+		removed += len(td.RemovedIndexes)
+		modified += len(td.ModifiedIndexes)
+	}
+	return
+}
+
+func countConstraints(d *diff.SchemaDiff) (added, removed, modified int) {
+	for _, t := range d.AddedTables {
+		added += len(t.Constraints)
+	}
+	for _, t := range d.RemovedTables {
+		removed += len(t.Constraints)
+	}
+	for _, td := range d.ModifiedTables {
+		added += len(td.AddedConstraints)
+		removed += len(td.RemovedConstraints)
+		modified += len(td.ModifiedConstraints)
+	}
+	return
+}
+
+func writeTableDetails(sb *strings.Builder, d *diff.SchemaDiff, addedTables, removedTables, modifiedTables int) {
+	if addedTables == 0 && removedTables == 0 && modifiedTables == 0 {
+		return
+	}
+
+	sb.WriteString("\nDetails:\n")
+	for _, t := range d.AddedTables {
+		fmt.Fprintf(sb, "  + %s (new table)\n", t.Name)
+	}
+	for _, t := range d.RemovedTables {
+		fmt.Fprintf(sb, "  - %s (removed table)\n", t.Name)
+	}
+	for _, td := range d.ModifiedTables {
+		changes := countTableChanges(td)
+		fmt.Fprintf(sb, "  ~ %s (%s)\n", td.Name, changes)
+	}
 }
 
 // countTableChanges returns a human-readable summary of changes in a table.
