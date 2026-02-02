@@ -1,6 +1,7 @@
 package output
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -100,16 +101,30 @@ func TestSaveMigrationToFileFunctionality(t *testing.T) {
 	m.Operations = append(m.Operations, core.Operation{Kind: core.OperationSQL, SQL: "SELECT 1"})
 
 	tmpDir := t.TempDir()
-	migrationPath := tmpDir + "/migration.sql"
+	migrationPath := filepath.Join(tmpDir, "/migration.sql")
 	err := SaveMigrationToFile(m, migrationPath)
 	assert.NoError(t, err)
 
-	rollbackPath := tmpDir + "/rollback.sql"
+	rollbackPath := filepath.Join(tmpDir, "/rollback.sql")
 	err = SaveRollbackToFile(m, rollbackPath)
 	assert.NoError(t, err)
 }
 
-func TestJSONMarshalErrorFunctionality(t *testing.T) {
+func TestSaveRollbackToFileFunctionality(t *testing.T) {
+	m := &migration.Migration{}
+	m.Operations = append(m.Operations, core.Operation{Kind: core.OperationSQL, SQL: "SELECT 1"})
+
+	tmpDir := t.TempDir()
+	migrationPath := filepath.Join(tmpDir, "/migration.sql")
+	err := SaveMigrationToFile(m, migrationPath)
+	assert.NoError(t, err)
+
+	rollbackPath := filepath.Join(tmpDir, "/rollback.sql")
+	err = SaveRollbackToFile(m, rollbackPath)
+	assert.NoError(t, err)
+}
+
+func TestJSONFormatterOutput(t *testing.T) {
 	f, err := NewFormatter("json")
 	assert.NoError(t, err)
 	d := &diff.SchemaDiff{AddedTables: []*core.Table{{Name: "t1"}}}
