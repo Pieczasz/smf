@@ -100,8 +100,7 @@ func TestParseTiDBStatsSampleRateOption(t *testing.T) {
 	assert.InDelta(t, 0.25, table.Options.TiDB.StatsSampleRate, 0.0001)
 }
 
-func TestTableOptionHelpersAndTiDBOptions(t *testing.T) {
-	p := NewParser()
+func TestTableOptionHelpers(t *testing.T) {
 	table := &core.Table{}
 
 	applyStandardTableOption(&ast.TableOption{Tp: ast.TableOptionAvgRowLength, UintValue: 10}, table)
@@ -168,6 +167,11 @@ func TestTableOptionHelpersAndTiDBOptions(t *testing.T) {
 
 	assert.True(t, optionTruthy(false, "TRUE", 0))
 	assert.True(t, optionTruthy(false, "1", 0))
+}
+
+func TestTiDBTableOptionHelpers(t *testing.T) {
+	p := NewParser()
+	table := &core.Table{}
 
 	p.applyTiDBTableOption(&ast.TableOption{Tp: ast.TableOptionAutoIdCache, UintValue: 10}, table)
 	assert.Equal(t, uint64(10), table.Options.TiDB.AutoIDCache)
