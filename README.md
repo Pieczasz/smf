@@ -90,8 +90,10 @@ The generator annotates output with warnings/breaking changes for schema operati
 
 ## Contributing
 
-- Core diff logic lives under `diff/`.
-- Dialect-specific generation lives under `dialect/` (MySQL implementation in `dialect/mysql/`).
-- Parser integration lives under `parser/`.
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to get started, our coding standards, and how to run tests.
 
-If you add new behavior, please add/extend tests under `tests/` and prefer fixture-based regression tests.
+- Core diff logic lives under `internal/diff/`.
+- Dialect-specific generation lives under `internal/dialect/` (MySQL implementation in `internal/dialect/mysql/`).
+- Parser integration lives under `internal/parser/`.
+
+If you add new behavior, please add/extend tests and prefer fixture-based regression tests.
