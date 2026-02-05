@@ -144,7 +144,7 @@ func TestGeneratorGenerateMigration(t *testing.T) {
 		},
 	}
 
-	mig := g.GenerateMigration(schemaDiff)
+	mig := g.GenerateMigration(schemaDiff, dialect.DefaultMigrationOptions(dialect.MySQL))
 
 	require.NotNil(t, mig)
 	assert.NotEmpty(t, mig.Plan())
@@ -165,7 +165,7 @@ func TestGeneratorGenerateMigrationWithOptions(t *testing.T) {
 		IncludeUnsafe: true,
 	}
 
-	mig := g.GenerateMigrationWithOptions(schemaDiff, opts)
+	mig := g.GenerateMigration(schemaDiff, opts)
 
 	require.NotNil(t, mig)
 	plan := mig.Plan()
@@ -189,7 +189,7 @@ func TestGeneratorGenerateMigrationSafeMode(t *testing.T) {
 		},
 	}
 
-	mig := g.GenerateMigration(schemaDiff)
+	mig := g.GenerateMigration(schemaDiff, dialect.DefaultMigrationOptions(dialect.MySQL))
 
 	require.NotNil(t, mig)
 	plan := mig.Plan()
@@ -471,7 +471,7 @@ func TestGenerateMigrationWithPendingFKs(t *testing.T) {
 		},
 	}
 
-	mig := g.GenerateMigration(schemaDiff)
+	mig := g.GenerateMigration(schemaDiff, dialect.DefaultMigrationOptions(dialect.MySQL))
 
 	require.NotNil(t, mig)
 	plan := mig.Plan()
@@ -510,7 +510,7 @@ func TestGenerateMigrationWithModifiedTableMismatchedRollback(t *testing.T) {
 		},
 	}
 
-	mig := g.GenerateMigration(schemaDiff)
+	mig := g.GenerateMigration(schemaDiff, dialect.DefaultMigrationOptions(dialect.MySQL))
 	require.NotNil(t, mig)
 }
 
@@ -534,7 +534,7 @@ func TestGenerateMigrationWithFKStatementWithoutRollback(t *testing.T) {
 		},
 	}
 
-	mig := g.GenerateMigration(schemaDiff)
+	mig := g.GenerateMigration(schemaDiff, dialect.DefaultMigrationOptions(dialect.MySQL))
 	require.NotNil(t, mig)
 
 	plan := mig.Plan()
@@ -574,7 +574,7 @@ func TestGenerateMigrationWithFKNoRollbackBranch(t *testing.T) {
 		},
 	}
 
-	mig := g.GenerateMigration(schemaDiff)
+	mig := g.GenerateMigration(schemaDiff, dialect.DefaultMigrationOptions(dialect.MySQL))
 	require.NotNil(t, mig)
 }
 
@@ -602,7 +602,7 @@ func TestGenerateMigrationWithOrphanedFKRollbacks(t *testing.T) {
 		},
 	}
 
-	mig := g.GenerateMigration(schemaDiff)
+	mig := g.GenerateMigration(schemaDiff, dialect.DefaultMigrationOptions(dialect.MySQL))
 	require.NotNil(t, mig)
 }
 

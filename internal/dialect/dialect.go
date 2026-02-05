@@ -23,8 +23,7 @@ const (
 // It contains all methods to support as much as possible for each dialect.
 // NOTE: this interface can be changed later if we need more or less methods.
 type Generator interface {
-	GenerateMigration(diff *diff.SchemaDiff) *migration.Migration
-	GenerateMigrationWithOptions(diff *diff.SchemaDiff, opts MigrationOptions) *migration.Migration
+	GenerateMigration(diff *diff.SchemaDiff, opts MigrationOptions) *migration.Migration
 	GenerateCreateTable(table *core.Table) (statement string, fkStatements []string)
 	GenerateDropTable(table *core.Table) string
 	GenerateAlterTable(diff *diff.TableDiff) []string

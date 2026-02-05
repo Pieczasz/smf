@@ -14,11 +14,7 @@ import (
 
 type mockGenerator struct{}
 
-func (m *mockGenerator) GenerateMigration(_ *diff.SchemaDiff) *migration.Migration {
-	return &migration.Migration{}
-}
-
-func (m *mockGenerator) GenerateMigrationWithOptions(_ *diff.SchemaDiff, _ MigrationOptions) *migration.Migration {
+func (m *mockGenerator) GenerateMigration(_ *diff.SchemaDiff, _ MigrationOptions) *migration.Migration {
 	return &migration.Migration{}
 }
 
@@ -290,8 +286,7 @@ func TestMockDialectImplementsInterface(t *testing.T) {
 func TestMockGeneratorImplementsInterface(t *testing.T) {
 	var g Generator = &mockGenerator{}
 
-	assert.NotNil(t, g.GenerateMigration(nil))
-	assert.NotNil(t, g.GenerateMigrationWithOptions(nil, MigrationOptions{}))
+	assert.NotNil(t, g.GenerateMigration(nil, MigrationOptions{}))
 
 	stmt, fks := g.GenerateCreateTable(nil)
 	assert.Equal(t, "CREATE TABLE", stmt)

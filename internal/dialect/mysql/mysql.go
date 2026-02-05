@@ -64,17 +64,9 @@ func NewMySQLGenerator() *Generator {
 	return &Generator{}
 }
 
-// GenerateMigration generates a migration for the given schema diff in safe mode.
-// Safe mode renames drops instead of executing them, preserving data and enabling rollback.
-func (g *Generator) GenerateMigration(schemaDiff *diff.SchemaDiff) *migration.Migration {
-	opts := dialect.DefaultMigrationOptions(dialect.MySQL)
-	opts.IncludeUnsafe = false
-	return g.GenerateMigrationWithOptions(schemaDiff, opts)
-}
-
-// GenerateMigrationWithOptions generates a migration for the given schema diff with the given options.
+// GenerateMigration generates a migration for the given schema diff with the given options.
 // A user provides options to customize the migration process.
-func (g *Generator) GenerateMigrationWithOptions(schemaDiff *diff.SchemaDiff, opts dialect.MigrationOptions) *migration.Migration {
+func (g *Generator) GenerateMigration(schemaDiff *diff.SchemaDiff, opts dialect.MigrationOptions) *migration.Migration {
 	m := &migration.Migration{}
 
 	g.addBreakingChangeWarnings(m, schemaDiff)
