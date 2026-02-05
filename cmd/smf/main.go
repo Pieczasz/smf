@@ -332,7 +332,7 @@ func generateMigration(schemaDiff *diff.SchemaDiff, unsafe bool) *migration.Migr
 	d := dialect.GetDialect(dialect.MySQL)
 	opts := dialect.DefaultMigrationOptions(dialect.MySQL)
 	opts.IncludeUnsafe = unsafe
-	return d.Generator().GenerateMigrationWithOptions(schemaDiff, opts)
+	return d.Generator().GenerateMigration(schemaDiff, opts)
 }
 
 func formatMigration(m *migration.Migration, format, outFile string) error {

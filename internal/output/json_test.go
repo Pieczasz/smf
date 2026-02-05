@@ -82,7 +82,7 @@ func formatMigrationJSON(t *testing.T) string {
 	schemaDiff := diff.Diff(oldDB, newDB, diff.DefaultOptions())
 	d := mysql.NewMySQLDialect()
 	opts := dialect.DefaultMigrationOptions(dialect.MySQL)
-	migration := d.Generator().GenerateMigrationWithOptions(schemaDiff, opts)
+	migration := d.Generator().GenerateMigration(schemaDiff, opts)
 
 	formatter, err := NewFormatter("json")
 	require.NoError(t, err)
