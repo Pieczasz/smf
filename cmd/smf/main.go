@@ -211,7 +211,6 @@ func runApply(flags *applyFlags) error {
 
 	applier := apply.NewApplier(apply.Options{
 		DSN:                   flags.dsn,
-		FilePath:              flags.file,
 		DryRun:                flags.dryRun,
 		Transaction:           flags.transaction,
 		AllowNonTransactional: flags.allowNonTransactional,
@@ -232,14 +231,6 @@ func runApply(flags *applyFlags) error {
 	fmt.Println()
 
 	preflight := applier.PreflightChecks(statements, flags.unsafe)
-
-	if err := checkDestructiveOperations(preflight, flags.unsafe); err != nil {
-		return err
-	}
-
-	if err := checkTransactionSafety(preflight, flags.transaction, flags.allowNonTransactional); err != nil {
-		return err
-	}
 
 	if flags.dryRun {
 		return applier.Apply(context.Background(), statements, preflight)
@@ -353,38 +344,6 @@ func printInfo(format string, msg string) {
 		return
 	}
 	fmt.Println(msg)
-}
-
-func checkDestructiveOperations(preflight *apply.PreflightResult, unsafe bool) error {
-	if !apply.HasDestructiveOperations(preflight) || unsafe {
-		return nil
-	}
-	fmt.Println("--- Preflight Warnings ---")
-	for _, w := range preflight.Warnings {
-		if w.Level == apply.WarnDanger {
-			fmt.Printf("[%s] %s\n", w.Level, w.Message)
-			if w.SQL != "" {
-				fmt.Printf("    SQL: %s\n", w.SQL)
-			}
-		}
-	}
-	return fmt.Errorf("destructive operations detected; use --unsafe to allow these operations")
-}
-
-func checkTransactionSafety(preflight *apply.PreflightResult, transaction, allowNonTransactional bool) error {
-	if !transaction || preflight.IsTransactional || allowNonTransactional {
-		return nil
-	}
-	fmt.Println("Migration is not transaction-safe:")
-	for _, reason := range preflight.NonTxReasons {
-		fmt.Printf("  - %s\n", reason)
-	}
-	fmt.Println("\nMySQL DDL statements (CREATE, ALTER, DROP, etc.) cause implicit commits")
-	fmt.Println("and cannot be rolled back within a transaction.")
-	fmt.Println("\nOptions:")
-	fmt.Println("  1. Use --allow-non-transactional to proceed without transaction protection")
-	fmt.Println("  2. Use --transaction=false to explicitly disable transaction mode")
-	return fmt.Errorf("non-transactional DDL detected; use --allow-non-transactional to proceed")
 }
 
 func writeOutput(content, outFile, format string) error {

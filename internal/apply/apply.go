@@ -41,10 +41,18 @@ const (
 	WarnDanger  WarningLevel = "DANGER"
 )
 
-// Options struct contains all setting available for user to choose during apply command.
+const (
+	// defaultTruncateLen is the default max length for truncated SQL in output.
+	defaultTruncateLen = 60
+	// displayTruncateLen is used for inline progress messages.
+	displayTruncateLen = 50
+	// errorTruncateLen is used for SQL shown in error messages.
+	errorTruncateLen = 80
+)
+
+// Options contain all settings available for the apply command.
 type Options struct {
 	DSN                   string
-	FilePath              string
 	DryRun                bool
 	Transaction           bool
 	AllowNonTransactional bool
@@ -90,7 +98,7 @@ func NewApplier(options Options) *Applier {
 	}
 }
 
-// We use custom printf to format and print messages to the output writer.
+// printf formats and prints messages to the output writer.
 func (a *Applier) printf(format string, args ...any) {
 	_, _ = fmt.Fprintf(a.out, format, args...)
 }
@@ -99,9 +107,8 @@ func (a *Applier) println(args ...any) {
 	_, _ = fmt.Fprintln(a.out, args...)
 }
 
-// Apply function, look for the dryRun option, runs it, and
-// depending on a transactional option, run the appropriate migration.
-// If something went wrong, returns an error, otherwise nil.
+// Apply runs preflight checks, displays statements, and depending on
+// the dry-run and transaction options, executes the appropriate migration.
 func (a *Applier) Apply(ctx context.Context, statements []string, preflight *PreflightResult) error {
 	a.displayPreflightChecks(preflight)
 	a.displayStatements(statements)
@@ -110,12 +117,6 @@ func (a *Applier) Apply(ctx context.Context, statements []string, preflight *Pre
 		a.println("\n=== DRY RUN MODE ===")
 		a.println("Run without --dry-run to apply.")
 		return a.validatePreflight(preflight)
-	}
-
-	if a.options.Transaction && !preflight.IsTransactional {
-		if !a.options.AllowNonTransactional {
-			return fmt.Errorf("migration contains non-transactional DDL statements; use --allow-non-transactional to proceed")
-		}
 	}
 
 	// Validate preflight before asking for confirmation
@@ -176,10 +177,8 @@ func (a *Applier) ParseStatements(content string) []string {
 	if err := json.Unmarshal([]byte(content), &migration); err == nil {
 		if migration.Format == "json" {
 			statements := a.extractJSONStatements(&migration)
-			if len(statements) > 0 {
-				a.statements = statements
-				return statements
-			}
+			a.statements = statements
+			return statements
 		}
 	}
 
@@ -276,7 +275,7 @@ func splitStatementsBySemicolon(content string) []string {
 func truncateSQL(stmt string, maxLen int) string {
 	stmt = strings.TrimSpace(stmt)
 	if maxLen <= 0 {
-		maxLen = 60
+		maxLen = defaultTruncateLen
 	}
 	if len(stmt) > maxLen {
 		return stmt[:maxLen-3] + "..."
@@ -363,15 +362,15 @@ func (a *Applier) applyWithTransaction(ctx context.Context, statements []string)
 	for i, stmt := range statements {
 		start := time.Now()
 		if _, err := tx.ExecContext(ctx, stmt); err != nil {
-			a.printf("  [%d/%d] FAILED: %s\n", i+1, total, truncateSQL(stmt, 50))
+			a.printf("  [%d/%d] FAILED: %s\n", i+1, total, truncateSQL(stmt, displayTruncateLen))
 			if rbErr := tx.Rollback(); rbErr != nil {
 				execRbErr := errors.Join(err, rbErr)
 				return fmt.Errorf("execute and rollback failed: %w", execRbErr)
 			}
-			return fmt.Errorf("execute failed (rolled back): %w\n  Statement: %s", err, truncateSQL(stmt, 80))
+			return fmt.Errorf("execute failed (rolled back): %w [statement: %s]", err, truncateSQL(stmt, errorTruncateLen))
 		}
 		elapsed := time.Since(start)
-		a.printf("  [%d/%d] OK: %s (%.2fs)\n", i+1, total, truncateSQL(stmt, 50), elapsed.Seconds())
+		a.printf("  [%d/%d] OK: %s (%.2fs)\n", i+1, total, truncateSQL(stmt, displayTruncateLen), elapsed.Seconds())
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -388,12 +387,12 @@ func (a *Applier) applyWithoutTransaction(ctx context.Context, statements []stri
 	for i, stmt := range statements {
 		start := time.Now()
 		if _, err := a.db.ExecContext(ctx, stmt); err != nil {
-			a.printf("  [%d/%d] FAILED: %s\n", i+1, total, truncateSQL(stmt, 50))
-			return fmt.Errorf("statement %d failed: %w\n  Statement: %s\n  %d statements were already applied and cannot be automatically rolled back",
-				i+1, err, truncateSQL(stmt, 80), successCount)
+			a.printf("  [%d/%d] FAILED: %s\n", i+1, total, truncateSQL(stmt, displayTruncateLen))
+			return fmt.Errorf("statement %d failed: %w [statement: %s, %d statements were already applied and cannot be automatically rolled back]",
+				i+1, err, truncateSQL(stmt, errorTruncateLen), successCount)
 		}
 		elapsed := time.Since(start)
-		a.printf("  [%d/%d] OK: %s (%.2fs)\n", i+1, total, truncateSQL(stmt, 50), elapsed.Seconds())
+		a.printf("  [%d/%d] OK: %s (%.2fs)\n", i+1, total, truncateSQL(stmt, displayTruncateLen), elapsed.Seconds())
 		successCount++
 	}
 
@@ -401,10 +400,10 @@ func (a *Applier) applyWithoutTransaction(ctx context.Context, statements []stri
 	return nil
 }
 
-// HasDestructiveOperations checks if there is a dangerous warning inside a preflight
-// analysis of a migration. If it has returns true, otherwise false.
-func HasDestructiveOperations(preflight *PreflightResult) bool {
-	for _, w := range preflight.Warnings {
+// HasDestructiveOperations reports whether the preflight result contains
+// any DANGER-level warnings indicating destructive operations.
+func (p *PreflightResult) HasDestructiveOperations() bool {
+	for _, w := range p.Warnings {
 		if w.Level == WarnDanger {
 			return true
 		}

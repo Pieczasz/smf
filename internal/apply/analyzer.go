@@ -103,7 +103,12 @@ func NewStatementAnalyzer() *StatementAnalyzer {
 func (a *StatementAnalyzer) AnalyzeStatement(sql string) *StatementAnalysis {
 	stmtNodes, _, err := a.parser.Parse(sql, "", "")
 	if err != nil {
-		return a.fallbackAnalysis(sql)
+		analysis := &StatementAnalysis{
+			StatementType:     "UNPARSEABLE",
+			IsTransactionSafe: true,
+		}
+		a.analyzeOtherStatement(analysis, sql)
+		return analysis
 	}
 
 	if len(stmtNodes) == 0 {
@@ -312,9 +317,17 @@ func (a *StatementAnalyzer) analyzeDMLNode(node ast.StmtNode, analysis *Statemen
 		analysis.IsDestructive = true
 		analysis.DestructiveReason = "DELETE will remove rows from the table"
 		return true
-	case *ast.InsertStmt, *ast.UpdateStmt, *ast.SelectStmt:
+	case *ast.InsertStmt:
+		analysis.StatementType = "INSERT"
 		analysis.IsTransactionSafe = true
-		// TODO: Add support for all possible cases
+		return true
+	case *ast.UpdateStmt:
+		analysis.StatementType = "UPDATE"
+		analysis.IsTransactionSafe = true
+		return true
+	case *ast.SelectStmt:
+		analysis.StatementType = "SELECT"
+		analysis.IsTransactionSafe = true
 		return true
 	default:
 		return false
@@ -393,54 +406,4 @@ func (a *StatementAnalyzer) analyzeAddConstraint(spec *ast.AlterTableSpec, analy
 		analysis.BlockingReasons = append(analysis.BlockingReasons,
 			"ADD CONSTRAINT may lock the table while validating existing data")
 	}
-}
-
-func (a *StatementAnalyzer) fallbackAnalysis(sql string) *StatementAnalysis {
-	analysis := &StatementAnalysis{
-		StatementType:     "UNPARSEABLE",
-		IsTransactionSafe: true,
-	}
-
-	upper := strings.ToUpper(strings.TrimSpace(sql))
-
-	destructivePatterns := map[string]string{
-		"DROP TABLE":     "DROP TABLE will permanently delete the table and all its data",
-		"DROP DATABASE":  "DROP DATABASE will permanently delete the entire database",
-		"TRUNCATE TABLE": "TRUNCATE TABLE will delete all rows from the table",
-		"DELETE FROM":    "DELETE will remove rows from the table",
-	}
-
-	for pattern, reason := range destructivePatterns {
-		if strings.Contains(upper, pattern) {
-			analysis.IsDestructive = true
-			analysis.DestructiveReason = reason
-			break
-		}
-	}
-
-	ddlPrefixes := []string{
-		"CREATE TABLE", "DROP TABLE", "ALTER TABLE", "RENAME TABLE", "TRUNCATE TABLE",
-		"CREATE INDEX", "DROP INDEX",
-		"CREATE DATABASE", "DROP DATABASE", "ALTER DATABASE",
-		"CREATE VIEW", "DROP VIEW", "ALTER VIEW",
-		"CREATE PROCEDURE", "DROP PROCEDURE", "ALTER PROCEDURE",
-		"CREATE FUNCTION", "DROP FUNCTION", "ALTER FUNCTION",
-		"CREATE TRIGGER", "DROP TRIGGER",
-		"CREATE EVENT", "DROP EVENT", "ALTER EVENT",
-	}
-
-	for _, prefix := range ddlPrefixes {
-		if strings.HasPrefix(upper, prefix) || strings.Contains(upper, " "+prefix) {
-			analysis.IsTransactionSafe = false
-			analysis.TxUnsafeReason = fmt.Sprintf("%s causes an implicit commit in MySQL", prefix)
-			break
-		}
-	}
-
-	if strings.Contains(upper, "ALTER TABLE") && strings.Contains(upper, "DROP COLUMN") {
-		analysis.IsDestructive = true
-		analysis.DestructiveReason = "DROP COLUMN will permanently delete the column and its data"
-	}
-
-	return analysis
 }
