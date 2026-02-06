@@ -50,7 +50,7 @@ const (
 	errorTruncateLen = 80
 )
 
-// Options contains all settings available for the apply command.
+// Options contain all settings available for the apply command.
 type Options struct {
 	DSN                   string
 	DryRun                bool
