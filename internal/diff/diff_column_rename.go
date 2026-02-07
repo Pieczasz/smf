@@ -138,10 +138,10 @@ func tokenizeName(name string) []string {
 	if name == "" {
 		return nil
 	}
-	f := func(r rune) bool {
+
+	parts := strings.FieldsFunc(name, func(r rune) bool {
 		return (r < 'a' || r > 'z') && (r < '0' || r > '9')
-	}
-	parts := strings.FieldsFunc(name, f)
+	})
 	var out []string
 	for _, p := range parts {
 		if len(p) >= renameSharedTokenMinLen {
@@ -156,6 +156,7 @@ func hasSharedTokens(a, b []string) bool {
 	if len(a) == 0 || len(b) == 0 {
 		return false
 	}
+
 	set := make(map[string]struct{}, len(a))
 	for _, t := range a {
 		set[t] = struct{}{}

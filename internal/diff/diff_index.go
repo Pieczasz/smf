@@ -97,6 +97,7 @@ func indexKey(i *core.Index) string {
 		return name
 	}
 	var sb strings.Builder
+	// TODO: make this preallocation more accurate
 	sb.Grow(32)
 	sb.WriteString("idx:")
 	if i.Unique {

@@ -255,6 +255,7 @@ func (g *Generator) addForeignKeyConstraint(table string, c *core.Constraint, co
 		return ""
 	}
 	var sb strings.Builder
+	sb.Grow(128)
 	sb.WriteString("ALTER TABLE ")
 	sb.WriteString(table)
 	sb.WriteString(" ADD ")

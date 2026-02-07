@@ -256,30 +256,30 @@ func (g *Generator) QuoteIdentifier(name string) string {
 
 // QuoteString is a function used for quote string inside an SQL dialect.
 func (g *Generator) QuoteString(value string) string {
-	var b strings.Builder
-	b.Grow(len(value) + len(value)/10 + 2)
+	var sb strings.Builder
+	sb.Grow(len(value) + len(value)/10 + 2)
 
-	b.WriteByte('\'')
+	sb.WriteByte('\'')
 	for _, char := range value {
 		switch char {
 		case '\'':
-			b.WriteString("''")
+			sb.WriteString("''")
 		case '\\': // Backslash escaped
-			b.WriteString(`\\`)
+			sb.WriteString(`\\`)
 		case '\x00': // NUL byte
-			b.WriteString(`\0`)
+			sb.WriteString(`\0`)
 		case '\n': // Newline
-			b.WriteString(`\n`)
+			sb.WriteString(`\n`)
 		case '\r': // Carriage return
-			b.WriteString(`\r`)
+			sb.WriteString(`\r`)
 		case '\x1A': // Ctrl+Z
-			b.WriteString(`\Z`)
+			sb.WriteString(`\Z`)
 		default:
-			b.WriteRune(char)
+			sb.WriteRune(char)
 		}
 	}
-	b.WriteByte('\'')
-	return b.String()
+	sb.WriteByte('\'')
+	return sb.String()
 }
 
 // Helpers
