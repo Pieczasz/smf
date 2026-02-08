@@ -393,10 +393,6 @@ func TestCompositePrimaryKeyInConstraints(t *testing.T) {
 }
 
 func TestColumnPKPlusSynthesizedConstraint(t *testing.T) {
-	// After synthesis, a table has both column-level PrimaryKey=true
-	// and a single PK constraint — this is the normal state and must
-	// pass core validation. The column-vs-constraint conflict check
-	// lives in the parser (before synthesis), not in core.
 	table := &Table{
 		Name: "users",
 		Columns: []*Column{
@@ -1199,7 +1195,7 @@ func TestValidationRulesCombined(t *testing.T) {
 			},
 			Tables: []*Table{
 				{
-					Name: "Users", // fails pattern (uppercase U)
+					Name: "Users",
 					Columns: []*Column{
 						{Name: "id", TypeRaw: "INT"},
 					},
@@ -1208,7 +1204,6 @@ func TestValidationRulesCombined(t *testing.T) {
 		}
 		err := db.Validate()
 		require.Error(t, err)
-		// Table-level pattern check fires before column-level
 		assert.Contains(t, err.Error(), "does not match allowed pattern")
 	})
 }
