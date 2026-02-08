@@ -416,41 +416,172 @@ func TestIsValidDialect(t *testing.T) {
 }
 
 func TestColumnHasTypeOverride(t *testing.T) {
-	t.Run("no override", func(t *testing.T) {
+	t.Run("no overrides", func(t *testing.T) {
 		col := &Column{Name: "id", TypeRaw: "bigint"}
-		assert.False(t, col.HasTypeOverride())
+		assert.False(t, col.HasTypeOverride("mysql"))
+		assert.False(t, col.HasTypeOverride(""))
 	})
 
-	t.Run("empty override", func(t *testing.T) {
-		col := &Column{Name: "id", TypeRaw: "bigint", TypeOverride: ""}
-		assert.False(t, col.HasTypeOverride())
+	t.Run("empty map", func(t *testing.T) {
+		col := &Column{Name: "id", TypeRaw: "bigint", TypeOverrides: map[string]string{}}
+		assert.False(t, col.HasTypeOverride("mysql"))
+		assert.False(t, col.HasTypeOverride(""))
 	})
 
-	t.Run("whitespace only override", func(t *testing.T) {
-		col := &Column{Name: "id", TypeRaw: "bigint", TypeOverride: "   "}
-		assert.False(t, col.HasTypeOverride())
+	t.Run("override for specific dialect", func(t *testing.T) {
+		col := &Column{Name: "id", TypeRaw: "bigint", TypeOverrides: map[string]string{
+			"oracle": "NUMBER(19)",
+		}}
+		assert.True(t, col.HasTypeOverride("oracle"))
+		assert.False(t, col.HasTypeOverride("mysql"))
+		assert.True(t, col.HasTypeOverride("")) // any override exists
 	})
 
-	t.Run("with override", func(t *testing.T) {
-		col := &Column{Name: "id", TypeRaw: "bigint", TypeOverride: "NUMBER(19)"}
-		assert.True(t, col.HasTypeOverride())
+	t.Run("whitespace only value ignored", func(t *testing.T) {
+		col := &Column{Name: "id", TypeRaw: "bigint", TypeOverrides: map[string]string{
+			"oracle": "   ",
+		}}
+		assert.False(t, col.HasTypeOverride("oracle"))
+	})
+
+	t.Run("case insensitive dialect lookup", func(t *testing.T) {
+		col := &Column{Name: "id", TypeRaw: "bigint", TypeOverrides: map[string]string{
+			"postgresql": "BIGSERIAL",
+		}}
+		assert.True(t, col.HasTypeOverride("postgresql"))
+		assert.True(t, col.HasTypeOverride("PostgreSQL"))
 	})
 }
 
 func TestColumnEffectiveType(t *testing.T) {
 	t.Run("no override returns TypeRaw", func(t *testing.T) {
 		col := &Column{Name: "id", TypeRaw: "bigint"}
-		assert.Equal(t, "bigint", col.EffectiveType())
+		assert.Equal(t, "bigint", col.EffectiveType("mysql"))
 	})
 
-	t.Run("override takes precedence", func(t *testing.T) {
-		col := &Column{Name: "id", TypeRaw: "bigint", TypeOverride: "NUMBER(19)"}
-		assert.Equal(t, "NUMBER(19)", col.EffectiveType())
+	t.Run("override takes precedence for matching dialect", func(t *testing.T) {
+		col := &Column{Name: "id", TypeRaw: "bigint", TypeOverrides: map[string]string{
+			"oracle": "NUMBER(19)",
+		}}
+		assert.Equal(t, "NUMBER(19)", col.EffectiveType("oracle"))
+	})
+
+	t.Run("falls back to TypeRaw for non-matching dialect", func(t *testing.T) {
+		col := &Column{Name: "id", TypeRaw: "bigint", TypeOverrides: map[string]string{
+			"oracle": "NUMBER(19)",
+		}}
+		assert.Equal(t, "bigint", col.EffectiveType("mysql"))
 	})
 
 	t.Run("whitespace override falls back to TypeRaw", func(t *testing.T) {
-		col := &Column{Name: "id", TypeRaw: "varchar(255)", TypeOverride: "   "}
-		assert.Equal(t, "varchar(255)", col.EffectiveType())
+		col := &Column{Name: "id", TypeRaw: "varchar(255)", TypeOverrides: map[string]string{
+			"oracle": "   ",
+		}}
+		assert.Equal(t, "varchar(255)", col.EffectiveType("oracle"))
+	})
+
+	t.Run("empty dialect returns TypeRaw", func(t *testing.T) {
+		col := &Column{Name: "id", TypeRaw: "bigint", TypeOverrides: map[string]string{
+			"oracle": "NUMBER(19)",
+		}}
+		assert.Equal(t, "bigint", col.EffectiveType(""))
+	})
+}
+
+func TestParseReferences(t *testing.T) {
+	t.Run("valid reference", func(t *testing.T) {
+		tbl, col, ok := ParseReferences("tenants.id")
+		assert.True(t, ok)
+		assert.Equal(t, "tenants", tbl)
+		assert.Equal(t, "id", col)
+	})
+
+	t.Run("valid reference with schema prefix", func(t *testing.T) {
+		tbl, col, ok := ParseReferences("public.users.id")
+		assert.True(t, ok)
+		assert.Equal(t, "public.users", tbl)
+		assert.Equal(t, "id", col)
+	})
+
+	t.Run("empty string", func(t *testing.T) {
+		_, _, ok := ParseReferences("")
+		assert.False(t, ok)
+	})
+
+	t.Run("no dot", func(t *testing.T) {
+		_, _, ok := ParseReferences("tenants")
+		assert.False(t, ok)
+	})
+
+	t.Run("dot at start", func(t *testing.T) {
+		_, _, ok := ParseReferences(".id")
+		assert.False(t, ok)
+	})
+
+	t.Run("dot at end", func(t *testing.T) {
+		_, _, ok := ParseReferences("tenants.")
+		assert.False(t, ok)
+	})
+
+	t.Run("whitespace trimmed", func(t *testing.T) {
+		tbl, col, ok := ParseReferences("  tenants.id  ")
+		assert.True(t, ok)
+		assert.Equal(t, "tenants", tbl)
+		assert.Equal(t, "id", col)
+	})
+}
+
+func TestBuildEnumTypeRaw(t *testing.T) {
+	t.Run("basic values", func(t *testing.T) {
+		result := BuildEnumTypeRaw([]string{"free", "pro", "enterprise"})
+		assert.Equal(t, "enum('free','pro','enterprise')", result)
+	})
+
+	t.Run("single value", func(t *testing.T) {
+		result := BuildEnumTypeRaw([]string{"active"})
+		assert.Equal(t, "enum('active')", result)
+	})
+
+	t.Run("empty values", func(t *testing.T) {
+		result := BuildEnumTypeRaw([]string{})
+		assert.Equal(t, "enum()", result)
+	})
+
+	t.Run("nil values", func(t *testing.T) {
+		result := BuildEnumTypeRaw(nil)
+		assert.Equal(t, "enum()", result)
+	})
+
+	t.Run("values with single quotes escaped", func(t *testing.T) {
+		result := BuildEnumTypeRaw([]string{"it's", "they're"})
+		assert.Equal(t, "enum('it''s','they''re')", result)
+	})
+}
+
+func TestAutoGenerateConstraintName(t *testing.T) {
+	t.Run("primary key", func(t *testing.T) {
+		name := AutoGenerateConstraintName(ConstraintPrimaryKey, "Users", []string{"id"}, "")
+		assert.Equal(t, "pk_users", name)
+	})
+
+	t.Run("unique", func(t *testing.T) {
+		name := AutoGenerateConstraintName(ConstraintUnique, "Users", []string{"email"}, "")
+		assert.Equal(t, "uq_users_email", name)
+	})
+
+	t.Run("check", func(t *testing.T) {
+		name := AutoGenerateConstraintName(ConstraintCheck, "Users", []string{"age"}, "")
+		assert.Equal(t, "chk_users_age", name)
+	})
+
+	t.Run("foreign key", func(t *testing.T) {
+		name := AutoGenerateConstraintName(ConstraintForeignKey, "Orders", []string{"user_id"}, "Users")
+		assert.Equal(t, "fk_orders_users", name)
+	})
+
+	t.Run("composite unique", func(t *testing.T) {
+		name := AutoGenerateConstraintName(ConstraintUnique, "Roles", []string{"tenant_id", "name"}, "")
+		assert.Equal(t, "uq_roles_tenant_id_name", name)
 	})
 }
 

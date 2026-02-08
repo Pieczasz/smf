@@ -73,7 +73,7 @@ var databaseValidateCases = []struct {
 				{
 					Name: "users",
 					Columns: []*Column{
-						{Name: "id", TypeRaw: "INT"},
+						{Name: "id", TypeRaw: "INT", PrimaryKey: true},
 					},
 				},
 			},
@@ -87,7 +87,7 @@ var databaseValidateCases = []struct {
 				{
 					Name: "users",
 					Columns: []*Column{
-						{Name: "id", TypeRaw: "INT"},
+						{Name: "id", TypeRaw: "INT", PrimaryKey: true},
 					},
 				},
 				nil,
@@ -103,13 +103,13 @@ var databaseValidateCases = []struct {
 				{
 					Name: "users",
 					Columns: []*Column{
-						{Name: "id", TypeRaw: "INT"},
+						{Name: "id", TypeRaw: "INT", PrimaryKey: true},
 					},
 				},
 				{
 					Name: "Users",
 					Columns: []*Column{
-						{Name: "id", TypeRaw: "INT"},
+						{Name: "id", TypeRaw: "INT", PrimaryKey: true},
 					},
 				},
 			},
@@ -350,6 +350,95 @@ var tableValidateCases = []struct {
 	},
 }
 
+func TestColumnLevelPrimaryKeyOnly(t *testing.T) {
+	table := &Table{
+		Name: "users",
+		Columns: []*Column{
+			{Name: "id", TypeRaw: "INT", PrimaryKey: true},
+			{Name: "email", TypeRaw: "VARCHAR(255)"},
+		},
+	}
+	err := table.Validate()
+	assert.NoError(t, err)
+}
+
+func TestConstraintLevelPrimaryKeyOnly(t *testing.T) {
+	table := &Table{
+		Name: "users",
+		Columns: []*Column{
+			{Name: "id", TypeRaw: "INT"},
+			{Name: "email", TypeRaw: "VARCHAR(255)"},
+		},
+		Constraints: []*Constraint{
+			{Type: ConstraintPrimaryKey, Columns: []string{"id"}},
+		},
+	}
+	err := table.Validate()
+	assert.NoError(t, err)
+}
+
+func TestCompositePrimaryKeyInConstraints(t *testing.T) {
+	table := &Table{
+		Name: "user_roles",
+		Columns: []*Column{
+			{Name: "user_id", TypeRaw: "INT"},
+			{Name: "role_id", TypeRaw: "INT"},
+		},
+		Constraints: []*Constraint{
+			{Type: ConstraintPrimaryKey, Columns: []string{"user_id", "role_id"}},
+		},
+	}
+	err := table.Validate()
+	assert.NoError(t, err)
+}
+
+func TestColumnPKPlusSynthesizedConstraint(t *testing.T) {
+	// After synthesis, a table has both column-level PrimaryKey=true
+	// and a single PK constraint — this is the normal state and must
+	// pass core validation. The column-vs-constraint conflict check
+	// lives in the parser (before synthesis), not in core.
+	table := &Table{
+		Name: "users",
+		Columns: []*Column{
+			{Name: "id", TypeRaw: "INT", PrimaryKey: true},
+			{Name: "email", TypeRaw: "VARCHAR(255)"},
+		},
+		Constraints: []*Constraint{
+			{Name: "pk_users", Type: ConstraintPrimaryKey, Columns: []string{"id"}},
+		},
+	}
+	err := table.Validate()
+	assert.NoError(t, err)
+}
+
+func TestMultiplePrimaryKeyConstraintsError(t *testing.T) {
+	table := &Table{
+		Name: "users",
+		Columns: []*Column{
+			{Name: "id", TypeRaw: "INT"},
+			{Name: "email", TypeRaw: "VARCHAR(255)"},
+		},
+		Constraints: []*Constraint{
+			{Type: ConstraintPrimaryKey, Columns: []string{"id"}},
+			{Type: ConstraintPrimaryKey, Columns: []string{"email"}},
+		},
+	}
+	err := table.Validate()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "multiple PRIMARY KEY constraints")
+}
+
+func TestNoPrimaryKeyIsValid(t *testing.T) {
+	table := &Table{
+		Name: "logs",
+		Columns: []*Column{
+			{Name: "message", TypeRaw: "TEXT"},
+		},
+	}
+	err := table.Validate()
+	assert.NoError(t, err)
+}
+
 func TestColumnValidate(t *testing.T) {
 	t.Run("nil column", func(t *testing.T) {
 		var col *Column
@@ -430,6 +519,412 @@ func TestColumnValidate(t *testing.T) {
 		err := col.Validate()
 		assert.NoError(t, err)
 	})
+}
+
+func TestColumnInlineReferencesValidation(t *testing.T) {
+	t.Run("valid inline reference", func(t *testing.T) {
+		col := &Column{
+			Name:       "tenant_id",
+			TypeRaw:    "BIGINT",
+			References: "tenants.id",
+		}
+		err := col.Validate()
+		assert.NoError(t, err)
+	})
+
+	t.Run("invalid reference format no dot", func(t *testing.T) {
+		col := &Column{
+			Name:       "tenant_id",
+			TypeRaw:    "BIGINT",
+			References: "tenants",
+		}
+		err := col.Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid reference format")
+		assert.Contains(t, err.Error(), "expected \"table.column\"")
+	})
+
+	t.Run("invalid reference format dot at end", func(t *testing.T) {
+		col := &Column{
+			Name:       "tenant_id",
+			TypeRaw:    "BIGINT",
+			References: "tenants.",
+		}
+		err := col.Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid reference format")
+	})
+
+	t.Run("invalid reference format dot at start", func(t *testing.T) {
+		col := &Column{
+			Name:       "tenant_id",
+			TypeRaw:    "BIGINT",
+			References: ".id",
+		}
+		err := col.Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid reference format")
+	})
+
+	t.Run("schema-qualified reference is valid", func(t *testing.T) {
+		col := &Column{
+			Name:       "user_id",
+			TypeRaw:    "BIGINT",
+			References: "public.users.id",
+		}
+		err := col.Validate()
+		assert.NoError(t, err)
+	})
+
+	t.Run("empty references is valid (no FK)", func(t *testing.T) {
+		col := &Column{
+			Name:    "email",
+			TypeRaw: "VARCHAR(255)",
+		}
+		err := col.Validate()
+		assert.NoError(t, err)
+	})
+}
+
+func TestColumnEnumValuesValidation(t *testing.T) {
+	t.Run("enum with values array is valid", func(t *testing.T) {
+		col := &Column{
+			Name:       "status",
+			TypeRaw:    "enum('active','inactive')",
+			Type:       DataTypeEnum,
+			EnumValues: []string{"active", "inactive"},
+		}
+		err := col.Validate()
+		assert.NoError(t, err)
+	})
+
+	t.Run("enum without values but with legacy inline type is valid", func(t *testing.T) {
+		col := &Column{
+			Name:    "status",
+			TypeRaw: "enum('active','inactive')",
+			Type:    DataTypeEnum,
+		}
+		err := col.Validate()
+		assert.NoError(t, err)
+	})
+
+	t.Run("enum without values and without inline type fails", func(t *testing.T) {
+		col := &Column{
+			Name:    "status",
+			TypeRaw: "enum",
+			Type:    DataTypeEnum,
+		}
+		err := col.Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "enum column must have values")
+	})
+
+	t.Run("non-enum type does not require values", func(t *testing.T) {
+		col := &Column{
+			Name:    "name",
+			TypeRaw: "VARCHAR(255)",
+			Type:    DataTypeString,
+		}
+		err := col.Validate()
+		assert.NoError(t, err)
+	})
+}
+
+func TestEnabledTimestampsIsValid(t *testing.T) {
+	table := &Table{
+		Name: "events",
+		Columns: []*Column{
+			{Name: "id", TypeRaw: "INT"},
+		},
+		Timestamps: &TimestampsConfig{Enabled: true},
+	}
+	err := table.Validate()
+	assert.NoError(t, err)
+}
+
+func TestDisabledTimestampsIsValid(t *testing.T) {
+	table := &Table{
+		Name: "events",
+		Columns: []*Column{
+			{Name: "id", TypeRaw: "INT"},
+		},
+		Timestamps: &TimestampsConfig{Enabled: false},
+	}
+	err := table.Validate()
+	assert.NoError(t, err)
+}
+
+func TestCustomTimestampColumnNamesAreValid(t *testing.T) {
+	table := &Table{
+		Name: "events",
+		Columns: []*Column{
+			{Name: "id", TypeRaw: "INT"},
+		},
+		Timestamps: &TimestampsConfig{
+			Enabled:       true,
+			CreatedColumn: "inserted_at",
+			UpdatedColumn: "modified_at",
+		},
+	}
+	err := table.Validate()
+	assert.NoError(t, err)
+}
+
+func TestSameTimestampColumnNamesIsInvalid(t *testing.T) {
+	table := &Table{
+		Name: "events",
+		Columns: []*Column{
+			{Name: "id", TypeRaw: "INT"},
+		},
+		Timestamps: &TimestampsConfig{
+			Enabled:       true,
+			CreatedColumn: "ts",
+			UpdatedColumn: "ts",
+		},
+	}
+	err := table.Validate()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "created and updated column names must differ")
+}
+
+func TestCaseInsensitiveSameTimestampNamesIsInvalid(t *testing.T) {
+	table := &Table{
+		Name: "events",
+		Columns: []*Column{
+			{Name: "id", TypeRaw: "INT"},
+		},
+		Timestamps: &TimestampsConfig{
+			Enabled:       true,
+			CreatedColumn: "TS",
+			UpdatedColumn: "ts",
+		},
+	}
+	err := table.Validate()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "created and updated column names must differ")
+}
+
+func TestNilTimestampsIsValid(t *testing.T) {
+	table := &Table{
+		Name: "events",
+		Columns: []*Column{
+			{Name: "id", TypeRaw: "INT"},
+		},
+	}
+	err := table.Validate()
+	assert.NoError(t, err)
+}
+
+func TestTableNameExceedsMaxLength(t *testing.T) {
+	db := &Database{
+		Name: "testdb",
+		Validation: &ValidationRules{
+			MaxTableNameLength: 5,
+		},
+		Tables: []*Table{
+			{
+				Name: "very_long_table_name",
+				Columns: []*Column{
+					{Name: "id", TypeRaw: "INT"},
+				},
+			},
+		},
+	}
+	err := db.Validate()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "exceeds maximum length")
+}
+
+func TestTableNameWithinMaxLength(t *testing.T) {
+	db := &Database{
+		Name: "testdb",
+		Validation: &ValidationRules{
+			MaxTableNameLength: 64,
+		},
+		Tables: []*Table{
+			{
+				Name: "users",
+				Columns: []*Column{
+					{Name: "id", TypeRaw: "INT"},
+				},
+			},
+		},
+	}
+	err := db.Validate()
+	assert.NoError(t, err)
+}
+
+func TestColumnNameExceedsMaxLength(t *testing.T) {
+	db := &Database{
+		Name: "testdb",
+		Validation: &ValidationRules{
+			MaxColumnNameLength: 3,
+		},
+		Tables: []*Table{
+			{
+				Name: "t",
+				Columns: []*Column{
+					{Name: "very_long_column_name", TypeRaw: "INT"},
+				},
+			},
+		},
+	}
+	err := db.Validate()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "exceeds maximum length")
+}
+
+func TestColumnNameWithinMaxLength(t *testing.T) {
+	db := &Database{
+		Name: "testdb",
+		Validation: &ValidationRules{
+			MaxColumnNameLength: 64,
+		},
+		Tables: []*Table{
+			{
+				Name: "t",
+				Columns: []*Column{
+					{Name: "id", TypeRaw: "INT"},
+				},
+			},
+		},
+	}
+	err := db.Validate()
+	assert.NoError(t, err)
+}
+
+func TestZeroMaxLengthMeansNoLimit(t *testing.T) {
+	db := &Database{
+		Name: "testdb",
+		Validation: &ValidationRules{
+			MaxTableNameLength:  0,
+			MaxColumnNameLength: 0,
+		},
+		Tables: []*Table{
+			{
+				Name: "a_very_long_table_name_that_would_normally_fail",
+				Columns: []*Column{
+					{Name: "a_very_long_column_name_that_would_normally_fail", TypeRaw: "INT"},
+				},
+			},
+		},
+	}
+	err := db.Validate()
+	assert.NoError(t, err)
+}
+
+func TestTableNameMatchesPattern(t *testing.T) {
+	db := &Database{
+		Name: "testdb",
+		Validation: &ValidationRules{
+			AllowedNamePattern: `^[a-z][a-z0-9_]*$`,
+		},
+		Tables: []*Table{
+			{
+				Name: "users",
+				Columns: []*Column{
+					{Name: "id", TypeRaw: "INT"},
+				},
+			},
+		},
+	}
+	err := db.Validate()
+	assert.NoError(t, err)
+}
+
+func TestTableNameDoesNotMatchPattern(t *testing.T) {
+	db := &Database{
+		Name: "testdb",
+		Validation: &ValidationRules{
+			AllowedNamePattern: `^[a-z][a-z0-9_]*$`,
+		},
+		Tables: []*Table{
+			{
+				Name: "Users",
+				Columns: []*Column{
+					{Name: "id", TypeRaw: "INT"},
+				},
+			},
+		},
+	}
+	err := db.Validate()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "does not match allowed pattern")
+}
+
+func TestColumnNameDoesNotMatchPattern(t *testing.T) {
+	db := &Database{
+		Name: "testdb",
+		Validation: &ValidationRules{
+			AllowedNamePattern: `^[a-z][a-z0-9_]*$`,
+		},
+		Tables: []*Table{
+			{
+				Name: "users",
+				Columns: []*Column{
+					{Name: "ID", TypeRaw: "INT"},
+				},
+			},
+		},
+	}
+	err := db.Validate()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "does not match allowed pattern")
+}
+
+func TestInvalidRegexInPattern(t *testing.T) {
+	db := &Database{
+		Name: "testdb",
+		Validation: &ValidationRules{
+			AllowedNamePattern: `[invalid`,
+		},
+		Tables: []*Table{
+			{
+				Name: "users",
+				Columns: []*Column{
+					{Name: "id", TypeRaw: "INT"},
+				},
+			},
+		},
+	}
+	err := db.Validate()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid regex")
+}
+
+func TestEmptyPatternMeansNoCheck(t *testing.T) {
+	db := &Database{
+		Name: "testdb",
+		Validation: &ValidationRules{
+			AllowedNamePattern: "",
+		},
+		Tables: []*Table{
+			{
+				Name: "ANY Name Allowed!",
+				Columns: []*Column{
+					{Name: "Whatever 123", TypeRaw: "INT"},
+				},
+			},
+		},
+	}
+	err := db.Validate()
+	assert.NoError(t, err)
+}
+
+func TestNilValidationMeansNoChecks(t *testing.T) {
+	db := &Database{
+		Name: "testdb",
+		Tables: []*Table{
+			{
+				Name: "ANY Name",
+				Columns: []*Column{
+					{Name: "Whatever", TypeRaw: "INT"},
+				},
+			},
+		},
+	}
+	err := db.Validate()
+	assert.NoError(t, err)
 }
 
 func TestConstraintValidate(t *testing.T) {
@@ -669,4 +1164,51 @@ var indexValidateCases = []struct {
 			},
 		},
 	},
+}
+
+func TestValidationRulesCombined(t *testing.T) {
+	t.Run("all rules pass", func(t *testing.T) {
+		db := &Database{
+			Name: "testdb",
+			Validation: &ValidationRules{
+				MaxTableNameLength:  64,
+				MaxColumnNameLength: 64,
+				AllowedNamePattern:  `^[a-z_][a-z0-9_]*$`,
+			},
+			Tables: []*Table{
+				{
+					Name: "users",
+					Columns: []*Column{
+						{Name: "id", TypeRaw: "INT", PrimaryKey: true},
+						{Name: "email", TypeRaw: "VARCHAR(255)"},
+					},
+				},
+			},
+		}
+		err := db.Validate()
+		assert.NoError(t, err)
+	})
+
+	t.Run("table name fails pattern while column name fails length", func(t *testing.T) {
+		db := &Database{
+			Name: "testdb",
+			Validation: &ValidationRules{
+				MaxTableNameLength:  64,
+				MaxColumnNameLength: 2,
+				AllowedNamePattern:  `^[a-z_][a-z0-9_]*$`,
+			},
+			Tables: []*Table{
+				{
+					Name: "Users", // fails pattern (uppercase U)
+					Columns: []*Column{
+						{Name: "id", TypeRaw: "INT"},
+					},
+				},
+			},
+		}
+		err := db.Validate()
+		require.Error(t, err)
+		// Table-level pattern check fires before column-level
+		assert.Contains(t, err.Error(), "does not match allowed pattern")
+	})
 }

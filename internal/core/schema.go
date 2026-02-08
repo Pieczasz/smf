@@ -48,19 +48,37 @@ func IsValidDialect(d string) bool {
 
 // Database represents a database in the schema.
 type Database struct {
-	Name    string
-	Dialect string
-	Tables  []*Table
+	Name       string
+	Dialect    string
+	Version    string
+	Tables     []*Table
+	Validation *ValidationRules
+}
+
+// ValidationRules configures schema-level validation constraints.
+type ValidationRules struct {
+	MaxTableNameLength          int    `json:"maxTableNameLength,omitempty"`
+	MaxColumnNameLength         int    `json:"maxColumnNameLength,omitempty"`
+	AutoGenerateConstraintNames bool   `json:"autoGenerateConstraintNames,omitempty"`
+	AllowedNamePattern          string `json:"allowedNamePattern,omitempty"` // Regex pattern for identifiers.
 }
 
 // Table represents a table in the schema.
 type Table struct {
-	Name        string        `json:"name"`
-	Columns     []*Column     `json:"columns"`
-	Constraints []*Constraint `json:"constraints,omitempty"`
-	Indexes     []*Index      `json:"indexes,omitempty"`
-	Comment     string        `json:"comment,omitempty"`
-	Options     TableOptions  `json:"options"`
+	Name        string            `json:"name"`
+	Columns     []*Column         `json:"columns"`
+	Constraints []*Constraint     `json:"constraints,omitempty"`
+	Indexes     []*Index          `json:"indexes,omitempty"`
+	Comment     string            `json:"comment,omitempty"`
+	Options     TableOptions      `json:"options"`
+	Timestamps  *TimestampsConfig `json:"timestamps,omitempty"`
+}
+
+// TimestampsConfig controls automatic created_at / updated_at column injection.
+type TimestampsConfig struct {
+	Enabled       bool   `json:"enabled"`
+	CreatedColumn string `json:"createdColumn,omitempty"` // Defaults to "created_at".
+	UpdatedColumn string `json:"updatedColumn,omitempty"` // Defaults to "updated_at".
 }
 
 // TableOptions represents the options for a table in the schema.
@@ -260,7 +278,7 @@ type MariaDBTableOptions struct {
 	WithSystemVersioning bool `json:"with_system_versioning,omitempty"`
 }
 
-// Column represents a single column inside schema
+// Column represents a single column inside schema.
 type Column struct {
 	Name          string   `json:"name"`
 	TypeRaw       string   `json:"typeRaw"`
@@ -269,15 +287,39 @@ type Column struct {
 	PrimaryKey    bool     `json:"primaryKey"`
 	AutoIncrement bool     `json:"autoIncrement"`
 	DefaultValue  *string  `json:"defaultValue,omitempty"`
-	OnUpdate      *string  `json:"onUpdate,omitempty"`
+	OnUpdate      *string  `json:"onUpdate,omitempty"` // MySQL ON UPDATE CURRENT_TIMESTAMP
 	Comment       string   `json:"comment,omitempty"`
 	Collate       string   `json:"collate,omitempty"`
 	Charset       string   `json:"charset,omitempty"`
 
-	// TypeOverride is the dialect-specific escape hatch.
-	// When set (via `type_raw` in the TOML schema), generators MUST emit this
-	// value verbatim instead of mapping the portable TypeRaw to the target dialect.
-	TypeOverride string `json:"typeOverride,omitempty"`
+	// Unique marks this column as having a UNIQUE constraint.
+	// The parser auto-synthesizes a named UNIQUE constraint from this flag.
+	Unique bool `json:"unique,omitempty"`
+
+	// Check holds an inline CHECK expression for this column.
+	// The parser auto-synthesizes a named CHECK constraint from this field.
+	Check string `json:"check,omitempty"`
+
+	// References is an inline foreign-key shorthand in "table.column" format.
+	// The parser auto-synthesizes a named FOREIGN KEY constraint from this field.
+	References string `json:"references,omitempty"`
+
+	// RefOnDelete is the ON DELETE referential action for an inline FK.
+	RefOnDelete ReferentialAction `json:"refOnDelete,omitempty"`
+
+	// RefOnUpdate is the ON UPDATE referential action for an inline FK.
+	RefOnUpdate ReferentialAction `json:"refOnUpdate,omitempty"`
+
+	// EnumValues holds the allowed values when Type is "enum".
+	// In TOML this is written as  values = ["free", "pro", "enterprise"]
+	// which is cleaner and safer than embedding quotes in the type string.
+	EnumValues []string `json:"enumValues,omitempty"`
+
+	// TypeOverrides maps dialect name -> verbatim DDL type.
+	// Example: {"postgres": "JSONB", "mysql": "JSON"}
+	// When the target dialect has an entry here, generators MUST emit that
+	// value instead of mapping the portable TypeRaw.
+	TypeOverrides map[string]string `json:"typeOverrides,omitempty"`
 
 	// IdentitySeed is the starting value for IDENTITY / auto-increment columns.
 	// Used by MSSQL (IDENTITY(seed,increment)), DB2 (START WITH), and
@@ -484,18 +526,27 @@ func (t *Table) String() string {
 		t.Name, len(t.Columns), len(t.Constraints), len(t.Indexes))
 }
 
-// HasTypeOverride reports whether the column uses a dialect-specific type
-// override instead of a portable type mapping.
-func (c *Column) HasTypeOverride() bool {
-	return strings.TrimSpace(c.TypeOverride) != ""
+// HasTypeOverride reports whether the column has a type override for the given
+// dialect.  When dialect is empty it returns true if ANY override exists.
+func (c *Column) HasTypeOverride(dialect string) bool {
+	if len(c.TypeOverrides) == 0 {
+		return false
+	}
+	if dialect == "" {
+		return len(c.TypeOverrides) > 0
+	}
+	v, ok := c.TypeOverrides[strings.ToLower(dialect)]
+	return ok && strings.TrimSpace(v) != ""
 }
 
-// EffectiveType returns the type string a generator should use.
-// If TypeOverride is set, it is returned verbatim; otherwise TypeRaw
-// (the portable type) is returned for dialect mapping.
-func (c *Column) EffectiveType() string {
-	if c.HasTypeOverride() {
-		return c.TypeOverride
+// EffectiveType returns the type string a generator should use for the given
+// dialect.  If the column has a dialect-specific override, it is returned
+// verbatim; otherwise TypeRaw (the portable type) is returned for mapping.
+func (c *Column) EffectiveType(dialect string) string {
+	if dialect != "" {
+		if v, ok := c.TypeOverrides[strings.ToLower(dialect)]; ok && strings.TrimSpace(v) != "" {
+			return v
+		}
 	}
 	return c.TypeRaw
 }
@@ -503,6 +554,17 @@ func (c *Column) EffectiveType() string {
 // HasIdentityOptions reports whether seed or increment are explicitly set.
 func (c *Column) HasIdentityOptions() bool {
 	return c.IdentitySeed != 0 || c.IdentityIncrement != 0
+}
+
+// ParseReferences splits a "table.column" reference string into its two parts.
+// It returns ("", "", false) if the format is invalid.
+func ParseReferences(ref string) (table, column string, ok bool) {
+	ref = strings.TrimSpace(ref)
+	dot := strings.LastIndex(ref, ".")
+	if dot <= 0 || dot >= len(ref)-1 {
+		return "", "", false
+	}
+	return ref[:dot], ref[dot+1:], true
 }
 
 type normalizeDataTypeRule struct {
@@ -538,4 +600,25 @@ func NormalizeDataType(rawType string) DataType {
 		}
 	}
 	return DataTypeUnknown
+}
+
+// BuildEnumTypeRaw constructs a portable enum type string from a list of
+// values, e.g. ["free","pro"] -> "enum('free','pro')".
+func BuildEnumTypeRaw(values []string) string {
+	if len(values) == 0 {
+		return "enum()"
+	}
+	var sb strings.Builder
+	sb.Grow(len(values) * 8)
+	sb.WriteString("enum(")
+	for i, v := range values {
+		if i > 0 {
+			sb.WriteByte(',')
+		}
+		sb.WriteByte('\'')
+		sb.WriteString(strings.ReplaceAll(v, "'", "''"))
+		sb.WriteByte('\'')
+	}
+	sb.WriteByte(')')
+	return sb.String()
 }
