@@ -1,13 +1,22 @@
 package mysql
 
+// NOTE: Many helpers in this file (and table.go) defensively call strings.TrimSpace on
+// fields like Column.Name, Column.TypeRaw, Index.Name, etc. Ideally the core data model
+// would guarantee trimmed values at parse time, which would simplify all downstream
+// generation code and remove redundant allocations. Until then, trimming is repeated.
+
 import (
 	"fmt"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
 
 	"smf/internal/core"
 )
+
+// reFuncCall matches SQL function-call patterns like IDENTIFIER(...) or NOW().
+var reFuncCall = regexp.MustCompile(`(?i)^[a-z_][a-z0-9_]*\s*\(.*\)$`)
 
 func (g *Generator) formatColumns(cols []string) string {
 	var quoted []string
@@ -53,7 +62,7 @@ func (g *Generator) formatValue(v string) string {
 		return v
 	}
 
-	if strings.ContainsAny(v, "()") {
+	if reFuncCall.MatchString(v) {
 		return v
 	}
 

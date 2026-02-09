@@ -37,7 +37,9 @@ func (r *AlterTableResult) AddFK(up, down string) {
 
 // AllStatements returns all statements (regular + FK) in execution order.
 func (r *AlterTableResult) AllStatements() []string {
-	return append(r.Statements, r.FKStatements...)
+	all := make([]string, 0, len(r.Statements)+len(r.FKStatements))
+	all = append(all, r.Statements...)
+	return append(all, r.FKStatements...)
 }
 
 func migrationRecommendations(bc diff.BreakingChange) []string {
@@ -65,6 +67,9 @@ func migrationRecommendations(bc diff.BreakingChange) []string {
 }
 
 func (g *Generator) generateAlterTable(td *diff.TableDiff, opts *dialect.MigrationOptions) *AlterTableResult {
+	if td == nil {
+		return &AlterTableResult{}
+	}
 	if opts == nil {
 		defaultOpts := dialect.DefaultMigrationOptions(dialect.MySQL)
 		opts = &defaultOpts

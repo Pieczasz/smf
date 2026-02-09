@@ -149,6 +149,23 @@ You can specify the source and target database dialects using the --from and --t
 	return cmd
 }
 
+func openSchemaFiles(oldPath, newPath string) (oldFile, newFile *os.File, cleanup func(), err error) {
+	oldFile, err = os.Open(oldPath)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to open old schema: %w", err)
+	}
+	newFile, err = os.Open(newPath)
+	if err != nil {
+		_ = oldFile.Close()
+		return nil, nil, nil, fmt.Errorf("failed to open new schema: %w", err)
+	}
+	cleanup = func() {
+		_ = oldFile.Close()
+		_ = newFile.Close()
+	}
+	return oldFile, newFile, cleanup, nil
+}
+
 func runMigrate(oldPath, newPath string, flags *migrateFlags) error {
 	printInfo(flags.format, fmt.Sprintf("migrating from %s (%s) to %s (%s)", oldPath, flags.fromDialect, newPath, flags.toDialect))
 
@@ -159,21 +176,11 @@ func runMigrate(oldPath, newPath string, flags *migrateFlags) error {
 		return fmt.Errorf("unsupported target dialect: %s", flags.toDialect)
 	}
 
-	oldFile, err := os.Open(oldPath)
+	oldFile, newFile, cleanup, err := openSchemaFiles(oldPath, newPath)
 	if err != nil {
-		return fmt.Errorf("failed to open old schema: %w", err)
+		return err
 	}
-	defer func(oldFile *os.File) {
-		_ = oldFile.Close()
-	}(oldFile)
-
-	newFile, err := os.Open(newPath)
-	if err != nil {
-		return fmt.Errorf("failed to open new schema: %w", err)
-	}
-	defer func(newFile *os.File) {
-		_ = newFile.Close()
-	}(newFile)
+	defer cleanup()
 
 	oldDB, newDB, err := parseSchemas(oldFile, newFile)
 	if err != nil {
@@ -184,7 +191,10 @@ func runMigrate(oldPath, newPath string, flags *migrateFlags) error {
 	printInfo(flags.format, fmt.Sprintf("detected changes between schemas (old: %d tables, new: %d tables)",
 		len(oldDB.Tables), len(newDB.Tables)))
 
-	generatedMigration := generateMigration(schemaDiff, flags.unsafe)
+	generatedMigration, err := generateMigration(schemaDiff, flags.unsafe)
+	if err != nil {
+		return fmt.Errorf("failed to generate migration: %w", err)
+	}
 
 	if err := formatMigration(generatedMigration, flags.format, flags.outFile); err != nil {
 		return fmt.Errorf("failed to format generatedMigration: %w", err)
@@ -368,11 +378,14 @@ func validateDialect(dialectName string) error {
 	return nil
 }
 
-func generateMigration(schemaDiff *diff.SchemaDiff, unsafe bool) *migration.Migration {
-	d := dialect.GetDialect(dialect.MySQL)
+func generateMigration(schemaDiff *diff.SchemaDiff, unsafe bool) (*migration.Migration, error) {
+	d, err := dialect.GetDialect(dialect.MySQL)
+	if err != nil {
+		return nil, fmt.Errorf("generating migration: %w", err)
+	}
 	opts := dialect.DefaultMigrationOptions(dialect.MySQL)
 	opts.IncludeUnsafe = unsafe
-	return d.Generator().GenerateMigration(schemaDiff, opts)
+	return d.Generator().GenerateMigration(schemaDiff, opts), nil
 }
 
 func formatMigration(m *migration.Migration, format, outFile string) error {

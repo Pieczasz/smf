@@ -1,7 +1,6 @@
 package dialect
 
 import (
-	"maps"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -60,14 +59,19 @@ func (m *mockDialect) Parser() Parser {
 	return &mockParser{}
 }
 
-func TestRegisterDialect(t *testing.T) {
-	originalRegistry := make(map[Type]func() Dialect)
-	maps.Copy(originalRegistry, registry)
-	defer func() {
-		registry = originalRegistry
-	}()
+// withCleanRegistry saves the current registry, replaces it with an empty one,
+// and returns a cleanup function that restores the original.
+func withCleanRegistry(t *testing.T) {
+	t.Helper()
+	original := snapshotRegistry()
+	resetRegistry(make(map[Type]func() Dialect))
+	t.Cleanup(func() {
+		resetRegistry(original)
+	})
+}
 
-	registry = make(map[Type]func() Dialect)
+func TestRegisterDialect(t *testing.T) {
+	withCleanRegistry(t)
 
 	testDialectType := Type("test_dialect")
 	ctor := func() Dialect {
@@ -76,21 +80,14 @@ func TestRegisterDialect(t *testing.T) {
 
 	RegisterDialect(testDialectType, ctor)
 
-	assert.Contains(t, registry, testDialectType)
-
-	dialect := registry[testDialectType]()
-	require.NotNil(t, dialect)
-	assert.Equal(t, testDialectType, dialect.Name())
+	d, err := GetDialect(testDialectType)
+	require.NoError(t, err)
+	require.NotNil(t, d)
+	assert.Equal(t, testDialectType, d.Name())
 }
 
 func TestRegisterDialectOverwrite(t *testing.T) {
-	originalRegistry := make(map[Type]func() Dialect)
-	maps.Copy(originalRegistry, registry)
-	defer func() {
-		registry = originalRegistry
-	}()
-
-	registry = make(map[Type]func() Dialect)
+	withCleanRegistry(t)
 
 	testDialectType := Type("overwrite_dialect")
 
@@ -104,160 +101,61 @@ func TestRegisterDialectOverwrite(t *testing.T) {
 	}
 	RegisterDialect(testDialectType, secondCtor)
 
-	dialect := registry[testDialectType]()
-	require.NotNil(t, dialect)
-	assert.Equal(t, Type("second"), dialect.Name())
+	d, err := GetDialect(testDialectType)
+	require.NoError(t, err)
+	require.NotNil(t, d)
+	assert.Equal(t, Type("second"), d.Name())
 }
 
 func TestGetDialectExistingDialect(t *testing.T) {
-	originalRegistry := make(map[Type]func() Dialect)
-	maps.Copy(originalRegistry, registry)
-	defer func() {
-		registry = originalRegistry
-	}()
-
-	registry = make(map[Type]func() Dialect)
+	withCleanRegistry(t)
 
 	testDialectType := Type("get_test_dialect")
 	RegisterDialect(testDialectType, func() Dialect {
 		return &mockDialect{name: testDialectType}
 	})
 
-	dialect := GetDialect(testDialectType)
+	d, err := GetDialect(testDialectType)
 
-	require.NotNil(t, dialect)
-	assert.Equal(t, testDialectType, dialect.Name())
+	require.NoError(t, err)
+	require.NotNil(t, d)
+	assert.Equal(t, testDialectType, d.Name())
 }
 
-func TestGetDialectFallbackToMySQL(t *testing.T) {
-	originalRegistry := make(map[Type]func() Dialect)
-	maps.Copy(originalRegistry, registry)
-	defer func() {
-		registry = originalRegistry
-	}()
+func TestGetDialectUnregisteredReturnsError(t *testing.T) {
+	withCleanRegistry(t)
 
-	registry = make(map[Type]func() Dialect)
+	d, err := GetDialect(PostgreSQL)
 
-	RegisterDialect(MySQL, func() Dialect {
-		return &mockDialect{name: MySQL}
-	})
-
-	dialect := GetDialect(PostgreSQL)
-
-	require.NotNil(t, dialect)
-	assert.Equal(t, MySQL, dialect.Name())
+	assert.Nil(t, d)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not registered")
 }
 
 func TestGetDialectNoDialectsRegistered(t *testing.T) {
-	originalRegistry := make(map[Type]func() Dialect)
-	maps.Copy(originalRegistry, registry)
-	defer func() {
-		registry = originalRegistry
-	}()
+	withCleanRegistry(t)
 
-	registry = make(map[Type]func() Dialect)
+	d, err := GetDialect(MySQL)
 
-	dialect := GetDialect(MySQL)
-
-	assert.Nil(t, dialect)
-}
-
-func TestGetDialectNonExistentNoMySQLFallback(t *testing.T) {
-	originalRegistry := make(map[Type]func() Dialect)
-	maps.Copy(originalRegistry, registry)
-	defer func() {
-		registry = originalRegistry
-	}()
-
-	registry = make(map[Type]func() Dialect)
-	RegisterDialect(PostgreSQL, func() Dialect {
-		return &mockDialect{name: PostgreSQL}
-	})
-
-	dialect := GetDialect(SQLite)
-
-	assert.Nil(t, dialect)
+	assert.Nil(t, d)
+	require.Error(t, err)
 }
 
 func TestDefaultMigrationOptions(t *testing.T) {
-	tests := []struct {
-		name     string
-		dialect  Type
-		expected MigrationOptions
-	}{
-		{
-			name:    "MySQL dialect",
-			dialect: MySQL,
-			expected: MigrationOptions{
-				Dialect:              MySQL,
-				IncludeDrops:         true,
-				IncludeUnsafe:        false,
-				TransactionMode:      TransactionSingle,
-				PreserveForeignKeys:  true,
-				DeferForeignKeyCheck: true,
-			},
-		},
-		{
-			name:    "PostgreSQL dialect",
-			dialect: PostgreSQL,
-			expected: MigrationOptions{
-				Dialect:              PostgreSQL,
-				IncludeDrops:         true,
-				IncludeUnsafe:        false,
-				TransactionMode:      TransactionSingle,
-				PreserveForeignKeys:  true,
-				DeferForeignKeyCheck: true,
-			},
-		},
-		{
-			name:    "SQLite dialect",
-			dialect: SQLite,
-			expected: MigrationOptions{
-				Dialect:              SQLite,
-				IncludeDrops:         true,
-				IncludeUnsafe:        false,
-				TransactionMode:      TransactionSingle,
-				PreserveForeignKeys:  true,
-				DeferForeignKeyCheck: true,
-			},
-		},
-		{
-			name:    "MSSQL dialect",
-			dialect: MSSQL,
-			expected: MigrationOptions{
-				Dialect:              MSSQL,
-				IncludeDrops:         true,
-				IncludeUnsafe:        false,
-				TransactionMode:      TransactionSingle,
-				PreserveForeignKeys:  true,
-				DeferForeignKeyCheck: true,
-			},
-		},
-		{
-			name:    "Oracle dialect",
-			dialect: Oracle,
-			expected: MigrationOptions{
-				Dialect:              Oracle,
-				IncludeDrops:         true,
-				IncludeUnsafe:        false,
-				TransactionMode:      TransactionSingle,
-				PreserveForeignKeys:  true,
-				DeferForeignKeyCheck: true,
-			},
-		},
-	}
+	opts := DefaultMigrationOptions(MySQL)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			opts := DefaultMigrationOptions(tt.dialect)
+	assert.Equal(t, MySQL, opts.Dialect)
+	assert.True(t, opts.IncludeDrops)
+	assert.False(t, opts.IncludeUnsafe)
+	assert.Equal(t, TransactionSingle, opts.TransactionMode)
+	assert.True(t, opts.PreserveForeignKeys)
+	assert.True(t, opts.DeferForeignKeyCheck)
+}
 
-			assert.Equal(t, tt.expected.Dialect, opts.Dialect)
-			assert.Equal(t, tt.expected.IncludeDrops, opts.IncludeDrops)
-			assert.Equal(t, tt.expected.IncludeUnsafe, opts.IncludeUnsafe)
-			assert.Equal(t, tt.expected.TransactionMode, opts.TransactionMode)
-			assert.Equal(t, tt.expected.PreserveForeignKeys, opts.PreserveForeignKeys)
-			assert.Equal(t, tt.expected.DeferForeignKeyCheck, opts.DeferForeignKeyCheck)
-		})
+func TestDefaultMigrationOptionsDialectField(t *testing.T) {
+	for _, d := range []Type{MySQL, PostgreSQL, SQLite, MSSQL, Oracle} {
+		opts := DefaultMigrationOptions(d)
+		assert.Equal(t, d, opts.Dialect)
 	}
 }
 

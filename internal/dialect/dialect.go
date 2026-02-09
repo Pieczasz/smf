@@ -4,6 +4,10 @@
 package dialect
 
 import (
+	"fmt"
+	"maps"
+	"sync"
+
 	"smf/internal/core"
 	"smf/internal/diff"
 	"smf/internal/migration"
@@ -43,22 +47,44 @@ type Dialect interface {
 	Parser() Parser
 }
 
-var registry = map[Type]func() Dialect{}
+var (
+	registryMu sync.RWMutex
+	registry   = map[Type]func() Dialect{}
+)
 
 // RegisterDialect creates a new registry entry for the specified dialect.
 func RegisterDialect(d Type, ctor func() Dialect) {
+	registryMu.Lock()
+	defer registryMu.Unlock()
 	registry[d] = ctor
 }
 
-// GetDialect returns the dialect for the specified type from the registry
-func GetDialect(d Type) Dialect {
-	if ctor, ok := registry[d]; ok {
-		return ctor()
+// GetDialect returns the dialect for the specified type from the registry.
+func GetDialect(d Type) (Dialect, error) {
+	registryMu.RLock()
+	defer registryMu.RUnlock()
+
+	ctor, ok := registry[d]
+	if !ok {
+		return nil, fmt.Errorf("dialect %q is not registered", d)
 	}
-	if ctor, ok := registry[MySQL]; ok {
-		return ctor()
-	}
-	return nil
+	return ctor(), nil
+}
+
+// resetRegistry replaces the registry with the given map. Intended for testing only.
+func resetRegistry(r map[Type]func() Dialect) {
+	registryMu.Lock()
+	defer registryMu.Unlock()
+	registry = r
+}
+
+// snapshotRegistry returns a shallow copy of the current registry. Intended for testing only.
+func snapshotRegistry() map[Type]func() Dialect {
+	registryMu.RLock()
+	defer registryMu.RUnlock()
+	snap := make(map[Type]func() Dialect, len(registry))
+	maps.Copy(snap, registry)
+	return snap
 }
 
 // BreakingChangeDetector provides a way to detect breaking changes between two database schemas.
