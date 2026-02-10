@@ -387,6 +387,7 @@ func (g *Generator) alterOption(table string, opt *diff.TableOptionChange) strin
 
 func (g *Generator) alterGenericOption(table, name, value string) string {
 	if !reValidOptionName.MatchString(name) {
+		// TODO: consider adding a warning instead of silently returning empty string
 		return ""
 	}
 	if _, err := strconv.ParseFloat(value, 64); err == nil {
