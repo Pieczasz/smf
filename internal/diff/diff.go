@@ -101,6 +101,7 @@ type Options struct {
 	DetectColumnRenames bool
 }
 
+// DefaultOptions are options for mysql diffing
 func DefaultOptions() Options {
 	return Options{DetectColumnRenames: true}
 }

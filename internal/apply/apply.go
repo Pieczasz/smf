@@ -399,14 +399,3 @@ func (a *Applier) applyWithoutTransaction(ctx context.Context, statements []stri
 	a.println("\nMigration complete!")
 	return nil
 }
-
-// HasDestructiveOperations reports whether the preflight result contains
-// any DANGER-level warnings indicating destructive operations.
-func (p *PreflightResult) HasDestructiveOperations() bool {
-	for _, w := range p.Warnings {
-		if w.Level == WarnDanger {
-			return true
-		}
-	}
-	return false
-}

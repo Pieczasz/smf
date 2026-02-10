@@ -77,8 +77,10 @@ func (g *Generator) addSecurityOptions(parts []string, o core.TableOptions, comm
 
 func (g *Generator) columnDefinition(c *core.Column) string {
 	var parts []string
-	parts = append(parts, g.QuoteIdentifier(c.Name), sanitizeMySQLTypeRaw(strings.TrimSpace(c.TypeRaw)))
 
+	// TODO: dialect recognistion
+	effectiveType := c.EffectiveType("mysql")
+	parts = append(parts, g.QuoteIdentifier(c.Name), sanitizeMySQLTypeRaw(effectiveType))
 	parts = g.addGeneratedColumn(parts, c)
 	parts = g.addNullability(parts, c)
 	parts = g.addAutoAttributes(parts, c)

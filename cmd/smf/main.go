@@ -89,21 +89,11 @@ func runDiff(oldPath, newPath string, flags *diffFlags) error {
 		return fmt.Errorf("unsupported dialect: %s", flags.dialect)
 	}
 
-	oldFile, err := os.Open(oldPath)
+	oldFile, newFile, cleanup, err := openSchemaFiles(oldPath, newPath)
 	if err != nil {
-		return fmt.Errorf("failed to open old schema: %w", err)
+		return err
 	}
-	defer func(oldFile *os.File) {
-		_ = oldFile.Close()
-	}(oldFile)
-
-	newFile, err := os.Open(newPath)
-	if err != nil {
-		return fmt.Errorf("failed to open new schema: %w", err)
-	}
-	defer func(newFile *os.File) {
-		_ = newFile.Close()
-	}(newFile)
+	defer cleanup()
 
 	oldDB, newDB, err := parseSchemas(oldFile, newFile)
 	if err != nil {

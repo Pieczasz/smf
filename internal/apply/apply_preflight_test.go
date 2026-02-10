@@ -16,15 +16,6 @@ func TestApplierPreflightChecks(t *testing.T) {
 		}
 		result := applier.PreflightChecks(stmts, false)
 		assert.False(t, result.IsTransactional)
-		assert.False(t, result.HasDestructiveOperations())
-	})
-
-	t.Run("destructive statements detected", func(t *testing.T) {
-		stmts := []string{
-			"DROP TABLE users",
-		}
-		result := applier.PreflightChecks(stmts, false)
-		assert.True(t, result.HasDestructiveOperations())
 	})
 
 	t.Run("unsafe flag suppresses requires-unsafe tag", func(t *testing.T) {
@@ -33,9 +24,6 @@ func TestApplierPreflightChecks(t *testing.T) {
 		}
 		resultUnsafe := applier.PreflightChecks(stmts, true)
 		resultSafe := applier.PreflightChecks(stmts, false)
-
-		assert.True(t, resultUnsafe.HasDestructiveOperations())
-		assert.True(t, resultSafe.HasDestructiveOperations())
 
 		for _, w := range resultSafe.Warnings {
 			if w.Level == WarnDanger {
@@ -136,27 +124,6 @@ func TestApplierValidatePreflight(t *testing.T) {
 		}
 		err := applier.validatePreflight(preflight)
 		assert.NoError(t, err)
-	})
-}
-
-func TestHasDestructiveOperations(t *testing.T) {
-	t.Run("no warnings", func(t *testing.T) {
-		assert.False(t, (&PreflightResult{}).HasDestructiveOperations())
-	})
-
-	t.Run("only caution", func(t *testing.T) {
-		assert.False(t, (&PreflightResult{
-			Warnings: []Warning{{Level: WarnCaution}},
-		}).HasDestructiveOperations())
-	})
-
-	t.Run("has danger", func(t *testing.T) {
-		assert.True(t, (&PreflightResult{
-			Warnings: []Warning{
-				{Level: WarnCaution},
-				{Level: WarnDanger},
-			},
-		}).HasDestructiveOperations())
 	})
 }
 

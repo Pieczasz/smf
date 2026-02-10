@@ -117,6 +117,7 @@ func FormatRollbackSQL(m *migration.Migration) string {
 }
 
 // WriteMigration writes a formatted migration to the given writer.
+// TODO: use this writer
 func WriteMigration(m *migration.Migration, w io.Writer) error {
 	content, err := sqlFormatter{}.FormatMigration(m)
 	if err != nil {
