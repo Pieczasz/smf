@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -88,7 +89,13 @@ func runDiff(oldPath, newPath string, flags *diffFlags) error {
 		return fmt.Errorf("unsupported dialect: %s", flags.dialect)
 	}
 
-	oldDB, newDB, err := parseSchemas(oldPath, newPath)
+	oldFile, newFile, cleanup, err := openSchemaFiles(oldPath, newPath)
+	if err != nil {
+		return err
+	}
+	defer cleanup()
+
+	oldDB, newDB, err := parseSchemas(oldFile, newFile)
 	if err != nil {
 		return err
 	}
@@ -132,6 +139,23 @@ You can specify the source and target database dialects using the --from and --t
 	return cmd
 }
 
+func openSchemaFiles(oldPath, newPath string) (oldFile, newFile *os.File, cleanup func(), err error) {
+	oldFile, err = os.Open(oldPath)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to open old schema: %w", err)
+	}
+	newFile, err = os.Open(newPath)
+	if err != nil {
+		_ = oldFile.Close()
+		return nil, nil, nil, fmt.Errorf("failed to open new schema: %w", err)
+	}
+	cleanup = func() {
+		_ = oldFile.Close()
+		_ = newFile.Close()
+	}
+	return oldFile, newFile, cleanup, nil
+}
+
 func runMigrate(oldPath, newPath string, flags *migrateFlags) error {
 	printInfo(flags.format, fmt.Sprintf("migrating from %s (%s) to %s (%s)", oldPath, flags.fromDialect, newPath, flags.toDialect))
 
@@ -142,7 +166,13 @@ func runMigrate(oldPath, newPath string, flags *migrateFlags) error {
 		return fmt.Errorf("unsupported target dialect: %s", flags.toDialect)
 	}
 
-	oldDB, newDB, err := parseSchemas(oldPath, newPath)
+	oldFile, newFile, cleanup, err := openSchemaFiles(oldPath, newPath)
+	if err != nil {
+		return err
+	}
+	defer cleanup()
+
+	oldDB, newDB, err := parseSchemas(oldFile, newFile)
 	if err != nil {
 		return err
 	}
@@ -151,14 +181,25 @@ func runMigrate(oldPath, newPath string, flags *migrateFlags) error {
 	printInfo(flags.format, fmt.Sprintf("detected changes between schemas (old: %d tables, new: %d tables)",
 		len(oldDB.Tables), len(newDB.Tables)))
 
-	generatedMigration := generateMigration(schemaDiff, flags.unsafe)
+	generatedMigration, err := generateMigration(schemaDiff, flags.unsafe)
+	if err != nil {
+		return fmt.Errorf("failed to generate migration: %w", err)
+	}
 
 	if err := formatMigration(generatedMigration, flags.format, flags.outFile); err != nil {
 		return fmt.Errorf("failed to format generatedMigration: %w", err)
 	}
 
 	if flags.rollbackFile != "" {
-		if err := output.SaveRollbackToFile(generatedMigration, flags.rollbackFile); err != nil {
+		rbFile, err := os.Create(flags.rollbackFile)
+		if err != nil {
+			return fmt.Errorf("failed to create rollback file: %w", err)
+		}
+		defer func(rbFile *os.File) {
+			_ = rbFile.Close()
+		}(rbFile)
+
+		if err := output.WriteRollback(generatedMigration, rbFile); err != nil {
 			return fmt.Errorf("failed to write rollback output: %w", err)
 		}
 		printInfo(flags.format, fmt.Sprintf("rollback saved to %s", flags.rollbackFile))
@@ -204,7 +245,15 @@ func runApply(flags *applyFlags) error {
 		return fmt.Errorf("--file is required")
 	}
 
-	content, err := os.ReadFile(flags.file)
+	f, err := os.Open(flags.file)
+	if err != nil {
+		return fmt.Errorf("failed to open migration file: %w", err)
+	}
+	defer func(f *os.File) {
+		_ = f.Close()
+	}(f)
+
+	content, err := io.ReadAll(f)
 	if err != nil {
 		return fmt.Errorf("failed to read migration file: %w", err)
 	}
@@ -262,12 +311,12 @@ type parseResult struct {
 	err error
 }
 
-func parseSchemas(oldPath, newPath string) (*core.Database, *core.Database, error) {
+func parseSchemas(oldReader, newReader io.Reader) (*core.Database, *core.Database, error) {
 	oldCh := make(chan parseResult, 1)
 	newCh := make(chan parseResult, 1)
 
 	go func() {
-		oldData, err := os.ReadFile(oldPath)
+		oldData, err := io.ReadAll(oldReader)
 		if err != nil {
 			oldCh <- parseResult{nil, fmt.Errorf("failed to read old schema: %w", err)}
 			return
@@ -283,7 +332,7 @@ func parseSchemas(oldPath, newPath string) (*core.Database, *core.Database, erro
 	}()
 
 	go func() {
-		newData, err := os.ReadFile(newPath)
+		newData, err := io.ReadAll(newReader)
 		if err != nil {
 			newCh <- parseResult{nil, fmt.Errorf("failed to read new schema: %w", err)}
 			return
@@ -319,11 +368,14 @@ func validateDialect(dialectName string) error {
 	return nil
 }
 
-func generateMigration(schemaDiff *diff.SchemaDiff, unsafe bool) *migration.Migration {
-	d := dialect.GetDialect(dialect.MySQL)
+func generateMigration(schemaDiff *diff.SchemaDiff, unsafe bool) (*migration.Migration, error) {
+	d, err := dialect.GetDialect(dialect.MySQL)
+	if err != nil {
+		return nil, fmt.Errorf("generating migration: %w", err)
+	}
 	opts := dialect.DefaultMigrationOptions(dialect.MySQL)
 	opts.IncludeUnsafe = unsafe
-	return d.Generator().GenerateMigration(schemaDiff, opts)
+	return d.Generator().GenerateMigration(schemaDiff, opts), nil
 }
 
 func formatMigration(m *migration.Migration, format, outFile string) error {

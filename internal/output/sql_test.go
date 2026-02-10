@@ -1,11 +1,12 @@
 package output
 
 import (
-	"path/filepath"
+	"bytes"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"smf/internal/core"
 	"smf/internal/diff"
@@ -96,32 +97,24 @@ func TestFormatEmptyMigrationDetailsFunctionality(t *testing.T) {
 	assert.Contains(t, sb.String(), "ROLLBACK SQL")
 }
 
-func TestSaveMigrationToFileFunctionality(t *testing.T) {
+func TestWriteMigrationFunctionality(t *testing.T) {
 	m := &migration.Migration{}
 	m.Operations = append(m.Operations, core.Operation{Kind: core.OperationSQL, SQL: "SELECT 1"})
 
-	tmpDir := t.TempDir()
-	migrationPath := filepath.Join(tmpDir, "/migration.sql")
-	err := SaveMigrationToFile(m, migrationPath)
-	assert.NoError(t, err)
-
-	rollbackPath := filepath.Join(tmpDir, "/rollback.sql")
-	err = SaveRollbackToFile(m, rollbackPath)
-	assert.NoError(t, err)
+	var buf bytes.Buffer
+	err := WriteMigration(m, &buf)
+	require.NoError(t, err)
+	assert.Contains(t, buf.String(), "SELECT 1")
 }
 
-func TestSaveRollbackToFileFunctionality(t *testing.T) {
+func TestWriteRollbackFunctionality(t *testing.T) {
 	m := &migration.Migration{}
-	m.Operations = append(m.Operations, core.Operation{Kind: core.OperationSQL, SQL: "SELECT 1"})
+	m.Operations = append(m.Operations, core.Operation{Kind: core.OperationSQL, SQL: "SELECT 1", RollbackSQL: "DROP TABLE t1"})
 
-	tmpDir := t.TempDir()
-	migrationPath := filepath.Join(tmpDir, "/migration.sql")
-	err := SaveMigrationToFile(m, migrationPath)
-	assert.NoError(t, err)
-
-	rollbackPath := filepath.Join(tmpDir, "/rollback.sql")
-	err = SaveRollbackToFile(m, rollbackPath)
-	assert.NoError(t, err)
+	var buf bytes.Buffer
+	err := WriteRollback(m, &buf)
+	require.NoError(t, err)
+	assert.Contains(t, buf.String(), "DROP TABLE t1")
 }
 
 func TestJSONFormatterOutput(t *testing.T) {

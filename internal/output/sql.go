@@ -1,7 +1,7 @@
 package output
 
 import (
-	"os"
+	"io"
 	"strings"
 
 	"smf/internal/core"
@@ -116,18 +116,21 @@ func FormatRollbackSQL(m *migration.Migration) string {
 	return sb.String()
 }
 
-// SaveMigrationToFile saves a formatted migration to a file.
-func SaveMigrationToFile(m *migration.Migration, path string) error {
+// WriteMigration writes a formatted migration to the given writer.
+// TODO: use this writer
+func WriteMigration(m *migration.Migration, w io.Writer) error {
 	content, err := sqlFormatter{}.FormatMigration(m)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, []byte(content), 0644)
+	_, err = io.WriteString(w, content)
+	return err
 }
 
-// SaveRollbackToFile saves a formatted rollback migration to a file.
-func SaveRollbackToFile(m *migration.Migration, path string) error {
-	return os.WriteFile(path, []byte(FormatRollbackSQL(m)), 0644)
+// WriteRollback writes formatted rollback SQL to the given writer.
+func WriteRollback(m *migration.Migration, w io.Writer) error {
+	_, err := io.WriteString(w, FormatRollbackSQL(m))
+	return err
 }
 
 func getSQLOperations(m *migration.Migration) []core.Operation {

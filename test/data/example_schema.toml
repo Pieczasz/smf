@@ -1,0 +1,173 @@
+[database]
+name = "ecommerce"
+dialect = "mysql"
+
+[validation]
+max_table_name_length = 64
+max_column_name_length = 64
+auto_generate_constraint_names = true
+allowed_name_pattern = "^[a-z][a-z0-9_]*$"
+
+[[tables]]
+name = "tenants"
+comment = "Tenant / account"
+
+  [tables.options]
+  engine = "InnoDB"
+  charset = "utf8mb4"
+  collate = "utf8mb4_unicode_ci"
+
+  [tables.timestamps]
+  enabled = true
+
+  [[tables.columns]]
+  name = "id"
+  type = "bigint"
+  primary_key = true
+  auto_increment = true
+
+  [[tables.columns]]
+  name = "slug"
+  type = "varchar(64)"
+  unique = true
+
+  [[tables.columns]]
+  name = "name"
+  type = "varchar(255)"
+
+  [[tables.columns]]
+  name = "plan"
+  type = "enum"
+  values = [ "free", "pro", "enterprise" ]
+  default = "free"
+
+  [[tables.columns]]
+  name = "settings"
+  type = "json"
+  nullable = true
+
+[[tables]]
+name = "users"
+comment = "Application user"
+
+  [tables.options]
+  engine = "InnoDB"
+  charset = "utf8mb4"
+  collate = "utf8mb4_unicode_ci"
+
+  [tables.timestamps]
+  enabled = true
+
+  [[tables.columns]]
+  name = "id"
+  type = "bigint"
+  primary_key = true
+  auto_increment = true
+
+  [[tables.columns]]
+  name = "tenant_id"
+  type = "bigint"
+  references = "tenants.id"
+  on_delete = "CASCADE"
+  on_update = "RESTRICT"
+
+  [[tables.columns]]
+  name = "email"
+  type = "varchar(255)"
+  unique = true
+  check = "email LIKE '%@%'"
+
+  [[tables.columns]]
+  name = "password_hash"
+  type = "varbinary(60)"
+
+  [[tables.columns]]
+  name = "display_name"
+  type = "varchar(120)"
+  nullable = true
+
+  [[tables.columns]]
+  name = "is_active"
+  type = "boolean"
+  default = true
+
+  [[tables.indexes]]
+  name = "idx_users_tenant"
+  columns = [ "tenant_id" ]
+
+[[tables]]
+name = "roles"
+comment = "RBAC role"
+
+  [tables.options]
+  engine = "InnoDB"
+  charset = "utf8mb4"
+  collate = "utf8mb4_unicode_ci"
+
+  [[tables.columns]]
+  name = "id"
+  type = "bigint"
+  primary_key = true
+  auto_increment = true
+
+  [[tables.columns]]
+  name = "tenant_id"
+  type = "bigint"
+  references = "tenants.id"
+  on_delete = "CASCADE"
+  on_update = "RESTRICT"
+
+  [[tables.columns]]
+  name = "name"
+  type = "varchar(64)"
+
+  [[tables.columns]]
+  name = "description"
+  type = "varchar(255)"
+  nullable = true
+
+  [[tables.columns]]
+  name = "created_at"
+  type = "timestamp"
+  default = "CURRENT_TIMESTAMP"
+
+  [[tables.constraints]]
+  name = "uq_roles_tenant_name"
+  type = "UNIQUE"
+  columns = [ "tenant_id", "name" ]
+
+[[tables]]
+name = "user_roles"
+comment = "RBAC role assignments (many-to-many)"
+
+  [tables.options]
+  engine = "InnoDB"
+  charset = "utf8mb4"
+  collate = "utf8mb4_unicode_ci"
+
+  [[tables.columns]]
+  name = "user_id"
+  type = "bigint"
+  references = "users.id"
+  on_delete = "CASCADE"
+  on_update = "RESTRICT"
+
+  [[tables.columns]]
+  name = "role_id"
+  type = "bigint"
+  references = "roles.id"
+  on_delete = "CASCADE"
+  on_update = "RESTRICT"
+
+  [[tables.columns]]
+  name = "granted_at"
+  type = "timestamp"
+  default = "CURRENT_TIMESTAMP"
+
+  [[tables.constraints]]
+  type = "PRIMARY KEY"
+  columns = [ "user_id", "role_id" ]
+
+  [[tables.indexes]]
+  name = "idx_user_roles_role"
+  columns = [ "role_id" ]

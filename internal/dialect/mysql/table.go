@@ -14,9 +14,9 @@ func (g *Generator) tableOptions(t *core.Table) string {
 	var parts []string
 	o := t.Options
 
-	g.addBasicTableOptions(&parts, o)
-	g.addStorageTableOptions(&parts, o)
-	g.addSecurityOptions(&parts, o, t.Comment)
+	parts = g.addBasicTableOptions(parts, o)
+	parts = g.addStorageTableOptions(parts, o)
+	parts = g.addSecurityOptions(parts, o, t.Comment)
 
 	if len(parts) == 0 {
 		return ""
@@ -24,69 +24,74 @@ func (g *Generator) tableOptions(t *core.Table) string {
 	return " " + strings.Join(parts, " ")
 }
 
-func (g *Generator) addBasicTableOptions(parts *[]string, o core.TableOptions) {
+func (g *Generator) addBasicTableOptions(parts []string, o core.TableOptions) []string {
 	if engine := strings.TrimSpace(o.Engine); engine != "" {
-		*parts = append(*parts, "ENGINE="+engine)
+		parts = append(parts, "ENGINE="+engine)
 	}
 	if charset := strings.TrimSpace(o.Charset); charset != "" {
-		*parts = append(*parts, "DEFAULT CHARSET="+charset)
+		parts = append(parts, "DEFAULT CHARSET="+charset)
 	}
 	if collate := strings.TrimSpace(o.Collate); collate != "" {
-		*parts = append(*parts, "COLLATE="+collate)
+		parts = append(parts, "COLLATE="+collate)
 	}
 	if o.AutoIncrement != 0 {
-		*parts = append(*parts, "AUTO_INCREMENT="+strconv.FormatUint(o.AutoIncrement, 10))
+		parts = append(parts, "AUTO_INCREMENT="+strconv.FormatUint(o.AutoIncrement, 10))
 	}
 	if rowFormat := strings.TrimSpace(o.RowFormat); rowFormat != "" {
-		*parts = append(*parts, "ROW_FORMAT="+rowFormat)
+		parts = append(parts, "ROW_FORMAT="+rowFormat)
 	}
+	return parts
 }
 
-func (g *Generator) addStorageTableOptions(parts *[]string, o core.TableOptions) {
+func (g *Generator) addStorageTableOptions(parts []string, o core.TableOptions) []string {
 	if o.AvgRowLength != 0 {
-		*parts = append(*parts, "AVG_ROW_LENGTH="+strconv.FormatUint(o.AvgRowLength, 10))
+		parts = append(parts, "AVG_ROW_LENGTH="+strconv.FormatUint(o.AvgRowLength, 10))
 	}
 	if o.KeyBlockSize != 0 {
-		*parts = append(*parts, "KEY_BLOCK_SIZE="+strconv.FormatUint(o.KeyBlockSize, 10))
+		parts = append(parts, "KEY_BLOCK_SIZE="+strconv.FormatUint(o.KeyBlockSize, 10))
 	}
 	if o.MaxRows != 0 {
-		*parts = append(*parts, "MAX_ROWS="+strconv.FormatUint(o.MaxRows, 10))
+		parts = append(parts, "MAX_ROWS="+strconv.FormatUint(o.MaxRows, 10))
 	}
 	if o.MinRows != 0 {
-		*parts = append(*parts, "MIN_ROWS="+strconv.FormatUint(o.MinRows, 10))
+		parts = append(parts, "MIN_ROWS="+strconv.FormatUint(o.MinRows, 10))
 	}
+	return parts
 }
 
-func (g *Generator) addSecurityOptions(parts *[]string, o core.TableOptions, comment string) {
+func (g *Generator) addSecurityOptions(parts []string, o core.TableOptions, comment string) []string {
 	if compression := strings.TrimSpace(o.Compression); compression != "" {
-		*parts = append(*parts, "COMPRESSION="+g.QuoteString(compression))
+		parts = append(parts, "COMPRESSION="+g.QuoteString(compression))
 	}
 	if encryption := strings.TrimSpace(o.Encryption); encryption != "" {
-		*parts = append(*parts, "ENCRYPTION="+g.QuoteString(encryption))
+		parts = append(parts, "ENCRYPTION="+g.QuoteString(encryption))
 	}
 	if tablespace := strings.TrimSpace(o.Tablespace); tablespace != "" {
-		*parts = append(*parts, "TABLESPACE "+g.QuoteIdentifier(tablespace))
+		parts = append(parts, "TABLESPACE "+g.QuoteIdentifier(tablespace))
 	}
 	if cmt := strings.TrimSpace(comment); cmt != "" {
-		*parts = append(*parts, "COMMENT="+g.QuoteString(cmt))
+		parts = append(parts, "COMMENT="+g.QuoteString(cmt))
 	}
+	return parts
 }
 
 func (g *Generator) columnDefinition(c *core.Column) string {
 	var parts []string
-	parts = append(parts, g.QuoteIdentifier(c.Name), sanitizeMySQLTypeRaw(strings.TrimSpace(c.TypeRaw)))
 
-	g.addGeneratedColumn(&parts, c)
-	g.addNullability(&parts, c)
-	g.addAutoAttributes(&parts, c)
-	g.addCharsetCollation(&parts, c)
-	g.addDefaultAndUpdate(&parts, c)
-	g.addColumnFormat(&parts, c)
+	// TODO: dialect recognistion
+	effectiveType := c.EffectiveType("mysql")
+	parts = append(parts, g.QuoteIdentifier(c.Name), sanitizeMySQLTypeRaw(effectiveType))
+	parts = g.addGeneratedColumn(parts, c)
+	parts = g.addNullability(parts, c)
+	parts = g.addAutoAttributes(parts, c)
+	parts = g.addCharsetCollation(parts, c)
+	parts = g.addDefaultAndUpdate(parts, c)
+	parts = g.addColumnFormat(parts, c)
 
 	return strings.Join(parts, " ")
 }
 
-func (g *Generator) addGeneratedColumn(parts *[]string, c *core.Column) {
+func (g *Generator) addGeneratedColumn(parts []string, c *core.Column) []string {
 	if c.IsGenerated {
 		expr := strings.TrimSpace(c.GenerationExpression)
 		if expr != "" {
@@ -94,58 +99,64 @@ func (g *Generator) addGeneratedColumn(parts *[]string, c *core.Column) {
 			if storage == "" {
 				storage = "VIRTUAL"
 			}
-			*parts = append(*parts, fmt.Sprintf("GENERATED ALWAYS AS (%s) %s", expr, storage))
+			parts = append(parts, fmt.Sprintf("GENERATED ALWAYS AS (%s) %s", expr, storage))
 		}
 	}
+	return parts
 }
 
-func (g *Generator) addNullability(parts *[]string, c *core.Column) {
+func (g *Generator) addNullability(parts []string, c *core.Column) []string {
 	if c.Nullable {
-		*parts = append(*parts, "NULL")
+		parts = append(parts, "NULL")
 	} else {
-		*parts = append(*parts, "NOT NULL")
+		parts = append(parts, "NOT NULL")
 	}
+	return parts
 }
 
-func (g *Generator) addAutoAttributes(parts *[]string, c *core.Column) {
+func (g *Generator) addAutoAttributes(parts []string, c *core.Column) []string {
 	if c.AutoIncrement {
-		*parts = append(*parts, "AUTO_INCREMENT")
+		parts = append(parts, "AUTO_INCREMENT")
 	}
 	if c.AutoRandom > 0 {
-		*parts = append(*parts, fmt.Sprintf("AUTO_RANDOM(%d)", c.AutoRandom))
+		parts = append(parts, fmt.Sprintf("AUTO_RANDOM(%d)", c.AutoRandom))
 	}
+	return parts
 }
 
-func (g *Generator) addCharsetCollation(parts *[]string, c *core.Column) {
+func (g *Generator) addCharsetCollation(parts []string, c *core.Column) []string {
 	if supportsCharsetCollation(c.TypeRaw) {
 		if cs := strings.TrimSpace(c.Charset); cs != "" {
-			*parts = append(*parts, "CHARACTER SET", cs)
+			parts = append(parts, "CHARACTER SET", cs)
 		}
 		if coll := strings.TrimSpace(c.Collate); coll != "" {
-			*parts = append(*parts, "COLLATE", coll)
+			parts = append(parts, "COLLATE", coll)
 		}
 	}
+	return parts
 }
 
-func (g *Generator) addDefaultAndUpdate(parts *[]string, c *core.Column) {
+func (g *Generator) addDefaultAndUpdate(parts []string, c *core.Column) []string {
 	if c.DefaultValue != nil {
-		*parts = append(*parts, "DEFAULT", g.formatValue(*c.DefaultValue))
+		parts = append(parts, "DEFAULT", g.formatValue(*c.DefaultValue))
 	}
 	if c.OnUpdate != nil {
-		*parts = append(*parts, "ON UPDATE", g.formatValue(*c.OnUpdate))
+		parts = append(parts, "ON UPDATE", g.formatValue(*c.OnUpdate))
 	}
+	return parts
 }
 
-func (g *Generator) addColumnFormat(parts *[]string, c *core.Column) {
+func (g *Generator) addColumnFormat(parts []string, c *core.Column) []string {
 	if colFmt := strings.TrimSpace(c.ColumnFormat); colFmt != "" {
-		*parts = append(*parts, "COLUMN_FORMAT", strings.ToUpper(colFmt))
+		parts = append(parts, "COLUMN_FORMAT", strings.ToUpper(colFmt))
 	}
 	if stor := strings.TrimSpace(c.Storage); stor != "" {
-		*parts = append(*parts, "STORAGE", strings.ToUpper(stor))
+		parts = append(parts, "STORAGE", strings.ToUpper(stor))
 	}
 	if comment := strings.TrimSpace(c.Comment); comment != "" {
-		*parts = append(*parts, "COMMENT", g.QuoteString(comment))
+		parts = append(parts, "COMMENT", g.QuoteString(comment))
 	}
+	return parts
 }
 
 func (g *Generator) indexDefinitionInline(idx *core.Index) string {
@@ -255,6 +266,7 @@ func (g *Generator) addForeignKeyConstraint(table string, c *core.Constraint, co
 		return ""
 	}
 	var sb strings.Builder
+	sb.Grow(128)
 	sb.WriteString("ALTER TABLE ")
 	sb.WriteString(table)
 	sb.WriteString(" ADD ")
@@ -344,6 +356,9 @@ func (g *Generator) dropCheck(table string, c *core.Constraint) string {
 	return fmt.Sprintf("-- cannot drop unnamed CHECK on %s", table)
 }
 
+// reValidOptionName matches only safe MySQL table option names (alphanumeric and underscores).
+var reValidOptionName = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
+
 func (g *Generator) alterOption(table string, opt *diff.TableOptionChange) string {
 	name := strings.ToUpper(strings.TrimSpace(opt.Name))
 	value := strings.TrimSpace(opt.New)
@@ -366,11 +381,19 @@ func (g *Generator) alterOption(table string, opt *diff.TableOptionChange) strin
 	case "ROW_FORMAT":
 		return fmt.Sprintf("ALTER TABLE %s ROW_FORMAT=%s;", table, value)
 	default:
-		if _, err := strconv.ParseFloat(value, 64); err == nil {
-			return fmt.Sprintf("ALTER TABLE %s %s=%s;", table, name, value)
-		}
-		return fmt.Sprintf("ALTER TABLE %s %s=%s;", table, name, g.QuoteString(value))
+		return g.alterGenericOption(table, name, value)
 	}
+}
+
+func (g *Generator) alterGenericOption(table, name, value string) string {
+	if !reValidOptionName.MatchString(name) {
+		// TODO: consider adding a warning instead of silently returning empty string
+		return ""
+	}
+	if _, err := strconv.ParseFloat(value, 64); err == nil {
+		return fmt.Sprintf("ALTER TABLE %s %s=%s;", table, name, value)
+	}
+	return fmt.Sprintf("ALTER TABLE %s %s=%s;", table, name, g.QuoteString(value))
 }
 
 var reBaseType = regexp.MustCompile(`(?i)^\s*([a-z0-9_]+)\b`)

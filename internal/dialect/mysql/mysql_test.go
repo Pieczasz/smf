@@ -1,6 +1,7 @@
 package mysql
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -100,10 +101,10 @@ func TestGeneratorGenerateAlterTableWithIndexes(t *testing.T) {
 	hasDropIndex := false
 	hasCreateIndex := false
 	for _, stmt := range stmts {
-		if containsAll(stmt, "DROP INDEX", "`idx_old`") {
+		if strings.Contains(stmt, "DROP INDEX") && strings.Contains(stmt, "`idx_old`") {
 			hasDropIndex = true
 		}
-		if containsAll(stmt, "CREATE INDEX", "`idx_email`") {
+		if strings.Contains(stmt, "CREATE INDEX") && strings.Contains(stmt, "`idx_email`") {
 			hasCreateIndex = true
 		}
 	}
@@ -172,7 +173,7 @@ func TestGeneratorGenerateMigrationWithOptions(t *testing.T) {
 
 	hasDropTable := false
 	for _, op := range plan {
-		if op.Kind == core.OperationSQL && containsStr(op.SQL, "DROP TABLE") {
+		if op.Kind == core.OperationSQL && strings.Contains(op.SQL, "DROP TABLE") {
 			hasDropTable = true
 			break
 		}
@@ -196,7 +197,7 @@ func TestGeneratorGenerateMigrationSafeMode(t *testing.T) {
 
 	hasRename := false
 	for _, op := range plan {
-		if op.Kind == core.OperationSQL && containsStr(op.SQL, "RENAME TABLE") {
+		if op.Kind == core.OperationSQL && strings.Contains(op.SQL, "RENAME TABLE") {
 			hasRename = true
 			break
 		}
@@ -478,7 +479,7 @@ func TestGenerateMigrationWithPendingFKs(t *testing.T) {
 
 	hasFKNote := false
 	for _, op := range plan {
-		if op.Kind == core.OperationNote && containsStr(op.SQL, "Foreign keys added") {
+		if op.Kind == core.OperationNote && strings.Contains(op.SQL, "Foreign keys added") {
 			hasFKNote = true
 			break
 		}
@@ -540,7 +541,7 @@ func TestGenerateMigrationWithFKStatementWithoutRollback(t *testing.T) {
 	plan := mig.Plan()
 	hasFKStatement := false
 	for _, op := range plan {
-		if op.Kind == core.OperationSQL && containsStr(op.SQL, "FOREIGN KEY") {
+		if op.Kind == core.OperationSQL && strings.Contains(op.SQL, "FOREIGN KEY") {
 			hasFKStatement = true
 			break
 		}
@@ -604,26 +605,4 @@ func TestGenerateMigrationWithOrphanedFKRollbacks(t *testing.T) {
 
 	mig := g.GenerateMigration(schemaDiff, dialect.DefaultMigrationOptions(dialect.MySQL))
 	require.NotNil(t, mig)
-}
-
-func containsAll(s string, substrings ...string) bool {
-	for _, sub := range substrings {
-		if !contains(s, sub) {
-			return false
-		}
-	}
-	return true
-}
-
-func contains(s, substr string) bool {
-	return containsStr(s, substr)
-}
-
-func containsStr(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }

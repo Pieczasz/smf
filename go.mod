@@ -3,6 +3,7 @@ module smf
 go 1.25.7
 
 require (
+	github.com/BurntSushi/toml v1.6.0
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/pingcap/tidb/pkg/parser v0.0.0-20260206064042-eb2cd2238235
 	github.com/spf13/cobra v1.10.2

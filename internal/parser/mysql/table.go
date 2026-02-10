@@ -128,6 +128,9 @@ func applyStatsSamplePagesOption(opt *ast.TableOption, table *core.Table) {
 //
 //nolint:revive // Large switch needed for MySQL-specific AST option mapping
 func applyMySQLTableOption(opt *ast.TableOption, table *core.Table) bool {
+	if table.Options.MySQL == nil {
+		table.Options.MySQL = &core.MySQLTableOptions{}
+	}
 	switch opt.Tp {
 	case ast.TableOptionSecondaryEngine:
 		table.Options.MySQL.SecondaryEngine = opt.StrValue
@@ -166,6 +169,9 @@ func applyUnionOption(opt *ast.TableOption, table *core.Table) {
 //
 //nolint:revive // Large switch needed for TiDB-specific AST option mapping
 func (p *Parser) applyTiDBTableOption(opt *ast.TableOption, table *core.Table) bool {
+	if table.Options.TiDB == nil {
+		table.Options.TiDB = &core.TiDBTableOptions{}
+	}
 	switch opt.Tp {
 	case ast.TableOptionAutoIdCache:
 		table.Options.TiDB.AutoIDCache = opt.UintValue
@@ -216,6 +222,9 @@ func (p *Parser) applyTTLOption(opt *ast.TableOption, table *core.Table) {
 }
 
 func (p *Parser) parseTiDBStatsSampleRateOption(opt *ast.TableOption, table *core.Table) {
+	if table.Options.TiDB == nil {
+		table.Options.TiDB = &core.TiDBTableOptions{}
+	}
 	if opt.Value == nil {
 		return
 	}

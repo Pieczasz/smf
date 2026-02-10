@@ -111,6 +111,12 @@ func compareOptions(oldT, newT *core.Table, td *TableDiff) {
 //nolint:revive // Large function is necessary to map all table options comprehensively
 func tableOptionMap(t *core.Table) map[string]string {
 	o := t.Options
+	if o.MySQL == nil {
+		o.MySQL = &core.MySQLTableOptions{}
+	}
+	if o.TiDB == nil {
+		o.TiDB = &core.TiDBTableOptions{}
+	}
 	m := make(map[string]string, OptionsCount)
 
 	addStr := func(name, val string) {

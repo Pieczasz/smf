@@ -66,6 +66,8 @@ func (jsonFormatter) FormatDiff(d *diff.SchemaDiff) (string, error) {
 		Format:        string(FormatJSON),
 	}
 	if d != nil {
+		normalizeTableOptions(d.AddedTables)
+		normalizeTableOptions(d.RemovedTables)
 		payload.Warnings = d.Warnings
 		payload.AddedTables = d.AddedTables
 		payload.RemovedTables = d.RemovedTables
@@ -73,6 +75,20 @@ func (jsonFormatter) FormatDiff(d *diff.SchemaDiff) (string, error) {
 		payload.Summary = computeDiffSummary(d)
 	}
 	return marshalJSON(payload)
+}
+
+func normalizeTableOptions(tables []*core.Table) {
+	for _, t := range tables {
+		if t == nil {
+			continue
+		}
+		if t.Options.MySQL == nil {
+			t.Options.MySQL = &core.MySQLTableOptions{}
+		}
+		if t.Options.TiDB == nil {
+			t.Options.TiDB = &core.TiDBTableOptions{}
+		}
+	}
 }
 
 func computeDiffSummary(d *diff.SchemaDiff) diffSummary {

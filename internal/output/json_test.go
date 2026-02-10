@@ -102,7 +102,7 @@ func readGolden(t *testing.T, name string) string {
 func writeGolden(t *testing.T, name string, content string) {
 	t.Helper()
 	path := filepath.Join("..", "..", "test", "data", name)
-	err := os.WriteFile(path, []byte(content), 0644)
+	err := os.WriteFile(path, []byte(content), 0o644)
 	require.NoError(t, err)
 	t.Logf("Updated golden file: %s", path)
 }
