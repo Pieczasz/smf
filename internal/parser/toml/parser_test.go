@@ -484,8 +484,9 @@ name = "items"
 	col := db.Tables[0].FindColumn("data")
 	require.NotNil(t, col)
 	assert.Equal(t, "json", col.TypeRaw, "TypeRaw should be the portable type")
-	require.NotNil(t, col.TypeOverrides)
-	assert.Equal(t, "JSONB", col.TypeOverrides["postgresql"])
+	require.NotEmpty(t, col.RawType)
+	assert.Equal(t, "JSONB", col.RawType)
+	assert.Equal(t, "postgresql", col.RawTypeDialect)
 
 	// EffectiveType should return override for matching dialect.
 	assert.Equal(t, "JSONB", col.EffectiveType("postgresql"))
@@ -517,7 +518,8 @@ name = "items"
 	require.NotNil(t, col)
 	assert.Equal(t, "json", col.TypeRaw)
 	// raw_type should be ignored when dialect is empty.
-	assert.Nil(t, col.TypeOverrides)
+	assert.Empty(t, col.RawType)
+	assert.Empty(t, col.RawTypeDialect)
 }
 
 func TestParseNullableDefaultFalse(t *testing.T) {
@@ -575,7 +577,8 @@ name = "items"
 	assert.Empty(t, col.Check)
 	assert.False(t, col.Unique)
 	assert.Nil(t, col.EnumValues)
-	assert.Nil(t, col.TypeOverrides)
+	assert.Empty(t, col.RawType)
+	assert.Empty(t, col.RawTypeDialect)
 }
 
 func TestParseBooleanDefaultValue(t *testing.T) {

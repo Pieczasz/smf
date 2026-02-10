@@ -286,9 +286,8 @@ func convertColumn(tc *tomlColumn, dialect string) (*core.Column, error) {
 	col.Type = core.NormalizeDataType(col.TypeRaw)
 
 	if tc.RawType != "" && dialect != "" {
-		col.TypeOverrides = map[string]string{
-			strings.ToLower(dialect): tc.RawType,
-		}
+		col.RawType = tc.RawType
+		col.RawTypeDialect = strings.ToLower(dialect)
 	}
 
 	if tc.DefaultValue != nil {

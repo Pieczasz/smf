@@ -422,32 +422,26 @@ func TestColumnHasTypeOverride(t *testing.T) {
 		assert.False(t, col.HasTypeOverride(""))
 	})
 
-	t.Run("empty map", func(t *testing.T) {
-		col := &Column{Name: "id", TypeRaw: "bigint", TypeOverrides: map[string]string{}}
+	t.Run("empty raw type", func(t *testing.T) {
+		col := &Column{Name: "id", TypeRaw: "bigint", RawType: "", RawTypeDialect: "mysql"}
 		assert.False(t, col.HasTypeOverride("mysql"))
 		assert.False(t, col.HasTypeOverride(""))
 	})
 
 	t.Run("override for specific dialect", func(t *testing.T) {
-		col := &Column{Name: "id", TypeRaw: "bigint", TypeOverrides: map[string]string{
-			"oracle": "NUMBER(19)",
-		}}
+		col := &Column{Name: "id", TypeRaw: "bigint", RawType: "NUMBER(19)", RawTypeDialect: "oracle"}
 		assert.True(t, col.HasTypeOverride("oracle"))
 		assert.False(t, col.HasTypeOverride("mysql"))
 		assert.True(t, col.HasTypeOverride("")) // any override exists
 	})
 
 	t.Run("whitespace only value ignored", func(t *testing.T) {
-		col := &Column{Name: "id", TypeRaw: "bigint", TypeOverrides: map[string]string{
-			"oracle": "   ",
-		}}
+		col := &Column{Name: "id", TypeRaw: "bigint", RawType: "   ", RawTypeDialect: "oracle"}
 		assert.False(t, col.HasTypeOverride("oracle"))
 	})
 
 	t.Run("case insensitive dialect lookup", func(t *testing.T) {
-		col := &Column{Name: "id", TypeRaw: "bigint", TypeOverrides: map[string]string{
-			"postgresql": "BIGSERIAL",
-		}}
+		col := &Column{Name: "id", TypeRaw: "bigint", RawType: "BIGSERIAL", RawTypeDialect: "postgresql"}
 		assert.True(t, col.HasTypeOverride("postgresql"))
 		assert.True(t, col.HasTypeOverride("PostgreSQL"))
 	})
@@ -460,30 +454,22 @@ func TestColumnEffectiveType(t *testing.T) {
 	})
 
 	t.Run("override takes precedence for matching dialect", func(t *testing.T) {
-		col := &Column{Name: "id", TypeRaw: "bigint", TypeOverrides: map[string]string{
-			"oracle": "NUMBER(19)",
-		}}
+		col := &Column{Name: "id", TypeRaw: "bigint", RawType: "NUMBER(19)", RawTypeDialect: "oracle"}
 		assert.Equal(t, "NUMBER(19)", col.EffectiveType("oracle"))
 	})
 
 	t.Run("falls back to TypeRaw for non-matching dialect", func(t *testing.T) {
-		col := &Column{Name: "id", TypeRaw: "bigint", TypeOverrides: map[string]string{
-			"oracle": "NUMBER(19)",
-		}}
+		col := &Column{Name: "id", TypeRaw: "bigint", RawType: "NUMBER(19)", RawTypeDialect: "oracle"}
 		assert.Equal(t, "bigint", col.EffectiveType("mysql"))
 	})
 
 	t.Run("whitespace override falls back to TypeRaw", func(t *testing.T) {
-		col := &Column{Name: "id", TypeRaw: "varchar(255)", TypeOverrides: map[string]string{
-			"oracle": "   ",
-		}}
+		col := &Column{Name: "id", TypeRaw: "varchar(255)", RawType: "   ", RawTypeDialect: "oracle"}
 		assert.Equal(t, "varchar(255)", col.EffectiveType("oracle"))
 	})
 
 	t.Run("empty dialect returns TypeRaw", func(t *testing.T) {
-		col := &Column{Name: "id", TypeRaw: "bigint", TypeOverrides: map[string]string{
-			"oracle": "NUMBER(19)",
-		}}
+		col := &Column{Name: "id", TypeRaw: "bigint", RawType: "NUMBER(19)", RawTypeDialect: "oracle"}
 		assert.Equal(t, "bigint", col.EffectiveType(""))
 	})
 }
