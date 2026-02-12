@@ -255,16 +255,26 @@ func convertTable(tt *tomlTable, dialect string) (*core.Table, error) {
 }
 
 func convertTableOptions(to *tomlTableOptions) core.TableOptions {
-	return core.TableOptions{
-		Engine:       to.Engine,
-		Charset:      to.Charset,
-		Collate:      to.Collate,
-		RowFormat:    to.RowFormat,
-		Tablespace:   to.Tablespace,
-		Compression:  to.Compression,
-		Encryption:   to.Encryption,
-		KeyBlockSize: to.KeyBlockSize,
+	opts := core.TableOptions{
+		Tablespace: to.Tablespace,
 	}
+
+	// Route MySQL-family options into the dialect-specific sub-struct.
+	if to.Engine != "" || to.Charset != "" || to.Collate != "" ||
+		to.RowFormat != "" || to.Compression != "" ||
+		to.Encryption != "" || to.KeyBlockSize != 0 {
+		opts.MySQL = &core.MySQLTableOptions{
+			Engine:       to.Engine,
+			Charset:      to.Charset,
+			Collate:      to.Collate,
+			RowFormat:    to.RowFormat,
+			Compression:  to.Compression,
+			Encryption:   to.Encryption,
+			KeyBlockSize: to.KeyBlockSize,
+		}
+	}
+
+	return opts
 }
 
 func convertColumn(tc *tomlColumn, dialect string) (*core.Column, error) {

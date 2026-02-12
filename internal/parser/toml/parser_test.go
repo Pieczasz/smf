@@ -54,9 +54,10 @@ func TestParseFileTenants(t *testing.T) {
 	require.NotNil(t, tbl)
 
 	assert.Equal(t, "Tenant / account", tbl.Comment)
-	assert.Equal(t, "InnoDB", tbl.Options.Engine)
-	assert.Equal(t, "utf8mb4", tbl.Options.Charset)
-	assert.Equal(t, "utf8mb4_unicode_ci", tbl.Options.Collate)
+	require.NotNil(t, tbl.Options.MySQL)
+	assert.Equal(t, "InnoDB", tbl.Options.MySQL.Engine)
+	assert.Equal(t, "utf8mb4", tbl.Options.MySQL.Charset)
+	assert.Equal(t, "utf8mb4_unicode_ci", tbl.Options.MySQL.Collate)
 
 	// Timestamps enabled — created_at and updated_at injected.
 	require.NotNil(t, tbl.Timestamps)
@@ -1371,14 +1372,15 @@ name = "items"
 	require.NoError(t, err)
 
 	opts := db.Tables[0].Options
-	assert.Equal(t, "InnoDB", opts.Engine)
-	assert.Equal(t, "utf8mb4", opts.Charset)
-	assert.Equal(t, "utf8mb4_general_ci", opts.Collate)
-	assert.Equal(t, "COMPRESSED", opts.RowFormat)
 	assert.Equal(t, "ts1", opts.Tablespace)
-	assert.Equal(t, "zlib", opts.Compression)
-	assert.Equal(t, "Y", opts.Encryption)
-	assert.Equal(t, uint64(8), opts.KeyBlockSize)
+	require.NotNil(t, opts.MySQL)
+	assert.Equal(t, "InnoDB", opts.MySQL.Engine)
+	assert.Equal(t, "utf8mb4", opts.MySQL.Charset)
+	assert.Equal(t, "utf8mb4_general_ci", opts.MySQL.Collate)
+	assert.Equal(t, "COMPRESSED", opts.MySQL.RowFormat)
+	assert.Equal(t, "zlib", opts.MySQL.Compression)
+	assert.Equal(t, "Y", opts.MySQL.Encryption)
+	assert.Equal(t, uint64(8), opts.MySQL.KeyBlockSize)
 }
 
 // ---------------------------------------------------------------------------

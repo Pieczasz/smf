@@ -8,12 +8,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type diffFlags struct {
-	outFile       string
-	format        string
-	detectRenames bool
-}
-
 func main() {
 	rootCmd := &cobra.Command{
 		Use:   "smf",
