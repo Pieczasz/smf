@@ -17,7 +17,7 @@
 #       to the correct dialect-specific DDL automatically.
 #
 #   2.  Sensible defaults — you only declare what deviates from the norm:
-#         nullable        -> false   (column are NOT NULL by default)
+#         nullable        -> false   (columns are NOT NULL by default)
 #         primary_key     -> false
 #         auto_increment  -> false
 #         unique          -> false
@@ -126,7 +126,7 @@
 #       PostgreSQL      : GENERATED ALWAYS AS (expr) STORED  (no VIRTUAL before v17)
 #       SQLite          : GENERATED ALWAYS AS (expr) [VIRTUAL | STORED]
 #       Oracle          : col AS (expr) [VIRTUAL]
-#       DB2             : GENERATED ALWAYS AS (expr) — always materialised
+#       DB2             : GENERATED ALWAYS AS (expr) — always materialized
 #       Snowflake       : Not supported (use views)
 #       MSSQL / Azure   : AS (expr) [PERSISTED]
 #
@@ -170,7 +170,7 @@ unique = true  # auto-synthesises UNIQUE constraint
 name = "name"
 type = "varchar(255)"
 
-# Enum with safe TOML array — no embedded quotes, no escaping issues.
+# Enum with a TOML array
 [[tables.columns]]
 name = "plan"
 type = "enum"

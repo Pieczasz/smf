@@ -81,39 +81,16 @@ type TimestampsConfig struct {
 	UpdatedColumn string `json:"updatedColumn,omitempty"` // Defaults to "updated_at".
 }
 
-// TableOptions represents the options for a table in the schema.
+// TableOptions holds cross-dialect table options and dialect-specific
+// option groups.
+//
+// Only fields that are meaningful across multiple SQL dialects live here.
+// Dialect-specific options belong in their respective sub-structs
+// (MySQLTableOptions, MariaDBTableOptions, etc.).
 type TableOptions struct {
-	Engine        string
-	Charset       string
-	Collate       string
-	AutoIncrement uint64
-
-	RowFormat      string
-	AvgRowLength   uint64
-	KeyBlockSize   uint64
-	MaxRows        uint64
-	MinRows        uint64
-	Checksum       uint64
-	DelayKeyWrite  uint64
-	Tablespace     string
-	Compression    string
-	Encryption     string
-	PackKeys       string
-	DataDirectory  string
-	IndexDirectory string
-	InsertMethod   string
-	StorageMedia   string
-
-	StatsPersistent  string
-	StatsAutoRecalc  string
-	StatsSamplePages string
-
-	Connection string
-	Password   string
-
-	AutoextendSize string
-	PageChecksum   uint64
-	Transactional  uint64
+	// Tablespace assigns the table to a named tablespace.
+	// Supported by MySQL/InnoDB, Oracle, DB2, and PostgreSQL.
+	Tablespace string
 
 	// Dialect-specific option groups.
 	MySQL      *MySQLTableOptions      `json:"MySQL,omitempty"`
@@ -127,36 +104,124 @@ type TableOptions struct {
 	MariaDB    *MariaDBTableOptions    `json:"MariaDB,omitempty"`
 }
 
-// MySQLTableOptions contains MySQL-specific table options.
+// MySQLTableOptions contains MySQL-family table options.
+//
+// These options map to CREATE TABLE clauses shared by MySQL and MariaDB
+// (Engine, Charset, Collate, RowFormat, …) as well as MySQL-only
+// features such as secondary engines (HeatWave), NDB Cluster node
+// groups, and FEDERATED table connection strings.  MariaDB generators
+// should read these for shared options and additionally consult
+// MariaDBTableOptions for MariaDB-specific divergences.
 type MySQLTableOptions struct {
-	Union                    []string
-	SecondaryEngine          string
-	TableChecksum            uint64
-	EngineAttribute          string
+	// Engine is the storage engine (e.g. "InnoDB", "MyISAM", "Aria").
+	Engine string
+	// Charset is the default character set for the table (e.g. "utf8mb4").
+	Charset string
+	// Collate is the default collation for the table (e.g. "utf8mb4_unicode_ci").
+	Collate string
+	// AutoIncrement sets the starting AUTO_INCREMENT value for the table.
+	AutoIncrement uint64
+
+	// RowFormat controls the physical row storage format (e.g. "DYNAMIC", "COMPRESSED", "COMPACT").
+	RowFormat string
+	// AvgRowLength is a hint for the average row length in bytes, used by the optimizer.
+	AvgRowLength uint64
+	// KeyBlockSize sets the page size in KB for compressed InnoDB tables.
+	KeyBlockSize uint64
+	// MaxRows is a hint for the maximum number of rows the table is expected to hold.
+	MaxRows uint64
+	// MinRows is a hint for the minimum number of rows the table is expected to hold.
+	MinRows uint64
+	// Checksum enables live table checksum computation (1 = enabled, 0 = disabled).
+	Checksum uint64
+	// DelayKeyWrite delays key-buffer flushes for MyISAM tables (1 = enabled).
+	DelayKeyWrite uint64
+	// Compression sets the page-level compression algorithm ("ZLIB", "LZ4", "NONE").
+	Compression string
+	// Encryption enables transparent data encryption for the tablespace ("Y" or "N").
+	Encryption string
+	// PackKeys controls index packing for MyISAM tables ("0", "1", or "DEFAULT").
+	PackKeys string
+	// DataDirectory specifies the OS directory for the table data file (MyISAM / InnoDB file-per-table).
+	DataDirectory string
+	// IndexDirectory specifies the OS directory for the MyISAM index file.
+	IndexDirectory string
+	// InsertMethod controls how rows are inserted into a MERGE table ("NO", "FIRST", "LAST").
+	InsertMethod string
+	// StorageMedia specifies the storage medium for NDB Cluster ("DISK" or "MEMORY").
+	StorageMedia string
+
+	// StatsPersistent controls whether InnoDB table statistics are persisted to disk ("0", "1", or "DEFAULT").
+	StatsPersistent string
+	// StatsAutoRecalc controls whether InnoDB statistics are recalculated automatically ("0", "1", or "DEFAULT").
+	StatsAutoRecalc string
+	// StatsSamplePages sets the number of index pages sampled for InnoDB statistics estimates.
+	StatsSamplePages string
+
+	// Connection is a connection string for a FEDERATED table linking to a remote server.
+	Connection string
+	// Password is the password used by a FEDERATED table's connection string.
+	Password string
+
+	// AutoextendSize sets the InnoDB tablespace auto-extend chunk size.
+	AutoextendSize string
+
+	// Union lists the underlying MyISAM tables that form a MERGE table.
+	Union []string
+	// SecondaryEngine names the secondary engine for HeatWave / RAPID offload (e.g. "RAPID").
+	SecondaryEngine string
+	// TableChecksum enables per-row checksum stored in the table (NDB Cluster).
+	TableChecksum uint64
+	// EngineAttribute is an opaque JSON string passed to the primary storage engine.
+	EngineAttribute string
+	// SecondaryEngineAttribute is an opaque JSON string passed to the secondary engine.
 	SecondaryEngineAttribute string
-	PageCompressed           bool
-	PageCompressionLevel     uint64
-	IetfQuotes               bool
-	Nodegroup                uint64
+	// PageCompressed enables InnoDB page-level compression (MySQL 5.7+).
+	PageCompressed bool
+	// PageCompressionLevel sets the zlib compression level for page compression (1-9).
+	PageCompressionLevel uint64
+	// IetfQuotes enables IETF-compliant quoting for CSV storage engine output.
+	IetfQuotes bool
+	// Nodegroup assigns the table to an NDB Cluster node group.
+	Nodegroup uint64
 }
 
 // TiDBTableOptions contains TiDB-specific table options.
+//
+// TiDB extends MySQL syntax with distributed-database features such as
+// row-ID sharding, region pre-splitting, TTL-based data lifecycle, and
+// placement policies for multi-datacenter deployments.
 type TiDBTableOptions struct {
-	AutoIDCache     uint64
-	AutoRandomBase  uint64
-	ShardRowID      uint64
-	PreSplitRegion  uint64
-	TTL             string
-	TTLEnable       bool
-	TTLJobInterval  string
-	Affinity        string
+	// AutoIDCache sets the auto-ID cache size per TiDB node to reduce ID allocation RPCs.
+	AutoIDCache uint64
+	// AutoRandomBase sets the starting shard bits base for AUTO_RANDOM columns.
+	AutoRandomBase uint64
+	// ShardRowID enables implicit row-ID sharding to scatter hotspot writes across TiKV regions.
+	ShardRowID uint64
+	// PreSplitRegion pre-splits the table into 2^n regions at creation time for write parallelism.
+	PreSplitRegion uint64
+	// TTL is the time-to-live expression for automatic row expiration (e.g. "created_at + INTERVAL 90 DAY").
+	TTL string
+	// TTLEnable activates or suspends TTL-based row deletion for this table.
+	TTLEnable bool
+	// TTLJobInterval controls how frequently the TTL background job runs (e.g. "1h").
+	TTLJobInterval string
+	// Affinity sets the follower-read affinity label for tidb_replica_read.
+	Affinity string
+	// PlacementPolicy assigns a placement policy that controls replica placement across datacenters.
 	PlacementPolicy string
-	StatsBuckets    uint64
-	StatsTopN       uint64
+	// StatsBuckets sets the number of histogram buckets used for table statistics.
+	StatsBuckets uint64
+	// StatsTopN sets the number of top-N values tracked in column statistics.
+	StatsTopN uint64
+	// StatsColsChoice controls which columns collect statistics ("DEFAULT", "ALL", "LIST").
 	StatsColsChoice string
-	StatsColList    string
+	// StatsColList is a comma-separated list of columns to collect statistics for when StatsColsChoice is "LIST".
+	StatsColList string
+	// StatsSampleRate is the sampling rate (0.0-1.0) used when collecting table statistics.
 	StatsSampleRate float64
-	Sequence        bool
+	// Sequence marks the table as backed by a TiDB SEQUENCE object for custom ID generation.
+	Sequence bool
 }
 
 // PostgreSQLTableOptions contains PostgreSQL-specific table options.
@@ -266,9 +331,15 @@ type SQLiteTableOptions struct {
 // MariaDBTableOptions contains MariaDB-specific table options that differ
 // from MySQL.
 //
-// MariaDB diverges from MySQL with its own encryption key management,
-// Aria-engine options, and sequence objects.
+// MariaDB shares most CREATE TABLE options with MySQL (stored in
+// MySQLTableOptions).  This struct holds only the MariaDB-specific
+// divergences: Aria-engine page checksums, transactional mode,
+// encryption key management, sequence objects, and system versioning.
 type MariaDBTableOptions struct {
+	// PageChecksum enables page-level checksums for Aria storage engine tables.
+	PageChecksum uint64 `json:"page_checksum,omitempty"`
+	// Transactional enables transactional support for Aria storage engine tables.
+	Transactional uint64 `json:"transactional,omitempty"`
 	// EncryptionKeyID specifies the encryption key ID for table encryption.
 	EncryptionKeyID *int `json:"encryption_key_id,omitempty"`
 	// Sequence marks the table as a SEQUENCE object (MariaDB 10.3+).
@@ -279,17 +350,28 @@ type MariaDBTableOptions struct {
 
 // Column represents a single column inside schema.
 type Column struct {
-	Name          string   `json:"name"`
-	TypeRaw       string   `json:"typeRaw"`
-	Type          DataType `json:"type"`
-	Nullable      bool     `json:"nullable"`
-	PrimaryKey    bool     `json:"primaryKey"`
-	AutoIncrement bool     `json:"autoIncrement"`
-	DefaultValue  *string  `json:"defaultValue,omitempty"`
-	OnUpdate      *string  `json:"onUpdate,omitempty"` // MySQL ON UPDATE CURRENT_TIMESTAMP
-	Comment       string   `json:"comment,omitempty"`
-	Collate       string   `json:"collate,omitempty"`
-	Charset       string   `json:"charset,omitempty"`
+	// Name is the column identifier as declared in the schema.
+	Name string `json:"name"`
+	// TypeRaw is the portable SQL type string (e.g. "VARCHAR(255)", "BIGINT").
+	TypeRaw string `json:"typeRaw"`
+	// Type is the normalized portable data type derived from TypeRaw.
+	Type DataType `json:"type"`
+	// Nullable indicates whether the column allows NULL values.
+	Nullable bool `json:"nullable"`
+	// PrimaryKey marks this column as part of the table's primary key.
+	PrimaryKey bool `json:"primaryKey"`
+	// AutoIncrement enables automatic incrementing for this column (MySQL, MariaDB, SQLite).
+	AutoIncrement bool `json:"autoIncrement"`
+	// DefaultValue is the column's DEFAULT expression (nil means no default).
+	DefaultValue *string `json:"defaultValue,omitempty"`
+	// OnUpdate is the ON UPDATE expression, typically "CURRENT_TIMESTAMP" (MySQL/MariaDB).
+	OnUpdate *string `json:"onUpdate,omitempty"`
+	// Comment is an optional descriptive comment stored with the column metadata.
+	Comment string `json:"comment,omitempty"`
+	// Collate overrides the column-level collation (e.g. "utf8mb4_bin").
+	Collate string `json:"collate,omitempty"`
+	// Charset overrides the column-level character set (e.g. "utf8mb4").
+	Charset string `json:"charset,omitempty"`
 
 	// Unique marks this column as having a UNIQUE constraint.
 	// The parser auto-synthesizes a named UNIQUE constraint from this flag.
@@ -341,14 +423,35 @@ type Column struct {
 	// When empty, the generator uses auto-increment / identity syntax instead.
 	SequenceName string `json:"sequenceName,omitempty"`
 
-	IsGenerated          bool              `json:"isGenerated,omitempty"`
-	GenerationExpression string            `json:"generationExpression,omitempty"`
-	GenerationStorage    GenerationStorage `json:"generationStorage,omitempty"`
+	// IsGenerated indicates the column is a generated (computed) column.
+	IsGenerated bool `json:"isGenerated,omitempty"`
+	// GenerationExpression is the SQL expression for a generated column (e.g. "price * quantity").
+	GenerationExpression string `json:"generationExpression,omitempty"`
+	// GenerationStorage controls whether the generated column is VIRTUAL or STORED.
+	GenerationStorage GenerationStorage `json:"generationStorage,omitempty"`
 
-	ColumnFormat             string `json:"columnFormat,omitempty"`
-	Storage                  string `json:"storage,omitempty"`
-	AutoRandom               uint64 `json:"autoRandom,omitempty"`
+	// Dialect-specific column option groups.
+	MySQL *MySQLColumnOptions `json:"mysqlColumn,omitempty"`
+	TiDB  *TiDBColumnOptions  `json:"tidbColumn,omitempty"`
+}
+
+// MySQLColumnOptions contains MySQL-specific column-level options.
+//
+// These options cover NDB Cluster storage hints and HeatWave secondary
+// engine attributes.
+type MySQLColumnOptions struct {
+	// ColumnFormat sets the column storage format hint: "FIXED", "DYNAMIC", or "DEFAULT" (NDB Cluster).
+	ColumnFormat string `json:"columnFormat,omitempty"`
+	// Storage specifies the storage medium for the column: "DISK" or "MEMORY" (NDB Cluster).
+	Storage string `json:"storage,omitempty"`
+	// SecondaryEngineAttribute is an opaque JSON string passed to the secondary engine for this column.
 	SecondaryEngineAttribute string `json:"secondaryEngineAttribute,omitempty"`
+}
+
+// TiDBColumnOptions contains TiDB-specific column-level options.
+type TiDBColumnOptions struct {
+	// AutoRandom sets the shard-bits count for TiDB AUTO_RANDOM primary-key columns.
+	AutoRandom uint64 `json:"autoRandom,omitempty"`
 }
 
 // DataType is an ENUM with all possible column data types.
@@ -375,19 +478,28 @@ const (
 	GenerationStored  GenerationStorage = "STORED"
 )
 
-// Constraint contains all constraint options for a column.
+// Constraint represents a table-level constraint (PK, FK, UNIQUE, or CHECK).
 type Constraint struct {
-	Name    string         `json:"name,omitempty"`
-	Type    ConstraintType `json:"type"`
-	Columns []string       `json:"columns"`
+	// Name is the constraint identifier (auto-generated when omitted).
+	Name string `json:"name,omitempty"`
+	// Type is the constraint kind: PRIMARY KEY, FOREIGN KEY, UNIQUE, or CHECK.
+	Type ConstraintType `json:"type"`
+	// Columns lists the column names that participate in this constraint.
+	Columns []string `json:"columns"`
 
-	ReferencedTable   string            `json:"referencedTable,omitempty"`
-	ReferencedColumns []string          `json:"referencedColumns,omitempty"`
-	OnDelete          ReferentialAction `json:"onDelete,omitempty"`
-	OnUpdate          ReferentialAction `json:"onUpdate,omitempty"`
+	// ReferencedTable is the target table for a FOREIGN KEY constraint.
+	ReferencedTable string `json:"referencedTable,omitempty"`
+	// ReferencedColumns lists the target columns in ReferencedTable for a FOREIGN KEY.
+	ReferencedColumns []string `json:"referencedColumns,omitempty"`
+	// OnDelete is the referential action executed when a referenced row is deleted.
+	OnDelete ReferentialAction `json:"onDelete,omitempty"`
+	// OnUpdate is the referential action executed when a referenced row is updated.
+	OnUpdate ReferentialAction `json:"onUpdate,omitempty"`
 
+	// CheckExpression is the SQL boolean expression for a CHECK constraint.
 	CheckExpression string `json:"checkExpression,omitempty"`
-	Enforced        bool   `json:"enforced,omitempty"`
+	// Enforced controls whether a CHECK constraint is actively enforced (MySQL 8.0.16+).
+	Enforced bool `json:"enforced,omitempty"`
 }
 
 // ConstraintType is an ENUM with all possible constraint types.
@@ -412,21 +524,30 @@ const (
 	RefActionNoAction   ReferentialAction = "NO ACTION"
 )
 
-// Index contains all possible index options for a column.
+// Index represents a table index (B-Tree, Hash, Full-Text, Spatial, etc.).
 type Index struct {
-	Name       string          `json:"name,omitempty"`
-	Columns    []IndexColumn   `json:"columns"`
-	Unique     bool            `json:"unique,omitempty"`
-	Type       IndexType       `json:"type,omitempty"`
-	Comment    string          `json:"comment,omitempty"`
+	// Name is the index identifier.
+	Name string `json:"name,omitempty"`
+	// Columns lists the columns (with optional prefix length and sort order) covered by the index.
+	Columns []IndexColumn `json:"columns"`
+	// Unique marks the index as a UNIQUE index that prevents duplicate values.
+	Unique bool `json:"unique,omitempty"`
+	// Type is the index algorithm or kind (BTREE, HASH, FULLTEXT, SPATIAL, GIN, GiST).
+	Type IndexType `json:"type,omitempty"`
+	// Comment is an optional descriptive comment stored with the index metadata.
+	Comment string `json:"comment,omitempty"`
+	// Visibility controls whether the optimizer considers this index (VISIBLE or INVISIBLE).
 	Visibility IndexVisibility `json:"visibility,omitempty"`
 }
 
-// IndexColumn connects all column indexes.
+// IndexColumn describes a single column reference within an index definition.
 type IndexColumn struct {
-	Name   string    `json:"name"`
-	Length int       `json:"length,omitempty"`
-	Order  SortOrder `json:"order,omitempty"`
+	// Name is the column name included in the index.
+	Name string `json:"name"`
+	// Length is the prefix length in characters/bytes for partial-index support (0 = full column).
+	Length int `json:"length,omitempty"`
+	// Order is the sort direction for this column in the index (ASC or DESC).
+	Order SortOrder `json:"order,omitempty"`
 }
 
 // IndexType is an ENUM with all possible index types.
