@@ -293,6 +293,110 @@ name = "items"
 	assert.Contains(t, err.Error(), "nonexistent column")
 }
 
+func TestParseIndexColumnDefWithoutOrder(t *testing.T) {
+	const schema = `
+[database]
+name = "testdb"
+
+[[tables]]
+name = "items"
+
+  [[tables.columns]]
+  name = "id"
+  type = "int"
+  primary_key = true
+
+  [[tables.columns]]
+  name = "label"
+  type = "varchar(100)"
+
+  [[tables.indexes]]
+  name = "idx_label"
+
+    [[tables.indexes.column_defs]]
+    name   = "label"
+    length = 10
+`
+	p := NewParser()
+	db, err := p.Parse(strings.NewReader(schema))
+	require.NoError(t, err)
+
+	idx := db.Tables[0].FindIndex("idx_label")
+	require.NotNil(t, idx)
+	require.Len(t, idx.Columns, 1)
+	assert.Equal(t, "label", idx.Columns[0].Name)
+	assert.Equal(t, 10, idx.Columns[0].Length)
+	assert.Equal(t, core.SortAsc, idx.Columns[0].Order, "order should default to ASC when omitted")
+}
+
+func TestParseUnnamedIndexValid(t *testing.T) {
+	const schema = `
+[database]
+name = "testdb"
+
+[[tables]]
+name = "items"
+
+  [[tables.columns]]
+  name = "id"
+  type = "int"
+  primary_key = true
+
+  [[tables.columns]]
+  name = "code"
+  type = "varchar(50)"
+
+  [[tables.indexes]]
+  columns = ["code"]
+`
+	p := NewParser()
+	db, err := p.Parse(strings.NewReader(schema))
+	require.NoError(t, err)
+
+	require.Len(t, db.Tables[0].Indexes, 1)
+	idx := db.Tables[0].Indexes[0]
+	assert.Empty(t, idx.Name)
+	require.Len(t, idx.Columns, 1)
+	assert.Equal(t, "code", idx.Columns[0].Name)
+}
+
+func TestParseMultipleIndexesOneUnnamed(t *testing.T) {
+	const schema = `
+[database]
+name = "testdb"
+
+[[tables]]
+name = "items"
+
+  [[tables.columns]]
+  name = "id"
+  type = "int"
+  primary_key = true
+
+  [[tables.columns]]
+  name = "code"
+  type = "varchar(50)"
+
+  [[tables.columns]]
+  name = "name"
+  type = "varchar(100)"
+
+  [[tables.indexes]]
+  name    = "idx_code"
+  columns = ["code"]
+
+  [[tables.indexes]]
+  columns = ["name"]
+`
+	p := NewParser()
+	db, err := p.Parse(strings.NewReader(schema))
+	require.NoError(t, err)
+
+	require.Len(t, db.Tables[0].Indexes, 2)
+	assert.Equal(t, "idx_code", db.Tables[0].Indexes[0].Name)
+	assert.Empty(t, db.Tables[0].Indexes[1].Name)
+}
+
 func TestParseColumnIndexsExistValid(t *testing.T) {
 	const schema = `
 [database]

@@ -498,6 +498,240 @@ name = "Items"
 	assert.Contains(t, err.Error(), "does not match allowed pattern")
 }
 
+func TestParseUnsupportedDialect(t *testing.T) {
+	const schema = `
+[database]
+name = "testdb"
+dialect = "foobardb"
+
+[[tables]]
+name = "items"
+
+  [[tables.columns]]
+  name = "id"
+  type = "int"
+  primary_key = true
+`
+	p := NewParser()
+	_, err := p.Parse(strings.NewReader(schema))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported dialect")
+	assert.Contains(t, err.Error(), "foobardb")
+}
+
+func TestParseInvalidAllowedNamePattern(t *testing.T) {
+	const schema = `
+[database]
+name = "testdb"
+
+[validation]
+allowed_name_pattern = "[invalid(regex"
+
+[[tables]]
+name = "items"
+
+  [[tables.columns]]
+  name = "id"
+  type = "int"
+  primary_key = true
+`
+	p := NewParser()
+	_, err := p.Parse(strings.NewReader(schema))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid allowed_name_pattern")
+}
+
+func TestParseEmptyTableName(t *testing.T) {
+	const schema = `
+[database]
+name = "testdb"
+
+[[tables]]
+name = ""
+
+  [[tables.columns]]
+  name = "id"
+  type = "int"
+  primary_key = true
+`
+	p := NewParser()
+	_, err := p.Parse(strings.NewReader(schema))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "table name is empty")
+}
+
+func TestParseWhitespaceOnlyTableName(t *testing.T) {
+	const schema = `
+[database]
+name = "testdb"
+
+[[tables]]
+name = "   "
+
+  [[tables.columns]]
+  name = "id"
+  type = "int"
+  primary_key = true
+`
+	p := NewParser()
+	_, err := p.Parse(strings.NewReader(schema))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "table name is empty")
+}
+
+func TestParseColumnNamePatternMismatch(t *testing.T) {
+	const schema = `
+[database]
+name = "testdb"
+
+[validation]
+allowed_name_pattern = "^[a-z_]+$"
+
+[[tables]]
+name = "items"
+
+  [[tables.columns]]
+  name = "BadColumn"
+  type = "int"
+  primary_key = true
+`
+	p := NewParser()
+	_, err := p.Parse(strings.NewReader(schema))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "does not match allowed pattern")
+	assert.Contains(t, err.Error(), "BadColumn")
+}
+
+func TestParseInvalidRawTypeForDialect(t *testing.T) {
+	const schema = `
+[database]
+name = "testdb"
+dialect = "mysql"
+
+[[tables]]
+name = "items"
+
+  [[tables.columns]]
+  name     = "data"
+  type     = "text"
+  raw_type = "TOTALLY_FAKE_TYPE"
+
+  [[tables.constraints]]
+  type    = "PRIMARY KEY"
+  columns = ["data"]
+`
+	p := NewParser()
+	_, err := p.Parse(strings.NewReader(schema))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "TOTALLY_FAKE_TYPE")
+}
+
+func TestParseMySQLColumnOptions(t *testing.T) {
+	const schema = `
+[database]
+name = "testdb"
+
+[[tables]]
+name = "items"
+
+  [[tables.columns]]
+  name = "id"
+  type = "int"
+  primary_key = true
+
+    [tables.columns.mysql]
+    column_format              = "FIXED"
+    storage                    = "DISK"
+    secondary_engine_attribute = '{"key":"val"}'
+`
+	p := NewParser()
+	db, err := p.Parse(strings.NewReader(schema))
+	require.NoError(t, err)
+
+	col := db.Tables[0].FindColumn("id")
+	require.NotNil(t, col)
+	require.NotNil(t, col.MySQL)
+	assert.Equal(t, "FIXED", col.MySQL.ColumnFormat)
+	assert.Equal(t, "DISK", col.MySQL.Storage)
+	assert.Equal(t, `{"key":"val"}`, col.MySQL.SecondaryEngineAttribute)
+}
+
+func TestParseTiDBColumnOptions(t *testing.T) {
+	const schema = `
+[database]
+name = "testdb"
+
+[[tables]]
+name = "items"
+
+  [[tables.columns]]
+  name = "id"
+  type = "int"
+  primary_key = true
+
+    [tables.columns.tidb]
+    auto_random = 5
+`
+	p := NewParser()
+	db, err := p.Parse(strings.NewReader(schema))
+	require.NoError(t, err)
+
+	col := db.Tables[0].FindColumn("id")
+	require.NotNil(t, col)
+	require.NotNil(t, col.TiDB)
+	assert.Equal(t, uint64(5), col.TiDB.AutoRandom)
+}
+
+func TestParseFloatDefaultValue(t *testing.T) {
+	const schema = `
+[database]
+name = "testdb"
+
+[[tables]]
+name = "items"
+
+  [[tables.columns]]
+  name        = "score"
+  type        = "float"
+  primary_key = true
+  default     = 3.14
+`
+	p := NewParser()
+	db, err := p.Parse(strings.NewReader(schema))
+	require.NoError(t, err)
+
+	col := db.Tables[0].FindColumn("score")
+	require.NotNil(t, col)
+	require.NotNil(t, col.DefaultValue)
+	assert.Equal(t, "3.14", *col.DefaultValue)
+}
+
+func TestParseDatetimeDefaultValue(t *testing.T) {
+	const schema = `
+[database]
+name = "testdb"
+
+[[tables]]
+name = "items"
+
+  [[tables.columns]]
+  name        = "created"
+  type        = "timestamp"
+  primary_key = true
+  default     = 2024-01-01T00:00:00Z
+`
+	p := NewParser()
+	db, err := p.Parse(strings.NewReader(schema))
+	require.NoError(t, err)
+
+	col := db.Tables[0].FindColumn("created")
+	require.NotNil(t, col)
+	require.NotNil(t, col.DefaultValue)
+	// time.Time hits the default case in normalizeDefault using fmt.Sprintf
+	assert.NotEmpty(t, *col.DefaultValue)
+	assert.Contains(t, *col.DefaultValue, "2024")
+}
+
 func TestParseInvalidToml(t *testing.T) {
 	p := NewParser()
 	_, err := p.Parse(strings.NewReader(`this is not valid toml {{{`))
