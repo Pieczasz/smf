@@ -402,27 +402,6 @@ name = "items"
 	assert.True(t, tbl.Columns[0].PrimaryKey)
 	assert.Equal(t, core.DataTypeInt, tbl.Columns[0].Type)
 }
-
-func TestParseSchemaVersion(t *testing.T) {
-	const schema = `
-[database]
-name = "testdb"
-version = "2.3.1"
-
-[[tables]]
-name = "items"
-
-  [[tables.columns]]
-  name = "id"
-  type = "int"
-  primary_key = true
-`
-	p := NewParser()
-	db, err := p.Parse(strings.NewReader(schema))
-	require.NoError(t, err)
-	assert.Equal(t, "2.3.1", db.Version)
-}
-
 func TestParseValidationRules(t *testing.T) {
 	const schema = `
 [database]
@@ -1654,4 +1633,833 @@ func TestParseFileExampleSchemaToml(t *testing.T) {
 	for i, name := range want {
 		assert.Equal(t, name, db.Tables[i].Name)
 	}
+}
+
+// ---------------------------------------------------------------------------
+// Regression tests: validation gaps
+// ---------------------------------------------------------------------------
+
+func TestParseDuplicateColumnName(t *testing.T) {
+	const schema = `
+[database]
+name = "testdb"
+
+[[tables]]
+name = "items"
+
+  [[tables.columns]]
+  name = "id"
+  type = "int"
+  primary_key = true
+
+  [[tables.columns]]
+  name = "id"
+  type = "varchar(255)"
+`
+	p := NewParser()
+	_, err := p.Parse(strings.NewReader(schema))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "duplicate column name")
+	assert.Contains(t, err.Error(), "id")
+}
+
+func TestParseDuplicateColumnNameCaseInsensitive(t *testing.T) {
+	const schema = `
+[database]
+name = "testdb"
+
+[[tables]]
+name = "items"
+
+  [[tables.columns]]
+  name = "Email"
+  type = "varchar(255)"
+  primary_key = true
+
+  [[tables.columns]]
+  name = "email"
+  type = "text"
+`
+	p := NewParser()
+	_, err := p.Parse(strings.NewReader(schema))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "duplicate column name")
+}
+
+func TestParseMalformedReferencesNoDot(t *testing.T) {
+	const schema = `
+[database]
+name = "testdb"
+
+[[tables]]
+name = "items"
+
+  [[tables.columns]]
+  name = "id"
+  type = "int"
+  primary_key = true
+
+  [[tables.columns]]
+  name = "tenant_id"
+  type = "int"
+  references = "tenants"
+`
+	p := NewParser()
+	_, err := p.Parse(strings.NewReader(schema))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid references")
+	assert.Contains(t, err.Error(), "tenants")
+}
+
+func TestParseMalformedReferencesDotAtEnd(t *testing.T) {
+	const schema = `
+[database]
+name = "testdb"
+
+[[tables]]
+name = "items"
+
+  [[tables.columns]]
+  name = "id"
+  type = "int"
+  primary_key = true
+
+  [[tables.columns]]
+  name = "tenant_id"
+  type = "int"
+  references = "tenants."
+`
+	p := NewParser()
+	_, err := p.Parse(strings.NewReader(schema))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid references")
+}
+
+func TestParseMalformedReferencesDotAtStart(t *testing.T) {
+	const schema = `
+[database]
+name = "testdb"
+
+[[tables]]
+name = "items"
+
+  [[tables.columns]]
+  name = "id"
+  type = "int"
+  primary_key = true
+
+  [[tables.columns]]
+  name = "tenant_id"
+  type = "int"
+  references = ".id"
+`
+	p := NewParser()
+	_, err := p.Parse(strings.NewReader(schema))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid references")
+}
+
+func TestParseValidReferencesStillWorks(t *testing.T) {
+	const schema = `
+[database]
+name = "testdb"
+
+[[tables]]
+name = "items"
+
+  [[tables.columns]]
+  name = "id"
+  type = "int"
+  primary_key = true
+
+  [[tables.columns]]
+  name = "tenant_id"
+  type = "int"
+  references = "tenants.id"
+`
+	p := NewParser()
+	db, err := p.Parse(strings.NewReader(schema))
+	require.NoError(t, err)
+
+	tbl := db.Tables[0]
+	col := tbl.FindColumn("tenant_id")
+	require.NotNil(t, col)
+	assert.Equal(t, "tenants.id", col.References)
+
+	// FK constraint should have been synthesized.
+	var fk *core.Constraint
+	for _, c := range tbl.Constraints {
+		if c.Type == core.ConstraintForeignKey {
+			fk = c
+			break
+		}
+	}
+	require.NotNil(t, fk)
+	assert.Equal(t, "tenants", fk.ReferencedTable)
+	assert.Equal(t, []string{"id"}, fk.ReferencedColumns)
+}
+
+func TestParseIndexEmptyColumns(t *testing.T) {
+	const schema = `
+[database]
+name = "testdb"
+
+[[tables]]
+name = "items"
+
+  [[tables.columns]]
+  name = "id"
+  type = "int"
+  primary_key = true
+
+  [[tables.indexes]]
+  name = "idx_empty"
+`
+	p := NewParser()
+	_, err := p.Parse(strings.NewReader(schema))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no columns")
+}
+
+func TestParseIndexEmptyColumnsUnnamed(t *testing.T) {
+	const schema = `
+[database]
+name = "testdb"
+
+[[tables]]
+name = "items"
+
+  [[tables.columns]]
+  name = "id"
+  type = "int"
+  primary_key = true
+
+  [[tables.indexes]]
+  unique = true
+`
+	p := NewParser()
+	_, err := p.Parse(strings.NewReader(schema))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no columns")
+}
+
+func TestParseMultiplePKConstraints(t *testing.T) {
+	const schema = `
+[database]
+name = "testdb"
+
+[[tables]]
+name = "items"
+
+  [[tables.columns]]
+  name = "id"
+  type = "int"
+
+  [[tables.columns]]
+  name = "code"
+  type = "varchar(50)"
+
+  [[tables.constraints]]
+  type    = "PRIMARY KEY"
+  columns = ["id"]
+
+  [[tables.constraints]]
+  type    = "PRIMARY KEY"
+  columns = ["code"]
+`
+	p := NewParser()
+	_, err := p.Parse(strings.NewReader(schema))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "multiple PRIMARY KEY")
+}
+
+func TestParseDuplicateConstraintName(t *testing.T) {
+	const schema = `
+[database]
+name = "testdb"
+
+[[tables]]
+name = "items"
+
+  [[tables.columns]]
+  name = "id"
+  type = "int"
+  primary_key = true
+
+  [[tables.columns]]
+  name = "code"
+  type = "varchar(50)"
+
+  [[tables.columns]]
+  name = "name"
+  type = "varchar(100)"
+
+  [[tables.constraints]]
+  name    = "uq_code"
+  type    = "UNIQUE"
+  columns = ["code"]
+
+  [[tables.constraints]]
+  name    = "uq_code"
+  type    = "UNIQUE"
+  columns = ["name"]
+`
+	p := NewParser()
+	_, err := p.Parse(strings.NewReader(schema))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "duplicate constraint name")
+	assert.Contains(t, err.Error(), "uq_code")
+}
+
+func TestParseDuplicateConstraintNameCaseInsensitive(t *testing.T) {
+	const schema = `
+[database]
+name = "testdb"
+
+[[tables]]
+name = "items"
+
+  [[tables.columns]]
+  name = "id"
+  type = "int"
+  primary_key = true
+
+  [[tables.columns]]
+  name = "code"
+  type = "varchar(50)"
+
+  [[tables.columns]]
+  name = "name"
+  type = "varchar(100)"
+
+  [[tables.constraints]]
+  name    = "UQ_CODE"
+  type    = "UNIQUE"
+  columns = ["code"]
+
+  [[tables.constraints]]
+  name    = "uq_code"
+  type    = "UNIQUE"
+  columns = ["name"]
+`
+	p := NewParser()
+	_, err := p.Parse(strings.NewReader(schema))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "duplicate constraint name")
+}
+
+func TestParseDuplicateIndexName(t *testing.T) {
+	const schema = `
+[database]
+name = "testdb"
+
+[[tables]]
+name = "items"
+
+  [[tables.columns]]
+  name = "id"
+  type = "int"
+  primary_key = true
+
+  [[tables.columns]]
+  name = "code"
+  type = "varchar(50)"
+
+  [[tables.columns]]
+  name = "name"
+  type = "varchar(100)"
+
+  [[tables.indexes]]
+  name    = "idx_code"
+  columns = ["code"]
+
+  [[tables.indexes]]
+  name    = "idx_code"
+  columns = ["name"]
+`
+	p := NewParser()
+	_, err := p.Parse(strings.NewReader(schema))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "duplicate index name")
+	assert.Contains(t, err.Error(), "idx_code")
+}
+
+func TestParseDuplicateIndexNameCaseInsensitive(t *testing.T) {
+	const schema = `
+[database]
+name = "testdb"
+
+[[tables]]
+name = "items"
+
+  [[tables.columns]]
+  name = "id"
+  type = "int"
+  primary_key = true
+
+  [[tables.columns]]
+  name = "code"
+  type = "varchar(50)"
+
+  [[tables.columns]]
+  name = "name"
+  type = "varchar(100)"
+
+  [[tables.indexes]]
+  name    = "IDX_CODE"
+  columns = ["code"]
+
+  [[tables.indexes]]
+  name    = "idx_code"
+  columns = ["name"]
+`
+	p := NewParser()
+	_, err := p.Parse(strings.NewReader(schema))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "duplicate index name")
+}
+
+func TestParseConstraintReferencesNonexistentColumn(t *testing.T) {
+	const schema = `
+[database]
+name = "testdb"
+
+[[tables]]
+name = "items"
+
+  [[tables.columns]]
+  name = "id"
+  type = "int"
+  primary_key = true
+
+  [[tables.constraints]]
+  name    = "uq_ghost"
+  type    = "UNIQUE"
+  columns = ["nonexistent"]
+`
+	p := NewParser()
+	_, err := p.Parse(strings.NewReader(schema))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "nonexistent column")
+	assert.Contains(t, err.Error(), "nonexistent")
+}
+
+func TestParseConstraintEmptyColumns(t *testing.T) {
+	const schema = `
+[database]
+name = "testdb"
+
+[[tables]]
+name = "items"
+
+  [[tables.columns]]
+  name = "id"
+  type = "int"
+  primary_key = true
+
+  [[tables.constraints]]
+  name = "uq_empty"
+  type = "UNIQUE"
+`
+	p := NewParser()
+	_, err := p.Parse(strings.NewReader(schema))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "has no columns")
+}
+
+func TestParseIndexReferencesNonexistentColumn(t *testing.T) {
+	const schema = `
+[database]
+name = "testdb"
+
+[[tables]]
+name = "items"
+
+  [[tables.columns]]
+  name = "id"
+  type = "int"
+  primary_key = true
+
+  [[tables.indexes]]
+  name    = "idx_ghost"
+  columns = ["nonexistent"]
+`
+	p := NewParser()
+	_, err := p.Parse(strings.NewReader(schema))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "nonexistent column")
+	assert.Contains(t, err.Error(), "nonexistent")
+}
+
+func TestParseIndexAdvancedColumnDefsNonexistentColumn(t *testing.T) {
+	const schema = `
+[database]
+name = "testdb"
+
+[[tables]]
+name = "items"
+
+  [[tables.columns]]
+  name = "id"
+  type = "int"
+  primary_key = true
+
+  [[tables.indexes]]
+  name = "idx_ghost"
+
+    [[tables.indexes.column_defs]]
+    name  = "nonexistent"
+    order = "ASC"
+`
+	p := NewParser()
+	_, err := p.Parse(strings.NewReader(schema))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "nonexistent column")
+}
+
+func TestParseFKConstraintMissingReferencedTable(t *testing.T) {
+	const schema = `
+[database]
+name = "testdb"
+
+[[tables]]
+name = "items"
+
+  [[tables.columns]]
+  name = "id"
+  type = "int"
+  primary_key = true
+
+  [[tables.columns]]
+  name = "tenant_id"
+  type = "int"
+
+  [[tables.constraints]]
+  name    = "fk_tenant"
+  type    = "FOREIGN KEY"
+  columns = ["tenant_id"]
+  referenced_columns = ["id"]
+`
+	p := NewParser()
+	_, err := p.Parse(strings.NewReader(schema))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "missing referenced_table")
+}
+
+func TestParseFKConstraintMissingReferencedColumns(t *testing.T) {
+	const schema = `
+[database]
+name = "testdb"
+
+[[tables]]
+name = "items"
+
+  [[tables.columns]]
+  name = "id"
+  type = "int"
+  primary_key = true
+
+  [[tables.columns]]
+  name = "tenant_id"
+  type = "int"
+
+  [[tables.constraints]]
+  name             = "fk_tenant"
+  type             = "FOREIGN KEY"
+  columns          = ["tenant_id"]
+  referenced_table = "tenants"
+`
+	p := NewParser()
+	_, err := p.Parse(strings.NewReader(schema))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "missing referenced_columns")
+}
+
+func TestParseTimestampsSameColumnName(t *testing.T) {
+	const schema = `
+[database]
+name = "testdb"
+
+[[tables]]
+name = "items"
+
+  [[tables.columns]]
+  name = "id"
+  type = "int"
+  primary_key = true
+
+  [tables.timestamps]
+  enabled        = true
+  created_column = "ts"
+  updated_column = "ts"
+`
+	p := NewParser()
+	_, err := p.Parse(strings.NewReader(schema))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "same name")
+	assert.Contains(t, err.Error(), "ts")
+}
+
+func TestParseTimestampsDefaultsSameColumnName(t *testing.T) {
+	// Both default to the same name if one overrides to match the other's default.
+	const schema = `
+[database]
+name = "testdb"
+
+[[tables]]
+name = "items"
+
+  [[tables.columns]]
+  name = "id"
+  type = "int"
+  primary_key = true
+
+  [tables.timestamps]
+  enabled        = true
+  created_column = "updated_at"
+`
+	p := NewParser()
+	_, err := p.Parse(strings.NewReader(schema))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "same name")
+}
+
+// ---------------------------------------------------------------------------
+// Positive tests: verify valid schemas still parse after new checks
+// ---------------------------------------------------------------------------
+
+func TestParseDistinctColumnsValid(t *testing.T) {
+	const schema = `
+[database]
+name = "testdb"
+
+[[tables]]
+name = "items"
+
+  [[tables.columns]]
+  name = "id"
+  type = "int"
+  primary_key = true
+
+  [[tables.columns]]
+  name = "name"
+  type = "varchar(255)"
+
+  [[tables.columns]]
+  name = "code"
+  type = "varchar(50)"
+`
+	p := NewParser()
+	db, err := p.Parse(strings.NewReader(schema))
+	require.NoError(t, err)
+	assert.Len(t, db.Tables[0].Columns, 3)
+}
+
+func TestParseConstraintColumnsExistValid(t *testing.T) {
+	const schema = `
+[database]
+name = "testdb"
+
+[[tables]]
+name = "items"
+
+  [[tables.columns]]
+  name = "id"
+  type = "int"
+
+  [[tables.columns]]
+  name = "code"
+  type = "varchar(50)"
+
+  [[tables.constraints]]
+  type    = "PRIMARY KEY"
+  columns = ["id"]
+
+  [[tables.constraints]]
+  name    = "uq_code"
+  type    = "UNIQUE"
+  columns = ["code"]
+`
+	p := NewParser()
+	db, err := p.Parse(strings.NewReader(schema))
+	require.NoError(t, err)
+	assert.Len(t, db.Tables[0].Constraints, 2)
+}
+
+func TestParseColumnIndexsExistValid(t *testing.T) {
+	const schema = `
+[database]
+name = "testdb"
+
+[[tables]]
+name = "items"
+
+  [[tables.columns]]
+  name = "id"
+  type = "int"
+  primary_key = true
+
+  [[tables.columns]]
+  name = "code"
+  type = "varchar(50)"
+
+  [[tables.indexes]]
+  name    = "idx_code"
+  columns = ["code"]
+`
+	p := NewParser()
+	db, err := p.Parse(strings.NewReader(schema))
+	require.NoError(t, err)
+	assert.Len(t, db.Tables[0].Indexes, 1)
+	assert.Equal(t, "code", db.Tables[0].Indexes[0].Columns[0].Name)
+}
+
+func TestParseExplicitFKConstraintValid(t *testing.T) {
+	const schema = `
+[database]
+name = "testdb"
+
+[[tables]]
+name = "items"
+
+  [[tables.columns]]
+  name = "id"
+  type = "int"
+  primary_key = true
+
+  [[tables.columns]]
+  name = "tenant_id"
+  type = "int"
+
+  [[tables.constraints]]
+  name               = "fk_tenant"
+  type               = "FOREIGN KEY"
+  columns            = ["tenant_id"]
+  referenced_table   = "tenants"
+  referenced_columns = ["id"]
+  on_delete          = "CASCADE"
+`
+	p := NewParser()
+	db, err := p.Parse(strings.NewReader(schema))
+	require.NoError(t, err)
+
+	tbl := db.Tables[0]
+	fk := tbl.FindConstraint("fk_tenant")
+	require.NotNil(t, fk)
+	assert.Equal(t, core.ConstraintForeignKey, fk.Type)
+	assert.Equal(t, "tenants", fk.ReferencedTable)
+	assert.Equal(t, []string{"id"}, fk.ReferencedColumns)
+	assert.Equal(t, core.RefActionCascade, fk.OnDelete)
+}
+
+func TestParseTimestampsDistinctColumnsValid(t *testing.T) {
+	const schema = `
+[database]
+name = "testdb"
+
+[[tables]]
+name = "items"
+
+  [[tables.columns]]
+  name = "id"
+  type = "int"
+  primary_key = true
+
+  [tables.timestamps]
+  enabled        = true
+  created_column = "inserted_at"
+  updated_column = "modified_at"
+`
+	p := NewParser()
+	db, err := p.Parse(strings.NewReader(schema))
+	require.NoError(t, err)
+
+	tbl := db.Tables[0]
+	assert.NotNil(t, tbl.FindColumn("inserted_at"))
+	assert.NotNil(t, tbl.FindColumn("modified_at"))
+}
+
+func TestParseCheckConstraintWithoutColumnsValid(t *testing.T) {
+	// CHECK constraints use expressions, not column lists, so they should
+	// pass even with an empty columns list.
+	const schema = `
+[database]
+name = "testdb"
+
+[[tables]]
+name = "items"
+
+  [[tables.columns]]
+  name = "id"
+  type = "int"
+  primary_key = true
+
+  [[tables.columns]]
+  name = "price"
+  type = "decimal(10,2)"
+
+  [[tables.constraints]]
+  name             = "chk_price"
+  type             = "CHECK"
+  check_expression = "price > 0"
+`
+	p := NewParser()
+	db, err := p.Parse(strings.NewReader(schema))
+	require.NoError(t, err)
+
+	tbl := db.Tables[0]
+	chk := tbl.FindConstraint("chk_price")
+	require.NotNil(t, chk)
+	assert.Equal(t, core.ConstraintCheck, chk.Type)
+	assert.Equal(t, "price > 0", chk.CheckExpression)
+}
+
+func TestParsePKConstraintReferencesNonexistentColumn(t *testing.T) {
+	const schema = `
+[database]
+name = "testdb"
+
+[[tables]]
+name = "items"
+
+  [[tables.columns]]
+  name = "id"
+  type = "int"
+
+  [[tables.constraints]]
+  type    = "PRIMARY KEY"
+  columns = ["missing_col"]
+`
+	p := NewParser()
+	_, err := p.Parse(strings.NewReader(schema))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "nonexistent column")
+	assert.Contains(t, err.Error(), "missing_col")
+}
+
+func TestParseCompositePKConstraintOneColumnMissing(t *testing.T) {
+	const schema = `
+[database]
+name = "testdb"
+
+[[tables]]
+name = "items"
+
+  [[tables.columns]]
+  name = "tenant_id"
+  type = "int"
+
+  [[tables.columns]]
+  name = "item_id"
+  type = "int"
+
+  [[tables.constraints]]
+  type    = "PRIMARY KEY"
+  columns = ["tenant_id", "ghost"]
+`
+	p := NewParser()
+	_, err := p.Parse(strings.NewReader(schema))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "nonexistent column")
+	assert.Contains(t, err.Error(), "ghost")
 }

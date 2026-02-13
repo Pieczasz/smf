@@ -523,7 +523,7 @@ type Index struct {
 	// Name is the index identifier.
 	Name string `json:"name,omitempty"`
 	// Columns lists the columns (with optional prefix length and sort order) covered by the index.
-	Columns []IndexColumn `json:"columns"`
+	Columns []ColumnIndex `json:"columns"`
 	// Unique marks the index as a UNIQUE index that prevents duplicate values.
 	Unique bool `json:"unique,omitempty"`
 	// Type is the index algorithm or kind (BTREE, HASH, FULLTEXT, SPATIAL, GIN, GiST).
@@ -534,8 +534,8 @@ type Index struct {
 	Visibility IndexVisibility `json:"visibility,omitempty"`
 }
 
-// IndexColumn describes a single column reference within an index definition.
-type IndexColumn struct {
+// ColumnIndex describes a single column reference within an index definition.
+type ColumnIndex struct {
 	// Name is the column name included in the index.
 	Name string `json:"name"`
 	// Length is the prefix length in characters/bytes for partial-index support (0 = full column).

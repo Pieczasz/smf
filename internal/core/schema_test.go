@@ -225,7 +225,7 @@ func TestIndexNames(t *testing.T) {
 	t.Run("index with multiple columns", func(t *testing.T) {
 		idx := &Index{
 			Name: "idx_composite",
-			Columns: []IndexColumn{
+			Columns: []ColumnIndex{
 				{Name: "first_name"},
 				{Name: "last_name"},
 				{Name: "email"},
@@ -238,7 +238,7 @@ func TestIndexNames(t *testing.T) {
 	t.Run("index with single column", func(t *testing.T) {
 		idx := &Index{
 			Name: "idx_email",
-			Columns: []IndexColumn{
+			Columns: []ColumnIndex{
 				{Name: "email"},
 			},
 		}

@@ -9,13 +9,17 @@ import (
 	"io"
 	"os"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/BurntSushi/toml"
 
 	"smf/internal/core"
 )
+
+// TODO: validate enum string values e.g. constraint type = "BANANA"`, `on_delete = "OOPS"`, `order = "SIDEWAYS"`, etc.
+// validate Cross-table FK target existence — `references = "users.id"` is syntactically validated, but we don't verify that a table named `users` with column `id` exists in this schema
+// validate Dialect-specific semantic rules auto_increment` on a non-integer column, `nullable = true` on a PK column, generated column without expression, etc.
+// NOTE: currently empty schema is allowed, and empty database name too.
 
 // schemaFile is the top-level TOML document.
 // In the new schema format, [database], [validation], and [[tables]]
@@ -30,7 +34,6 @@ type schemaFile struct {
 type tomlDatabase struct {
 	Name    string `toml:"name"`
 	Dialect string `toml:"dialect"`
-	Version string `toml:"version"`
 }
 
 // tomlValidation maps [validation].
@@ -134,11 +137,11 @@ type tomlIndex struct {
 	Columns []string `toml:"columns"`
 
 	// Advanced form: [[tables.indexes.column_defs]]
-	ColumnDefs []tomlIndexColumn `toml:"column_defs"`
+	ColumnDefs []tomlColumnIndex `toml:"column_defs"`
 }
 
-// tomlIndexColumn maps [[tables.indexes.column_defs]].
-type tomlIndexColumn struct {
+// tomlColumnIndex maps [[tables.indexes.column_defs]].
+type tomlColumnIndex struct {
 	Name   string `toml:"name"`
 	Length int    `toml:"length"`
 	Order  string `toml:"order"`
@@ -163,15 +166,14 @@ func (p *Parser) ParseFile(path string) (*core.Database, error) {
 	return p.Parse(f)
 }
 
-// Parse reads TOML content from r and returns the corresponding core.Database.
+// Parse reads TOML content from reader and returns the corresponding core.Database.
 func (p *Parser) Parse(r io.Reader) (*core.Database, error) {
 	var sf schemaFile
 	if _, err := toml.NewDecoder(r).Decode(&sf); err != nil {
 		return nil, fmt.Errorf("toml: decode error: %w", err)
 	}
 
-	c := newConverter(&sf)
-	return c.convert()
+	return newConverter(&sf).convert()
 }
 
 type converter struct {
@@ -190,7 +192,7 @@ func newConverter(sf *schemaFile) *converter {
 }
 
 func (c *converter) convert() (*core.Database, error) {
-	dialect, err := c.validateDialect(c.sf.Database.Dialect)
+	dialect, err := validateDialect(c.sf.Database.Dialect)
 	if err != nil {
 		return nil, err
 	}
@@ -203,7 +205,6 @@ func (c *converter) convert() (*core.Database, error) {
 	db := &core.Database{
 		Name:    c.sf.Database.Name,
 		Dialect: c.dialect,
-		Version: c.sf.Database.Version,
 		Tables:  make([]*core.Table, 0, len(c.sf.Tables)),
 	}
 	db.Validation = c.rules
@@ -221,7 +222,7 @@ func (c *converter) convert() (*core.Database, error) {
 
 // validateDialect validates the raw dialect string.
 // Empty is allowed (dialect is optional); an unrecognized non-empty value is an error.
-func (c *converter) validateDialect(raw string) (*core.Dialect, error) {
+func validateDialect(raw string) (*core.Dialect, error) {
 	if raw == "" {
 		return nil, nil
 	}
@@ -255,455 +256,4 @@ func (c *converter) validateRules() error {
 	}
 
 	return nil
-}
-
-func (c *converter) convertTable(tt *tomlTable) (*core.Table, error) {
-	if err := c.validateTableName(tt.Name); err != nil {
-		return nil, err
-	}
-
-	table := &core.Table{
-		Name:    tt.Name,
-		Comment: tt.Comment,
-		Options: convertTableOptions(&tt.Options),
-	}
-
-	table.Timestamps = convertTimestamps(tt.Timestamps)
-
-	if err := c.convertTableColumns(table, tt); err != nil {
-		return nil, err
-	}
-
-	table.Constraints = make([]*core.Constraint, 0, len(tt.Constraints))
-	for i := range tt.Constraints {
-		con := convertConstraint(&tt.Constraints[i])
-		table.Constraints = append(table.Constraints, con)
-	}
-
-	if err := checkPKConflict(table); err != nil {
-		return nil, err
-	}
-
-	synthesizeConstraints(table)
-
-	// Indexes.
-	table.Indexes = make([]*core.Index, 0, len(tt.Indexes))
-	for i := range tt.Indexes {
-		idx := convertIndex(&tt.Indexes[i])
-		table.Indexes = append(table.Indexes, idx)
-	}
-
-	return table, nil
-}
-
-// convertTimestamps maps the optional TOML timestamps block to a core config.
-func convertTimestamps(ts *tomlTimestamps) *core.TimestampsConfig {
-	if ts == nil {
-		return nil
-	}
-	return &core.TimestampsConfig{
-		Enabled:       ts.Enabled,
-		CreatedColumn: ts.CreatedColumn,
-		UpdatedColumn: ts.UpdatedColumn,
-	}
-}
-
-// convertTableColumns populates table.Columns from the TOML column definitions,
-// injects timestamp columns when enabled, and ensures the table is non-empty.
-func (c *converter) convertTableColumns(table *core.Table, tt *tomlTable) error {
-	table.Columns = make([]*core.Column, 0, len(tt.Columns))
-	for i := range tt.Columns {
-		col, err := c.convertColumn(&tt.Columns[i])
-		if err != nil {
-			return fmt.Errorf("column %q: %w", tt.Columns[i].Name, err)
-		}
-		table.Columns = append(table.Columns, col)
-	}
-
-	if table.Timestamps != nil && table.Timestamps.Enabled {
-		injectTimestampColumns(table)
-	}
-
-	if len(table.Columns) == 0 {
-		return fmt.Errorf("table has no columns")
-	}
-	return nil
-}
-
-// validateTableName checks emptiness, duplicates, length, and pattern - all
-// before we spend any time converting columns.
-func (c *converter) validateTableName(name string) error {
-	if strings.TrimSpace(name) == "" {
-		return fmt.Errorf("table name is empty")
-	}
-
-	lower := strings.ToLower(name)
-	if c.seenTables[lower] {
-		return fmt.Errorf("duplicate table name %q", name)
-	}
-	c.seenTables[lower] = true
-
-	if c.rules != nil {
-		if c.rules.MaxTableNameLength > 0 && len(name) > c.rules.MaxTableNameLength {
-			return fmt.Errorf("table %q exceeds maximum length %d", name, c.rules.MaxTableNameLength)
-		}
-		if c.nameRe != nil && !c.nameRe.MatchString(name) {
-			return fmt.Errorf("table %q does not match allowed pattern %q", name, c.nameRe.String())
-		}
-	}
-
-	return nil
-}
-
-func (c *converter) convertColumn(tc *tomlColumn) (*core.Column, error) {
-	if err := c.validateColumnName(tc.Name); err != nil {
-		return nil, err
-	}
-
-	col := &core.Column{
-		Name:          tc.Name,
-		Nullable:      tc.Nullable,
-		PrimaryKey:    tc.PrimaryKey,
-		AutoIncrement: tc.AutoIncrement,
-		Comment:       tc.Comment,
-		Collate:       tc.Collate,
-		Charset:       tc.Charset,
-		Unique:        tc.Unique,
-		Check:         tc.Check,
-		References:    tc.References,
-		EnumValues:    tc.EnumValues,
-	}
-
-	portableType := resolveTypeRaw(tc)
-	if strings.TrimSpace(portableType) == "" {
-		return nil, fmt.Errorf("type is empty")
-	}
-
-	col.Type = core.NormalizeDataType(portableType)
-
-	if tc.RawType != "" && c.dialect != nil {
-		if err := core.ValidateRawType(tc.RawType, c.dialect); err != nil {
-			return nil, fmt.Errorf("column %q: %w", tc.Name, err)
-		}
-		col.RawType = tc.RawType
-	} else {
-		col.RawType = portableType
-	}
-
-	if tc.DefaultValue != nil {
-		s := normalizeDefault(tc.DefaultValue)
-		col.DefaultValue = &s
-	}
-	if tc.References != "" {
-		col.RefOnDelete = core.ReferentialAction(tc.OnDelete)
-		col.RefOnUpdate = core.ReferentialAction(tc.OnUpdate)
-	} else if tc.OnUpdate != "" {
-		v := tc.OnUpdate
-		col.OnUpdate = &v
-	}
-
-	col.IsGenerated = tc.IsGenerated
-	col.GenerationExpression = tc.GenerationExpression
-	if tc.GenerationStorage != "" {
-		col.GenerationStorage = core.GenerationStorage(tc.GenerationStorage)
-	}
-
-	return col, nil
-}
-
-func (c *converter) validateColumnName(name string) error {
-	if strings.TrimSpace(name) == "" {
-		return fmt.Errorf("column name is empty")
-	}
-	if c.rules != nil {
-		if c.rules.MaxColumnNameLength > 0 && len(name) > c.rules.MaxColumnNameLength {
-			return fmt.Errorf("column %q exceeds maximum length %d", name, c.rules.MaxColumnNameLength)
-		}
-		if c.nameRe != nil && !c.nameRe.MatchString(name) {
-			return fmt.Errorf("column %q does not match allowed pattern %q", name, c.nameRe.String())
-		}
-	}
-	return nil
-}
-
-// ---------------------------------------------------------------------------
-// Pure conversion helpers (no validation state needed)
-// ---------------------------------------------------------------------------
-
-func convertTableOptions(to *tomlTableOptions) core.TableOptions {
-	opts := core.TableOptions{
-		Tablespace: to.Tablespace,
-	}
-
-	// Route MySQL-family options into the dialect-specific sub-struct.
-	if to.Engine != "" || to.Charset != "" || to.Collate != "" ||
-		to.RowFormat != "" || to.Compression != "" ||
-		to.Encryption != "" || to.KeyBlockSize != 0 {
-		opts.MySQL = &core.MySQLTableOptions{
-			Engine:       to.Engine,
-			Charset:      to.Charset,
-			Collate:      to.Collate,
-			RowFormat:    to.RowFormat,
-			Compression:  to.Compression,
-			Encryption:   to.Encryption,
-			KeyBlockSize: to.KeyBlockSize,
-		}
-	}
-
-	return opts
-}
-
-func resolveTypeRaw(tc *tomlColumn) string {
-	t := strings.TrimSpace(tc.Type)
-
-	if strings.EqualFold(t, "enum") && len(tc.EnumValues) > 0 {
-		return core.BuildEnumTypeRaw(tc.EnumValues)
-	}
-
-	return t
-}
-
-func normalizeDefault(v any) string {
-	switch val := v.(type) {
-	case bool:
-		if val {
-			return "TRUE"
-		}
-		return "FALSE"
-	case string:
-		return val
-	case int64:
-		return strconv.FormatInt(val, 10)
-	case float64:
-		return strconv.FormatFloat(val, 'f', -1, 64)
-	default:
-		return fmt.Sprintf("%v", val)
-	}
-}
-
-func convertConstraint(tc *tomlConstraint) *core.Constraint {
-	c := &core.Constraint{
-		Name:              tc.Name,
-		Type:              core.ConstraintType(tc.Type),
-		Columns:           tc.Columns,
-		ReferencedTable:   tc.ReferencedTable,
-		ReferencedColumns: tc.ReferencedColumns,
-		OnDelete:          core.ReferentialAction(tc.OnDelete),
-		OnUpdate:          core.ReferentialAction(tc.OnUpdate),
-		CheckExpression:   tc.CheckExpression,
-	}
-
-	if tc.Enforced != nil {
-		c.Enforced = *tc.Enforced
-	} else {
-		c.Enforced = true
-	}
-
-	return c
-}
-
-func checkPKConflict(table *core.Table) error {
-	hasColumnPK := false
-	for _, c := range table.Columns {
-		if c.PrimaryKey {
-			hasColumnPK = true
-			break
-		}
-	}
-	hasConstraintPK := false
-	for _, c := range table.Constraints {
-		if c.Type == core.ConstraintPrimaryKey {
-			hasConstraintPK = true
-			break
-		}
-	}
-	if hasColumnPK && hasConstraintPK {
-		return fmt.Errorf(
-			"primary key declared on both column(s) and in constraints section; " +
-				"use column-level primary_key for single-column PKs or a constraint for composite PKs, not both",
-		)
-	}
-	return nil
-}
-
-func synthesizeConstraints(table *core.Table) {
-	synthesizePK(table)
-	synthesizeUniqueConstraints(table)
-	synthesizeCheckConstraints(table)
-	synthesizeFKConstraints(table)
-}
-
-func synthesizePK(table *core.Table) {
-	for _, c := range table.Constraints {
-		if c.Type == core.ConstraintPrimaryKey {
-			return
-		}
-	}
-
-	var pkCols []string
-	for _, c := range table.Columns {
-		if c.PrimaryKey {
-			pkCols = append(pkCols, c.Name)
-		}
-	}
-	if len(pkCols) == 0 {
-		return
-	}
-
-	name := core.AutoGenerateConstraintName(core.ConstraintPrimaryKey, table.Name, pkCols, "")
-	table.Constraints = append(table.Constraints, &core.Constraint{
-		Name:    name,
-		Type:    core.ConstraintPrimaryKey,
-		Columns: pkCols,
-	})
-}
-
-func synthesizeUniqueConstraints(table *core.Table) {
-	for _, col := range table.Columns {
-		if !col.Unique {
-			continue
-		}
-		cols := []string{col.Name}
-		name := core.AutoGenerateConstraintName(core.ConstraintUnique, table.Name, cols, "")
-		table.Constraints = append(table.Constraints, &core.Constraint{
-			Name:    name,
-			Type:    core.ConstraintUnique,
-			Columns: cols,
-		})
-	}
-}
-
-func synthesizeCheckConstraints(table *core.Table) {
-	for _, col := range table.Columns {
-		if col.Check == "" {
-			continue
-		}
-		cols := []string{col.Name}
-		name := core.AutoGenerateConstraintName(core.ConstraintCheck, table.Name, cols, "")
-		table.Constraints = append(table.Constraints, &core.Constraint{
-			Name:            name,
-			Type:            core.ConstraintCheck,
-			CheckExpression: col.Check,
-			Enforced:        true,
-		})
-	}
-}
-
-func synthesizeFKConstraints(table *core.Table) {
-	for _, col := range table.Columns {
-		if col.References == "" {
-			continue
-		}
-		refTable, refCol, ok := core.ParseReferences(col.References)
-		if !ok {
-			continue
-		}
-		cols := []string{col.Name}
-		name := core.AutoGenerateConstraintName(core.ConstraintForeignKey, table.Name, cols, refTable)
-		table.Constraints = append(table.Constraints, &core.Constraint{
-			Name:              name,
-			Type:              core.ConstraintForeignKey,
-			Columns:           cols,
-			ReferencedTable:   refTable,
-			ReferencedColumns: []string{refCol},
-			OnDelete:          col.RefOnDelete,
-			OnUpdate:          col.RefOnUpdate,
-			Enforced:          true,
-		})
-	}
-}
-
-func injectTimestampColumns(table *core.Table) {
-	createdCol := "created_at"
-	updatedCol := "updated_at"
-	if table.Timestamps.CreatedColumn != "" {
-		createdCol = table.Timestamps.CreatedColumn
-	}
-	if table.Timestamps.UpdatedColumn != "" {
-		updatedCol = table.Timestamps.UpdatedColumn
-	}
-
-	if table.FindColumn(createdCol) == nil {
-		def := "CURRENT_TIMESTAMP"
-		table.Columns = append(table.Columns, &core.Column{
-			Name:         createdCol,
-			RawType:      "timestamp",
-			Type:         core.DataTypeDatetime,
-			DefaultValue: &def,
-		})
-	}
-
-	if table.FindColumn(updatedCol) == nil {
-		def := "CURRENT_TIMESTAMP"
-		upd := "CURRENT_TIMESTAMP"
-		table.Columns = append(table.Columns, &core.Column{
-			Name:         updatedCol,
-			RawType:      "timestamp",
-			Type:         core.DataTypeDatetime,
-			DefaultValue: &def,
-			OnUpdate:     &upd,
-		})
-	}
-}
-
-func convertIndex(ti *tomlIndex) *core.Index {
-	idx := &core.Index{
-		Name:    ti.Name,
-		Unique:  ti.Unique,
-		Comment: ti.Comment,
-	}
-
-	if ti.Type != "" {
-		idx.Type = core.IndexType(ti.Type)
-	} else {
-		idx.Type = core.IndexTypeBTree
-	}
-
-	if ti.Visibility != "" {
-		idx.Visibility = core.IndexVisibility(ti.Visibility)
-	} else {
-		idx.Visibility = core.IndexVisible
-	}
-
-	idx.Columns = mergeIndexColumns(ti)
-
-	return idx
-}
-
-func mergeIndexColumns(ti *tomlIndex) []core.IndexColumn {
-	if len(ti.ColumnDefs) > 0 {
-		cols := make([]core.IndexColumn, 0, len(ti.ColumnDefs))
-		for i := range ti.ColumnDefs {
-			cols = append(cols, convertIndexColumn(&ti.ColumnDefs[i]))
-		}
-		return cols
-	}
-
-	if len(ti.Columns) > 0 {
-		cols := make([]core.IndexColumn, 0, len(ti.Columns))
-		for _, name := range ti.Columns {
-			cols = append(cols, core.IndexColumn{
-				Name:  name,
-				Order: core.SortAsc,
-			})
-		}
-		return cols
-	}
-
-	return nil
-}
-
-func convertIndexColumn(tc *tomlIndexColumn) core.IndexColumn {
-	ic := core.IndexColumn{
-		Name:   tc.Name,
-		Length: tc.Length,
-	}
-
-	if tc.Order != "" {
-		ic.Order = core.SortOrder(tc.Order)
-	} else {
-		ic.Order = core.SortAsc
-	}
-
-	return ic
 }
