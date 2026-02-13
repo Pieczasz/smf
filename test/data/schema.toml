@@ -147,7 +147,7 @@ allowed_name_pattern = "^[a-z][a-z0-9_]*$"
 name = "tenants"
 comment = "Tenant / account"
 
-[tables.options]
+[tables.options.mysql]
 engine = "InnoDB"  # MySQL / MariaDB only; ignored on other dialects
 charset = "utf8mb4"  # MySQL / MariaDB only
 collate = "utf8mb4_unicode_ci"
@@ -188,7 +188,7 @@ nullable = true
 name = "users"
 comment = "Application user"
 
-[tables.options]
+[tables.options.mysql]
 engine = "InnoDB"
 charset = "utf8mb4"
 collate = "utf8mb4_unicode_ci"
@@ -245,7 +245,7 @@ columns = ["tenant_id"]
 name = "roles"
 comment = "RBAC role"
 
-[tables.options]
+[tables.options.mysql]
 engine = "InnoDB"
 charset = "utf8mb4"
 collate = "utf8mb4_unicode_ci"
@@ -289,7 +289,7 @@ columns = ["tenant_id", "name"]
 name = "user_roles"
 comment = "RBAC role assignments (many-to-many)"
 
-[tables.options]
+[tables.options.mysql]
 engine = "InnoDB"
 charset = "utf8mb4"
 collate = "utf8mb4_unicode_ci"

@@ -12,7 +12,7 @@ allowed_name_pattern = "^[a-z][a-z0-9_]*$"
 name = "tenants"
 comment = "Tenant / account"
 
-  [tables.options]
+  [tables.options.mysql]
   engine = "InnoDB"
   charset = "utf8mb4"
   collate = "utf8mb4_unicode_ci"
@@ -50,7 +50,7 @@ comment = "Tenant / account"
 name = "users"
 comment = "Application user"
 
-  [tables.options]
+  [tables.options.mysql]
   engine = "InnoDB"
   charset = "utf8mb4"
   collate = "utf8mb4_unicode_ci"
@@ -99,7 +99,7 @@ comment = "Application user"
 name = "roles"
 comment = "RBAC role"
 
-  [tables.options]
+  [tables.options.mysql]
   engine = "InnoDB"
   charset = "utf8mb4"
   collate = "utf8mb4_unicode_ci"
@@ -140,7 +140,7 @@ comment = "RBAC role"
 name = "user_roles"
 comment = "RBAC role assignments (many-to-many)"
 
-  [tables.options]
+  [tables.options.mysql]
   engine = "InnoDB"
   charset = "utf8mb4"
   collate = "utf8mb4_unicode_ci"

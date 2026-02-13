@@ -12,7 +12,6 @@ import (
 type Database struct {
 	Name       string
 	Dialect    *Dialect
-	Version    string
 	Tables     []*Table
 	Validation *ValidationRules
 }

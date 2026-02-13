@@ -7,6 +7,28 @@ import (
 	"smf/internal/core"
 )
 
+// tomlIndex maps [[tables.indexes]].
+type tomlIndex struct {
+	Name       string `toml:"name"`
+	Unique     bool   `toml:"unique"`
+	Type       string `toml:"type"`
+	Comment    string `toml:"comment"`
+	Visibility string `toml:"visibility"`
+
+	// Simple form:  columns = ["tenant_id", "created_at"]
+	Columns []string `toml:"columns"`
+
+	// Advanced form: [[tables.indexes.column_defs]]
+	ColumnDefs []tomlColumnIndex `toml:"column_defs"`
+}
+
+// tomlColumnIndex maps [[tables.indexes.column_defs]].
+type tomlColumnIndex struct {
+	Name   string `toml:"name"`
+	Length int    `toml:"length"`
+	Order  string `toml:"order"`
+}
+
 func convertTableIndex(ti *tomlIndex) (*core.Index, error) {
 	idx := &core.Index{
 		Name:    ti.Name,
