@@ -17,7 +17,7 @@ import (
 )
 
 // TODO: validate enum string values e.g. constraint type = "BANANA"`, `on_delete = "OOPS"`, `order = "SIDEWAYS"`, etc.
-// validate Cross-table FK target existence — `references = "users.id"` is syntactically validated, but we don't verify that a table named `users` with column `id` exists in this schema
+// validate Cross-table FK target existence - `references = "users.id"` is syntactically validated, but we don't verify that a table named `users` with column `id` exists in this schema
 // validate Dialect-specific semantic rules auto_increment` on a non-integer column, `nullable = true` on a PK column, generated column without expression, etc.
 // NOTE: currently empty schema is allowed, and empty database name too.
 
@@ -118,13 +118,13 @@ func (c *converter) convert() (*core.Database, error) {
 }
 
 // validateDialect validates the raw dialect string.
-// Empty is allowed (dialect is optional); an unrecognized non-empty value is an error.
+// An unrecognized non-empty value or empty value is an error.
 func validateDialect(raw string) (*core.Dialect, error) {
 	if raw == "" {
-		return nil, nil
+		return nil, fmt.Errorf("toml: you need to specify dialect; supported dialects: %v", core.SupportedDialects())
 	}
 	if !core.IsValidDialect(raw) {
-		return nil, fmt.Errorf("toml: unsupported dialect %q; supported: %v", raw, core.SupportedDialects())
+		return nil, fmt.Errorf("toml: unsupported dialect %q; supported dialects: %v", raw, core.SupportedDialects())
 	}
 	d := core.Dialect(strings.ToLower(raw))
 	return &d, nil

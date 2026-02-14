@@ -56,7 +56,7 @@ func TestParseFileTenants(t *testing.T) {
 	assert.Equal(t, "utf8mb4", tbl.Options.MySQL.Charset)
 	assert.Equal(t, "utf8mb4_unicode_ci", tbl.Options.MySQL.Collate)
 
-	// Timestamps enabled — created_at and updated_at injected.
+	// Timestamps enabled - created_at and updated_at injected.
 	require.NotNil(t, tbl.Timestamps)
 	assert.True(t, tbl.Timestamps.Enabled)
 
