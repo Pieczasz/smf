@@ -368,6 +368,7 @@ func TestParseMinimalSchema(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -406,6 +407,7 @@ func TestParseValidationRules(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [validation]
 max_table_name_length = 30
@@ -436,6 +438,7 @@ func TestParseValidationRulesRejectsLongTableName(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [validation]
 max_table_name_length = 5
@@ -458,6 +461,7 @@ func TestParseValidationRulesRejectsLongColumnName(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [validation]
 max_column_name_length = 3
@@ -480,6 +484,7 @@ func TestParseValidationRulesRejectsBadPattern(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [validation]
 allowed_name_pattern = "^[a-z_]+$"
@@ -523,6 +528,7 @@ func TestParseInvalidAllowedNamePattern(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [validation]
 allowed_name_pattern = "[invalid(regex"
@@ -545,6 +551,7 @@ func TestParseEmptyTableName(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = ""
@@ -564,6 +571,7 @@ func TestParseWhitespaceOnlyTableName(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "   "
@@ -583,6 +591,7 @@ func TestParseColumnNamePatternMismatch(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [validation]
 allowed_name_pattern = "^[a-z_]+$"
@@ -630,6 +639,7 @@ func TestParseMySQLColumnOptions(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -660,6 +670,7 @@ func TestParseTiDBColumnOptions(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -686,6 +697,7 @@ func TestParseFloatDefaultValue(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -710,6 +722,7 @@ func TestParseDatetimeDefaultValue(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"

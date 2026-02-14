@@ -1,7 +1,6 @@
 package toml
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -70,16 +69,6 @@ type tomlTiDBColumnOptions struct {
 }
 
 func (c *converter) convertColumn(tc *tomlColumn) (*core.Column, error) {
-	if err := c.validateColumnName(tc.Name); err != nil {
-		return nil, err
-	}
-
-	if tc.References != "" {
-		if _, _, ok := core.ParseReferences(tc.References); !ok {
-			return nil, fmt.Errorf("invalid references %q: expected format \"table.column\"", tc.References)
-		}
-	}
-
 	col := &core.Column{
 		Name:               tc.Name,
 		Nullable:           tc.Nullable,
@@ -108,23 +97,7 @@ func (c *converter) convertColumn(tc *tomlColumn) (*core.Column, error) {
 	return col, nil
 }
 
-func (c *converter) validateColumnName(name string) error {
-	if strings.TrimSpace(name) == "" {
-		return errors.New("column name is empty")
-	}
-	if c.rules != nil {
-		if c.rules.MaxColumnNameLength > 0 && len(name) > c.rules.MaxColumnNameLength {
-			return fmt.Errorf("column %q exceeds maximum length %d", name, c.rules.MaxColumnNameLength)
-		}
-		if c.nameRe != nil && !c.nameRe.MatchString(name) {
-			return fmt.Errorf("column %q does not match allowed pattern %q", name, c.nameRe.String())
-		}
-	}
-	return nil
-}
-
-// resolveColumnType populates col.Type and col.RawType from the TOML column,
-// validating dialect-specific raw types when applicable.
+// resolveColumnType populates col.Type and col.RawType from the TOML column.
 func (c *converter) resolveColumnType(col *core.Column, tc *tomlColumn) error {
 	portableType := strings.TrimSpace(tc.Type)
 
@@ -133,7 +106,7 @@ func (c *converter) resolveColumnType(col *core.Column, tc *tomlColumn) error {
 	}
 
 	if portableType == "" {
-		return errors.New("type is empty")
+		return fmt.Errorf("column %q: type is empty", tc.Name)
 	}
 
 	col.Type = core.NormalizeDataType(portableType)

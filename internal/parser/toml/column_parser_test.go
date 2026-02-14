@@ -38,10 +38,11 @@ name = "items"
 	assert.Equal(t, core.DataTypeJSON, col.Type, "Type should be normalized from portable type")
 }
 
-func TestParseRawTypeNoDialect(t *testing.T) {
+func TestParseRawTypeAppliedForDialect(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "postgresql"
 
 [[tables]]
 name = "items"
@@ -61,15 +62,15 @@ name = "items"
 
 	col := db.Tables[0].FindColumn("data")
 	require.NotNil(t, col)
-	// raw_type is ignored when dialect is empty; RawType falls back to portable type.
-	assert.Equal(t, "json", col.RawType)
-	assert.Equal(t, core.DataTypeJSON, col.Type)
+	assert.Equal(t, "JSONB", col.RawType, "RawType should be the dialect-specific override")
+	assert.Equal(t, core.DataTypeJSON, col.Type, "Type should be normalized from portable type")
 }
 
 func TestParseNullableDefaultFalse(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -101,6 +102,7 @@ func TestParseOptionalFieldsNilWhenAbsent(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -128,6 +130,7 @@ func TestParseBooleanDefaultValue(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -162,6 +165,7 @@ func TestParseIntegerDefaultValue(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -186,6 +190,7 @@ func TestParseStringDefaultValue(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -210,6 +215,7 @@ func TestParseDefaultValueAndOnUpdateNoFK(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -242,6 +248,7 @@ func TestParseEnumWithValuesArray(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -270,6 +277,7 @@ func TestParseEnumWithQuotesInValues(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -293,6 +301,7 @@ func TestParseGeneratedColumn(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -350,6 +359,7 @@ func TestParseDataTypeNormalization(t *testing.T) {
 			schema := `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -373,6 +383,7 @@ func TestParseEmptyColumnName(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -394,6 +405,7 @@ func TestParseEmptyColumnType(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -418,6 +430,7 @@ func TestParseColumnWithMultipleShortcuts(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -471,6 +484,7 @@ func TestParseMalformedReferencesNoDot(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -496,6 +510,7 @@ func TestParseMalformedReferencesDotAtEnd(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -520,6 +535,7 @@ func TestParseMalformedReferencesDotAtStart(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -544,6 +560,7 @@ func TestParseValidReferencesStillWorks(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -584,6 +601,7 @@ func TestParseDuplicateColumnName(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -608,6 +626,7 @@ func TestParseDuplicateColumnNameCaseInsensitive(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"

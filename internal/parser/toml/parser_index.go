@@ -1,9 +1,6 @@
 package toml
 
 import (
-	"fmt"
-	"strings"
-
 	"smf/internal/core"
 )
 
@@ -29,7 +26,7 @@ type tomlColumnIndex struct {
 	Order  string `toml:"order"`
 }
 
-func convertTableIndex(ti *tomlIndex) (*core.Index, error) {
+func convertTableIndex(ti *tomlIndex) *core.Index {
 	idx := &core.Index{
 		Name:    ti.Name,
 		Unique:  ti.Unique,
@@ -50,15 +47,7 @@ func convertTableIndex(ti *tomlIndex) (*core.Index, error) {
 
 	idx.Columns = mergeColumnIndexes(ti)
 
-	if len(idx.Columns) == 0 {
-		name := ti.Name
-		if name == "" {
-			name = "(unnamed)"
-		}
-		return nil, fmt.Errorf("index %s has no columns", name)
-	}
-
-	return idx, nil
+	return idx
 }
 
 func mergeColumnIndexes(ti *tomlIndex) []core.ColumnIndex {
@@ -97,30 +86,4 @@ func convertColumnIndex(tc *tomlColumnIndex) core.ColumnIndex {
 	}
 
 	return ic
-}
-
-// validateIndexes checks for duplicate names and verifies that every index
-// column references an existing table column.
-func validateIndexes(table *core.Table) error {
-	seen := make(map[string]bool, len(table.Indexes))
-	for _, idx := range table.Indexes {
-		if idx.Name == "" {
-			continue
-		}
-		lower := strings.ToLower(idx.Name)
-		if seen[lower] {
-			return fmt.Errorf("duplicate index name %q", idx.Name)
-		}
-		seen[lower] = true
-	}
-
-	for _, idx := range table.Indexes {
-		for _, ic := range idx.Columns {
-			if table.FindColumn(ic.Name) == nil {
-				return fmt.Errorf("index %q references nonexistent column %q", idx.Name, ic.Name)
-			}
-		}
-	}
-
-	return nil
 }

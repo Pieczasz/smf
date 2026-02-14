@@ -8,18 +8,12 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"regexp"
 	"strings"
 
 	"github.com/BurntSushi/toml"
 
 	"smf/internal/core"
 )
-
-// TODO: validate enum string values e.g. constraint type = "BANANA"`, `on_delete = "OOPS"`, `order = "SIDEWAYS"`, etc.
-// validate Cross-table FK target existence - `references = "users.id"` is syntactically validated, but we don't verify that a table named `users` with column `id` exists in this schema
-// validate Dialect-specific semantic rules auto_increment` on a non-integer column, `nullable = true` on a PK column, generated column without expression, etc.
-// NOTE: currently empty schema is allowed, and empty database name too.
 
 // schemaFile is the top-level TOML document.
 // In the new schema format, [database], [validation], and [[tables]]
@@ -70,41 +64,40 @@ func (p *Parser) Parse(r io.Reader) (*core.Database, error) {
 		return nil, fmt.Errorf("toml: decode error: %w", err)
 	}
 
-	return newConverter(&sf).convert()
+	db, err := newConverter(&sf).convert()
+	if err != nil {
+		return nil, err
+	}
+
+	if err := core.ValidateDatabase(db); err != nil {
+		return nil, fmt.Errorf("toml: %w", err)
+	}
+
+	return db, nil
 }
 
 type converter struct {
-	sf         *schemaFile
-	dialect    *core.Dialect
-	rules      *core.ValidationRules
-	nameRe     *regexp.Regexp
-	seenTables map[string]bool
+	sf      *schemaFile
+	dialect *core.Dialect
 }
 
 func newConverter(sf *schemaFile) *converter {
-	return &converter{
-		sf:         sf,
-		seenTables: make(map[string]bool, len(sf.Tables)),
-	}
+	return &converter{sf: sf}
 }
 
 func (c *converter) convert() (*core.Database, error) {
-	dialect, err := validateDialect(c.sf.Database.Dialect)
+	dialect, err := parseDialect(c.sf.Database.Dialect)
 	if err != nil {
 		return nil, err
 	}
 	c.dialect = dialect
-
-	if err := c.validateRules(); err != nil {
-		return nil, err
-	}
 
 	db := &core.Database{
 		Name:    c.sf.Database.Name,
 		Dialect: c.dialect,
 		Tables:  make([]*core.Table, 0, len(c.sf.Tables)),
 	}
-	db.Validation = c.rules
+	db.Validation = convertRules(c.sf.Validation)
 
 	for i := range c.sf.Tables {
 		t, err := c.convertTable(&c.sf.Tables[i])
@@ -117,11 +110,13 @@ func (c *converter) convert() (*core.Database, error) {
 	return db, nil
 }
 
-// validateDialect validates the raw dialect string.
-// An unrecognized non-empty value or empty value is an error.
-func validateDialect(raw string) (*core.Dialect, error) {
+// parseDialect converts the raw dialect string into a *core.Dialect.
+// Returns nil when the string is empty (core.ValidateDatabase will flag it).
+// Returns an error when the string is non-empty but unrecognized — this is a
+// genuine parse error because the input cannot be mapped to a known type.
+func parseDialect(raw string) (*core.Dialect, error) {
 	if raw == "" {
-		return nil, fmt.Errorf("toml: you need to specify dialect; supported dialects: %v", core.SupportedDialects())
+		return nil, nil
 	}
 	if !core.IsValidDialect(raw) {
 		return nil, fmt.Errorf("toml: unsupported dialect %q; supported dialects: %v", raw, core.SupportedDialects())
@@ -130,27 +125,16 @@ func validateDialect(raw string) (*core.Dialect, error) {
 	return &d, nil
 }
 
-// validateRules converts [validation] and pre-compiles the name regex.
-func (c *converter) validateRules() error {
-	v := c.sf.Validation
+// convertRules converts [validation] into core.ValidationRules.
+// No validation is performed here — that happens in core.ValidateDatabase.
+func convertRules(v *tomlValidation) *core.ValidationRules {
 	if v == nil {
 		return nil
 	}
-
-	c.rules = &core.ValidationRules{
+	return &core.ValidationRules{
 		MaxTableNameLength:          v.MaxTableNameLength,
 		MaxColumnNameLength:         v.MaxColumnNameLength,
 		AutoGenerateConstraintNames: v.AutoGenerateConstraintNames,
 		AllowedNamePattern:          v.AllowedNamePattern,
 	}
-
-	if v.AllowedNamePattern != "" {
-		re, err := regexp.Compile(v.AllowedNamePattern)
-		if err != nil {
-			return fmt.Errorf("toml: invalid allowed_name_pattern %q: %w", v.AllowedNamePattern, err)
-		}
-		c.nameRe = re
-	}
-
-	return nil
 }
