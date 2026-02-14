@@ -244,7 +244,7 @@ var mssqlTypes = toSet(
 	"BINARY", "VARBINARY", "IMAGE",
 
 	// Other
-	"XML", "JSON", // JSON type supported in recent versions
+	"XML", "JSON",
 	"UNIQUEIDENTIFIER",
 	"SQL_VARIANT",
 	"GEOGRAPHY", "GEOMETRY",

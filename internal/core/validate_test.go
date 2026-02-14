@@ -633,7 +633,7 @@ func TestSynthesizeConstraintsPK(t *testing.T) {
 			},
 		}
 
-		SynthesizeConstraints(table)
+		synthesizeConstraints(table)
 
 		pk := table.PrimaryKey()
 		require.NotNil(t, pk)
@@ -652,7 +652,7 @@ func TestSynthesizeConstraintsPK(t *testing.T) {
 			},
 		}
 
-		SynthesizeConstraints(table)
+		synthesizeConstraints(table)
 
 		var pkCount int
 		for _, c := range table.Constraints {
@@ -673,7 +673,7 @@ func TestSynthesizeConstraintsUniqueAndCheck(t *testing.T) {
 		},
 	}
 
-	SynthesizeConstraints(table)
+	synthesizeConstraints(table)
 
 	var uniqueFound, checkFound bool
 	for _, c := range table.Constraints {
@@ -698,7 +698,7 @@ func TestSynthesizeConstraintsFK(t *testing.T) {
 			},
 		}
 
-		SynthesizeConstraints(table)
+		synthesizeConstraints(table)
 
 		var fk *Constraint
 		for _, c := range table.Constraints {
@@ -724,7 +724,7 @@ func TestSynthesizeConstraintsFK(t *testing.T) {
 			},
 		}
 
-		SynthesizeConstraints(table)
+		synthesizeConstraints(table)
 
 		for _, c := range table.Constraints {
 			assert.NotEqual(t, ConstraintForeignKey, c.Type)

@@ -74,7 +74,7 @@ func prevalidateAndSynthesizeTables(tables []*Table) error {
 		if err := validatePKConflict(table); err != nil {
 			return fmt.Errorf("table %q: %w", table.Name, err)
 		}
-		SynthesizeConstraints(table)
+		synthesizeConstraints(table)
 	}
 	return nil
 }
@@ -189,7 +189,7 @@ func validateName(name, kind string, rules *ValidationRules, nameRe *regexp.Rege
 
 // validatePKConflict ensures a table doesn't define primary keys both at the
 // column level (primary_key = true) and in the constraints section. This check
-// MUST run before SynthesizeConstraints because synthesis merges column-level
+// MUST run before synthesizeConstraints because synthesis merges column-level
 // PKs into constraint-level, making the conflict undetectable.
 func validatePKConflict(table *Table) error {
 	hasColumnPK := false
@@ -302,10 +302,10 @@ func validateIndexes(table *Table) error {
 	return nil
 }
 
-// SynthesizeConstraints generates constraint objects from column-level
+// synthesizeConstraints generates constraint objects from column-level
 // shortcuts (primary_key, unique, check, references). It should be called
 // after PK conflict validation and before structural constraint validation.
-func SynthesizeConstraints(table *Table) {
+func synthesizeConstraints(table *Table) {
 	synthesizePK(table)
 	synthesizeUniqueConstraints(table)
 	synthesizeCheckConstraints(table)
