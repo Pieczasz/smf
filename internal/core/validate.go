@@ -26,6 +26,11 @@ func ValidateDatabase(db *Database) error {
 		return err
 	}
 
+	tableMap := make(map[string]*Table, len(db.Tables))
+	for _, t := range db.Tables {
+		tableMap[strings.ToLower(t.Name)] = t
+	}
+
 	if err := prevalidateAndSynthesizeTables(db.Tables); err != nil {
 		return err
 	}
@@ -34,7 +39,15 @@ func ValidateDatabase(db *Database) error {
 		return err
 	}
 
-	if err := validateFKColumnExistence(db); err != nil {
+	if err := validateFKColumnExistence(db, tableMap); err != nil {
+		return err
+	}
+
+	if err := validateSemantic(db, tableMap); err != nil {
+		return err
+	}
+
+	if err := validateEnums(db); err != nil {
 		return err
 	}
 

@@ -27,6 +27,7 @@ var dialectRawTypes = map[Dialect]map[string]bool{
 	DialectDB2:        db2Types,
 	DialectSnowflake:  snowflakeTypes,
 	DialectMSSQL:      mssqlTypes,
+	DialectTiDB:       tidbTypes,
 }
 
 var mysqlTypes = toSet(
@@ -252,6 +253,24 @@ var mssqlTypes = toSet(
 	"HIERARCHYID",
 	"ROWVERSION", "TIMESTAMP",
 	"CURSOR", "TABLE",
+)
+
+var tidbTypes = toSet(
+	// TiDB inherits from MySQL
+	"TINYINT", "SMALLINT", "MEDIUMINT", "INT", "INTEGER", "BIGINT",
+	"FLOAT", "DOUBLE", "DOUBLE PRECISION", "DECIMAL", "DEC", "NUMERIC",
+	"FIXED", "BIT", "BOOL", "BOOLEAN",
+
+	"DATE", "DATETIME", "TIMESTAMP", "TIME", "YEAR",
+
+	"CHAR", "VARCHAR", "BINARY", "VARBINARY",
+	"TINYBLOB", "BLOB", "MEDIUMBLOB", "LONGBLOB",
+	"TINYTEXT", "TEXT", "MEDIUMTEXT", "LONGTEXT",
+
+	"ENUM", "SET", "JSON",
+
+	"GEOMETRY", "POINT", "LINESTRING", "POLYGON",
+	"MULTIPOINT", "MULTILINESTRING", "MULTIPOLYGON", "GEOMETRYCOLLECTION",
 )
 
 // ValidateRawType checks whether rawType is a valid SQL type for the

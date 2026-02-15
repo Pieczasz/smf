@@ -383,7 +383,7 @@ func TestDialectConstants(t *testing.T) {
 
 func TestSupportedDialects(t *testing.T) {
 	dialects := SupportedDialects()
-	assert.Len(t, dialects, 8)
+	assert.Len(t, dialects, 9)
 	assert.Contains(t, dialects, DialectMySQL)
 	assert.Contains(t, dialects, DialectMariaDB)
 	assert.Contains(t, dialects, DialectPostgreSQL)

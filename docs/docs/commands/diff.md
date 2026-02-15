@@ -10,12 +10,12 @@ smf diff <old.sql> <new.sql> [flags]
 
 ## Flags
 
-| Flag | Shorthand | Description | Default |
-| :--- | :--- | :--- | :--- |
-| `--output` | `-o` | Output file for the diff | (stdout) |
-| `--format` | `-f` | Output format: `json` or `sql` | `sql` |
-| `--detect-renames` | `-r` | Enable heuristic column rename detection | `true` |
-| `--dialect` | | Database dialect (e.g., `mysql`) | `mysql` |
+| Flag               | Shorthand | Description                              | Default  |
+|:-------------------|:----------|:-----------------------------------------|:---------|
+| `--output`         | `-o`      | Output file for the diff                 | (stdout) |
+| `--format`         | `-f`      | Output format: `json` or `sql`           | `sql`    |
+| `--detect-renames` | `-r`      | Enable heuristic column rename detection | `true`   |
+| `--dialect`        |           | Database dialect (e.g., `mysql`)         | `mysql`  |
 
 ## Example
 

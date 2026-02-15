@@ -28,6 +28,7 @@ const (
 	DialectDB2        Dialect = "db2"
 	DialectSnowflake  Dialect = "snowflake"
 	DialectMSSQL      Dialect = "mssql"
+	DialectTiDB       Dialect = "tidb"
 )
 
 // SupportedDialects returns a slice of all supported dialect values.
@@ -41,6 +42,7 @@ func SupportedDialects() []Dialect {
 		DialectDB2,
 		DialectSnowflake,
 		DialectMSSQL,
+		DialectTiDB,
 	}
 }
 
@@ -355,7 +357,7 @@ type Column struct {
 	// The parser resolves this at once: if a dialect-specific raw_type override is
 	// declared in TOML, it takes precedence, otherwise the portable type is used.
 	RawType string `json:"rawType"`
-	// Type is the normalized portable data type category (e.g. DataTypeString).
+	// Type is the normalized portable data type category (e.g., DataTypeString).
 	// Always derived from the portable TOML `type` field for consistent classification.
 	Type DataType `json:"type"`
 	// Nullable indicates whether the column allows NULL values.

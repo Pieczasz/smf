@@ -55,12 +55,7 @@ func validateConstraintColumns(table *Table, con *Constraint) error {
 	return nil
 }
 
-func validateFKColumnExistence(db *Database) error {
-	tableMap := make(map[string]*Table, len(db.Tables))
-	for _, t := range db.Tables {
-		tableMap[strings.ToLower(t.Name)] = t
-	}
-
+func validateFKColumnExistence(db *Database, tableMap map[string]*Table) error {
 	for _, t := range db.Tables {
 		for _, con := range t.Constraints {
 			if con.Type != ConstraintForeignKey {
