@@ -1,27 +1,26 @@
 # smf migrate
 
-The `migrate` command generates the necessary SQL statements to transition a database schema from an old state to a new state.
+The `migrate` command generates a new SQL migration file by comparing your `schema.toml` against the previous migrated state.
 
 ## Usage
 
 ```bash
-smf migrate <old.sql> <new.sql> [flags]
+smf migrate [flags]
 ```
 
 ## Flags
 
-| Flag                | Shorthand | Description                                         | Default  |
-|:--------------------|:----------|:----------------------------------------------------|:---------|
-| `--from`            |           | Source database dialect                             | `mysql`  |
-| `--to`              | `-t`      | Target database dialect                             | `mysql`  |
-| `--output`          | `-o`      | Output file for the generated migration SQL         | (stdout) |
-| `--rollback-output` | `-b`      | Output file for generated rollback SQL              |          |
-| `--format`          | `-f`      | Output format: `json` or `sql`                      | `sql`    |
-| `--unsafe`          | `-u`      | Generate unsafe migration (may drop/overwrite data) | `false`  |
-| `--detect-renames`  | `-r`      | Enable heuristic column rename detection            | `true`   |
+| Flag               | Shorthand | Description                                         | Default       |
+|:-------------------|:----------|:----------------------------------------------------|:--------------|
+| `--name`           | `-n`      | Descriptive name for the migration                  | `schema`      |
+| `--schema`         | `-s`      | Path to the schema file                             | `schema.toml` |
+| `--migrations-dir` | `-m`      | Directory to save the migration                     | `./migrations`|
+| `--unsafe`         | `-u`      | Generate unsafe migration (may drop/overwrite data) | `false`       |
 
 ## Example
 
 ```bash
-smf migrate schema_v1.sql schema_v2.sql --output migration.sql --rollback-output rollback.sql
+smf migrate --name add_users_table
 ```
+
+This will create a file like `migrations/20260215123000_add_users_table.sql`.

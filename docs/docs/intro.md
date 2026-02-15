@@ -4,42 +4,33 @@ sidebar_position: 1
 
 # Introduction
 
-`smf` is a database migration tool for MySQL designed to help you manage your database schema efficiently. It provides tools to compare schemas, generate migrations, and apply them with safety checks.
+`smf` is a database migration framework that uses a declarative TOML file to define your database schema. It bridges the gap between manual SQL migrations and full ORM-based schema management.
 
 ## Key Features
 
-- **Schema Comparison**: Compare two SQL schema dumps and see the differences.
-- **Migration Generation**: Automatically generate the SQL statements needed to transition from one schema state to another.
-- **Safe Execution**: Preflight checks warn about destructive operations (like `DROP TABLE` or `TRUNCATE`) and transaction-safety issues.
-- **Dialect Support**: Currently focused on **MySQL**.
+- **TOML-First**: Declare your tables, columns, and indexes in a readable `schema.toml`.
+- **9 Dialects**: Seamlessly work with MySQL, MariaDB, PostgreSQL, SQLite, Oracle, DB2, Snowflake, MSSQL, and TiDB.
+- **Automated Migrations**: Automatically generate timestamped SQL migrations by diffing your TOML schema against the previous state.
+- **Safety Built-in**: `smf` detects potentially destructive changes and warns you before applying them.
+
+## Core Commands
+
+### `init`
+Initialize your project with a `schema.toml` file.
+
+### `diff`
+Compare your current `schema.toml` with the last generated migration to see pending changes.
+
+### `migrate`
+Generate a new SQL migration file in the `migrations/` directory.
+
+### `apply`
+Apply all pending migrations to your target database.
 
 ## Quick Start
 
-To see what `smf` can do, you can run the following commands:
-
-### Compare two schemas
-
-```bash
-smf diff old_schema.sql new_schema.sql
-```
-
-### Generate a migration
-
-```bash
-smf migrate old_schema.sql new_schema.sql --output migration.sql
-```
-
-### Apply a migration
-
-```bash
-smf apply --dsn "user:pass@tcp(localhost:3306)/dbname" --file migration.sql
-```
-
-## Installation
-
-Building from source:
-
-```bash
-go build -o smf ./cmd/smf
-```
+1. **Initialize**: `smf init`
+2. **Define Schema**: Edit `schema.toml` to define your tables.
+3. **Generate Migration**: `smf migrate --name init_schema`
+4. **Apply**: `smf apply --dsn "..."`
 
