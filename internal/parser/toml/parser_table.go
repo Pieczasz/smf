@@ -98,11 +98,10 @@ type tomlTiDBTableOptions struct {
 
 // tomlPostgreSQLTableOptions maps [tables.options.postgresql].
 type tomlPostgreSQLTableOptions struct {
-	Schema      string   `toml:"schema"`
-	Unlogged    bool     `toml:"unlogged"`
-	Fillfactor  int      `toml:"fillfactor"`
-	PartitionBy string   `toml:"partition_by"`
-	Inherits    []string `toml:"inherits"`
+	Schema     string   `toml:"schema"`
+	Unlogged   bool     `toml:"unlogged"`
+	Fillfactor int      `toml:"fillfactor"`
+	Inherits   []string `toml:"inherits"`
 }
 
 // tomlOracleTableOptions maps [tables.options.oracle].
@@ -288,11 +287,10 @@ func convertTiDBTableOptions(t *tomlTiDBTableOptions) *core.TiDBTableOptions {
 
 func convertPostgreSQLTableOptions(pg *tomlPostgreSQLTableOptions) *core.PostgreSQLTableOptions {
 	return &core.PostgreSQLTableOptions{
-		Schema:      pg.Schema,
-		Unlogged:    pg.Unlogged,
-		Fillfactor:  pg.Fillfactor,
-		PartitionBy: pg.PartitionBy,
-		Inherits:    pg.Inherits,
+		Schema:     pg.Schema,
+		Unlogged:   pg.Unlogged,
+		Fillfactor: pg.Fillfactor,
+		Inherits:   pg.Inherits,
 	}
 }
 

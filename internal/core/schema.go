@@ -228,8 +228,7 @@ type TiDBTableOptions struct {
 // PostgreSQLTableOptions contains PostgreSQL-specific table options.
 //
 // PostgreSQL uses schemas for namespace isolation, UNLOGGED tables for
-// ephemeral data, storage parameters like fillfactor, and native
-// partitioning via PARTITION BY.
+// ephemeral data, storage parameters like fillfactor.
 type PostgreSQLTableOptions struct {
 	// Schema is the PostgreSQL schema namespace (e.g. "public").
 	Schema string `json:"schema,omitempty"`
@@ -237,8 +236,6 @@ type PostgreSQLTableOptions struct {
 	Unlogged bool `json:"unlogged,omitempty"`
 	// Fillfactor controls the packing density of heap pages (10-100).
 	Fillfactor int `json:"fillfactor,omitempty"`
-	// PartitionBy holds the PARTITION BY clause (e.g. "RANGE (created_at)").
-	PartitionBy string `json:"partition_by,omitempty"`
 	// Inherits lists parent tables for table inheritance.
 	Inherits []string `json:"inherits,omitempty"`
 }

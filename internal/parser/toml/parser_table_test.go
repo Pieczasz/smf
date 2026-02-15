@@ -107,7 +107,6 @@ name = "items"
   schema       = "public"
   unlogged     = true
   fillfactor   = 70
-  partition_by = "RANGE (created_at)"
   inherits     = ["parent_table", "another_parent"]
 
   [[tables.columns]]
@@ -125,7 +124,6 @@ name = "items"
 	assert.Equal(t, "public", opts.PostgreSQL.Schema)
 	assert.True(t, opts.PostgreSQL.Unlogged)
 	assert.Equal(t, 70, opts.PostgreSQL.Fillfactor)
-	assert.Equal(t, "RANGE (created_at)", opts.PostgreSQL.PartitionBy)
 	assert.Equal(t, []string{"parent_table", "another_parent"}, opts.PostgreSQL.Inherits)
 }
 
