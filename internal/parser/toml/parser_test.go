@@ -56,7 +56,7 @@ func TestParseFileTenants(t *testing.T) {
 	assert.Equal(t, "utf8mb4", tbl.Options.MySQL.Charset)
 	assert.Equal(t, "utf8mb4_unicode_ci", tbl.Options.MySQL.Collate)
 
-	// Timestamps enabled — created_at and updated_at injected.
+	// Timestamps enabled - created_at and updated_at injected.
 	require.NotNil(t, tbl.Timestamps)
 	assert.True(t, tbl.Timestamps.Enabled)
 
@@ -71,7 +71,7 @@ func testTenantColumns(t *testing.T, tbl *core.Table) {
 	t.Helper()
 	id := tbl.FindColumn("id")
 	require.NotNil(t, id)
-	assert.Equal(t, "bigint", id.RawType)
+	assert.Empty(t, id.RawType)
 	assert.Equal(t, core.DataTypeInt, id.Type)
 	assert.True(t, id.PrimaryKey)
 	assert.True(t, id.AutoIncrement)
@@ -79,18 +79,18 @@ func testTenantColumns(t *testing.T, tbl *core.Table) {
 
 	slug := tbl.FindColumn("slug")
 	require.NotNil(t, slug)
-	assert.Equal(t, "varchar(64)", slug.RawType)
+	assert.Empty(t, slug.RawType)
 	assert.Equal(t, core.DataTypeString, slug.Type)
 	assert.True(t, slug.Unique, "slug should have inline unique = true")
 
 	name := tbl.FindColumn("name")
 	require.NotNil(t, name)
-	assert.Equal(t, "varchar(255)", name.RawType)
+	assert.Empty(t, name.RawType)
 
 	plan := tbl.FindColumn("plan")
 	require.NotNil(t, plan)
-	// v2: type = "enum" + values = [...] -> RawType built from values.
-	assert.Equal(t, "enum('free','pro','enterprise')", plan.RawType)
+	// v2: type = "enum" + values = [...] -> RawType is empty (handled by generator default)
+	assert.Empty(t, plan.RawType)
 	assert.Equal(t, core.DataTypeEnum, plan.Type)
 	assert.Equal(t, []string{"free", "pro", "enterprise"}, plan.EnumValues)
 	require.NotNil(t, plan.DefaultValue)
@@ -98,7 +98,7 @@ func testTenantColumns(t *testing.T, tbl *core.Table) {
 
 	settings := tbl.FindColumn("settings")
 	require.NotNil(t, settings)
-	assert.Equal(t, "json", settings.RawType)
+	assert.Empty(t, settings.RawType)
 	assert.Equal(t, core.DataTypeJSON, settings.Type)
 	assert.True(t, settings.Nullable)
 
@@ -112,6 +112,7 @@ func testTenantColumns(t *testing.T, tbl *core.Table) {
 
 	updatedAt := tbl.FindColumn("updated_at")
 	require.NotNil(t, updatedAt)
+	assert.Equal(t, "timestamp", updatedAt.RawType)
 	require.NotNil(t, updatedAt.DefaultValue)
 	assert.Equal(t, "CURRENT_TIMESTAMP", *updatedAt.DefaultValue)
 	require.NotNil(t, updatedAt.OnUpdate)
@@ -226,7 +227,7 @@ func testUsersBooleanDefault(t *testing.T, tbl *core.Table) {
 	t.Helper()
 	isActive := tbl.FindColumn("is_active")
 	require.NotNil(t, isActive)
-	assert.Equal(t, "boolean", isActive.RawType)
+	assert.Empty(t, isActive.RawType)
 	assert.Equal(t, core.DataTypeBoolean, isActive.Type)
 	require.NotNil(t, isActive.DefaultValue)
 	assert.Equal(t, "TRUE", *isActive.DefaultValue, "native TOML bool should convert to portable TRUE")
@@ -236,7 +237,7 @@ func testUsersPasswordHash(t *testing.T, tbl *core.Table) {
 	t.Helper()
 	pwHash := tbl.FindColumn("password_hash")
 	require.NotNil(t, pwHash)
-	assert.Equal(t, "varbinary(60)", pwHash.RawType)
+	assert.Empty(t, pwHash.RawType)
 	assert.Equal(t, core.DataTypeBinary, pwHash.Type)
 }
 
@@ -368,6 +369,7 @@ func TestParseMinimalSchema(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -406,6 +408,7 @@ func TestParseValidationRules(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [validation]
 max_table_name_length = 30
@@ -436,6 +439,7 @@ func TestParseValidationRulesRejectsLongTableName(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [validation]
 max_table_name_length = 5
@@ -458,6 +462,7 @@ func TestParseValidationRulesRejectsLongColumnName(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [validation]
 max_column_name_length = 3
@@ -480,6 +485,7 @@ func TestParseValidationRulesRejectsBadPattern(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [validation]
 allowed_name_pattern = "^[a-z_]+$"
@@ -523,6 +529,7 @@ func TestParseInvalidAllowedNamePattern(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [validation]
 allowed_name_pattern = "[invalid(regex"
@@ -545,6 +552,7 @@ func TestParseEmptyTableName(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = ""
@@ -564,6 +572,7 @@ func TestParseWhitespaceOnlyTableName(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "   "
@@ -583,6 +592,7 @@ func TestParseColumnNamePatternMismatch(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [validation]
 allowed_name_pattern = "^[a-z_]+$"
@@ -630,6 +640,7 @@ func TestParseMySQLColumnOptions(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -653,13 +664,14 @@ name = "items"
 	require.NotNil(t, col.MySQL)
 	assert.Equal(t, "FIXED", col.MySQL.ColumnFormat)
 	assert.Equal(t, "DISK", col.MySQL.Storage)
-	assert.Equal(t, `{"key":"val"}`, col.MySQL.SecondaryEngineAttribute)
+	assert.JSONEq(t, `{"key":"val"}`, col.MySQL.SecondaryEngineAttribute)
 }
 
 func TestParseTiDBColumnOptions(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -686,6 +698,7 @@ func TestParseFloatDefaultValue(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -710,6 +723,7 @@ func TestParseDatetimeDefaultValue(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -735,14 +749,14 @@ name = "items"
 func TestParseInvalidToml(t *testing.T) {
 	p := NewParser()
 	_, err := p.Parse(strings.NewReader(`this is not valid toml {{{`))
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "decode error")
 }
 
 func TestParseFileFileNotFound(t *testing.T) {
 	p := NewParser()
 	_, err := p.ParseFile("/nonexistent/path/schema.toml")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "open file")
 }
 

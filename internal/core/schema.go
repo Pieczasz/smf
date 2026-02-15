@@ -28,6 +28,7 @@ const (
 	DialectDB2        Dialect = "db2"
 	DialectSnowflake  Dialect = "snowflake"
 	DialectMSSQL      Dialect = "mssql"
+	DialectTiDB       Dialect = "tidb"
 )
 
 // SupportedDialects returns a slice of all supported dialect values.
@@ -41,6 +42,7 @@ func SupportedDialects() []Dialect {
 		DialectDB2,
 		DialectSnowflake,
 		DialectMSSQL,
+		DialectTiDB,
 	}
 }
 
@@ -197,7 +199,7 @@ type TiDBTableOptions struct {
 	AutoRandomBase uint64
 	// ShardRowID enables implicit row-ID sharding to scatter hotspot writes across TiKV regions.
 	ShardRowID uint64
-	// PreSplitRegion pre-splits the table into 2^n regions at creation time for write parallelism.
+	// PreSplitRegion pre-splits the table into 2^n regions at creation time for writing parallelism.
 	PreSplitRegion uint64
 	// TTL is the time-to-live expression for automatic row expiration (e.g. "created_at + INTERVAL 90 DAY").
 	TTL string
@@ -347,15 +349,22 @@ type MariaDBTableOptions struct {
 	WithSystemVersioning bool `json:"with_system_versioning,omitempty"`
 }
 
+// IdentityGeneration controls the GENERATED clause for identity columns.
+type IdentityGeneration string
+
+const (
+	IdentityAlways    IdentityGeneration = "ALWAYS"
+	IdentityByDefault IdentityGeneration = "BY DEFAULT"
+)
+
 // Column represents a single column inside schema.
 type Column struct {
 	// Name is the column identifier as declared in the schema.
 	Name string `json:"name"`
 	// RawType is the SQL type string to use for DDL generation (e.g. "VARCHAR(255)", "JSONB").
-	// The parser resolves this once: if a dialect-specific raw_type override is
-	// declared in TOML it takes precedence, otherwise the portable type is used.
+	// When empty, the generator maps the portable Type to a dialect-specific default.
 	RawType string `json:"rawType"`
-	// Type is the normalized portable data type category (e.g. DataTypeString).
+	// Type is the normalized portable data type category (e.g., DataTypeString).
 	// Always derived from the portable TOML `type` field for consistent classification.
 	Type DataType `json:"type"`
 	// Nullable indicates whether the column allows NULL values.
@@ -410,7 +419,7 @@ type Column struct {
 	// IdentityGeneration controls the GENERATED clause for identity columns:
 	// "ALWAYS" or "BY DEFAULT".  PostgreSQL, Oracle, and DB2 support both.
 	// Empty defaults to "ALWAYS" at generation time.
-	IdentityGeneration string `json:"identityGeneration,omitempty"`
+	IdentityGeneration IdentityGeneration `json:"identityGeneration,omitempty"`
 
 	// SequenceName allows explicit binding to a named sequence (PostgreSQL, Oracle).
 	// When empty, the generator uses auto-increment / identity syntax instead.
@@ -477,7 +486,7 @@ type Constraint struct {
 	Name string `json:"name,omitempty"`
 	// Type is the constraint kind: PRIMARY KEY, FOREIGN KEY, UNIQUE, or CHECK.
 	Type ConstraintType `json:"type"`
-	// Columns lists the column names that participate in this constraint.
+	// Columns list the column names that participate in this constraint.
 	Columns []string `json:"columns"`
 
 	// ReferencedTable is the target table for a FOREIGN KEY constraint.
@@ -521,7 +530,7 @@ const (
 type Index struct {
 	// Name is the index identifier.
 	Name string `json:"name,omitempty"`
-	// Columns lists the columns (with optional prefix length and sort order) covered by the index.
+	// Columns list the columns (with optional prefix length and sort order) covered by the index.
 	Columns []ColumnIndex `json:"columns"`
 	// Unique marks the index as a UNIQUE index that prevents duplicate values.
 	Unique bool `json:"unique,omitempty"`
@@ -701,7 +710,7 @@ func AutoGenerateConstraintName(ctype ConstraintType, table string, columns []st
 	t := strings.ToLower(table)
 	switch ctype {
 	case ConstraintPrimaryKey:
-		return fmt.Sprintf("pk_%s", t)
+		return "pk_" + t
 	case ConstraintUnique:
 		return fmt.Sprintf("uq_%s_%s", t, strings.ToLower(strings.Join(columns, "_")))
 	case ConstraintCheck:

@@ -14,6 +14,7 @@ func TestParseInlineFK(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "parents"
@@ -75,6 +76,7 @@ func TestParseInlineUnique(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -112,6 +114,7 @@ func TestParseInlineCheck(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -146,6 +149,7 @@ func TestParsePKAutoSynthesisedFromColumn(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -169,6 +173,7 @@ func TestParsePKExplicitConstraint(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -203,6 +208,7 @@ func TestParsePKConflictErrors(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -226,6 +232,7 @@ func TestParseConstraintEnforcedDefault(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -252,7 +259,7 @@ name = "items"
 	require.NoError(t, err)
 
 	// Index 0 = PK, 1 = first CHECK, 2 = second CHECK.
-	require.True(t, len(db.Tables[0].Constraints) >= 3)
+	require.GreaterOrEqual(t, len(db.Tables[0].Constraints), 3)
 	assert.True(t, db.Tables[0].Constraints[1].Enforced)
 	assert.False(t, db.Tables[0].Constraints[2].Enforced)
 }
@@ -261,6 +268,7 @@ func TestParseExplicitForeignKeyConstraint(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "parents"
@@ -313,6 +321,7 @@ func TestParseMultiplePKConstraints(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -343,6 +352,7 @@ func TestParseDuplicateConstraintName(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -381,6 +391,7 @@ func TestParseDuplicateConstraintNameCaseInsensitive(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -418,6 +429,7 @@ func TestParseConstraintReferencesNonexistentColumn(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -443,6 +455,7 @@ func TestParseConstraintEmptyColumns(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -466,6 +479,7 @@ func TestParseFKConstraintMissingReferencedTable(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -495,6 +509,7 @@ func TestParseFKConstraintMissingReferencedColumns(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -524,6 +539,7 @@ func TestParseConstraintColumnsExistValid(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -555,6 +571,7 @@ func TestParseExplicitFKConstraintValid(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -575,6 +592,13 @@ name = "items"
   referenced_table   = "tenants"
   referenced_columns = ["id"]
   on_delete          = "CASCADE"
+
+[[tables]]
+name = "tenants"
+  [[tables.columns]]
+  name = "id"
+  type = "int"
+  primary_key = true
 `
 	p := NewParser()
 	db, err := p.Parse(strings.NewReader(schema))
@@ -595,6 +619,7 @@ func TestParseCheckConstraintWithoutColumnsValid(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -628,6 +653,7 @@ func TestParsePKConstraintReferencesNonexistentColumn(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -651,6 +677,7 @@ func TestParseCompositePKConstraintOneColumnMissing(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"

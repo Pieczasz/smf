@@ -14,7 +14,7 @@ func main() {
 		Short: "Schema migration framework – TOML-first database schema tool",
 	}
 
-	//rootCmd.AddCommand(migrationCmd())
+	// rootCmd.AddCommand(migrationCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)

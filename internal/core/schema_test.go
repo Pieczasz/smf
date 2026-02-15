@@ -358,32 +358,32 @@ func TestNormalizeDataType(t *testing.T) {
 }
 
 func TestDataTypeConstants(t *testing.T) {
-	assert.Equal(t, DataType("string"), DataTypeString)
-	assert.Equal(t, DataType("int"), DataTypeInt)
-	assert.Equal(t, DataType("float"), DataTypeFloat)
-	assert.Equal(t, DataType("boolean"), DataTypeBoolean)
-	assert.Equal(t, DataType("datetime"), DataTypeDatetime)
-	assert.Equal(t, DataType("json"), DataTypeJSON)
-	assert.Equal(t, DataType("uuid"), DataTypeUUID)
-	assert.Equal(t, DataType("binary"), DataTypeBinary)
-	assert.Equal(t, DataType("enum"), DataTypeEnum)
-	assert.Equal(t, DataType("unknown"), DataTypeUnknown)
+	assert.Equal(t, DataTypeString, DataType("string"))
+	assert.Equal(t, DataTypeInt, DataType("int"))
+	assert.Equal(t, DataTypeFloat, DataType("float"))
+	assert.Equal(t, DataTypeBoolean, DataType("boolean"))
+	assert.Equal(t, DataTypeDatetime, DataType("datetime"))
+	assert.Equal(t, DataTypeJSON, DataType("json"))
+	assert.Equal(t, DataTypeUUID, DataType("uuid"))
+	assert.Equal(t, DataTypeBinary, DataType("binary"))
+	assert.Equal(t, DataTypeEnum, DataType("enum"))
+	assert.Equal(t, DataTypeUnknown, DataType("unknown"))
 }
 
 func TestDialectConstants(t *testing.T) {
-	assert.Equal(t, Dialect("mysql"), DialectMySQL)
-	assert.Equal(t, Dialect("mariadb"), DialectMariaDB)
-	assert.Equal(t, Dialect("postgresql"), DialectPostgreSQL)
-	assert.Equal(t, Dialect("sqlite"), DialectSQLite)
-	assert.Equal(t, Dialect("oracle"), DialectOracle)
-	assert.Equal(t, Dialect("db2"), DialectDB2)
-	assert.Equal(t, Dialect("snowflake"), DialectSnowflake)
-	assert.Equal(t, Dialect("mssql"), DialectMSSQL)
+	assert.Equal(t, DialectMySQL, Dialect("mysql"))
+	assert.Equal(t, DialectMariaDB, Dialect("mariadb"))
+	assert.Equal(t, DialectPostgreSQL, Dialect("postgresql"))
+	assert.Equal(t, DialectSQLite, Dialect("sqlite"))
+	assert.Equal(t, DialectOracle, Dialect("oracle"))
+	assert.Equal(t, DialectDB2, Dialect("db2"))
+	assert.Equal(t, DialectSnowflake, Dialect("snowflake"))
+	assert.Equal(t, DialectMSSQL, Dialect("mssql"))
 }
 
 func TestSupportedDialects(t *testing.T) {
 	dialects := SupportedDialects()
-	assert.Len(t, dialects, 8)
+	assert.Len(t, dialects, 9)
 	assert.Contains(t, dialects, DialectMySQL)
 	assert.Contains(t, dialects, DialectMariaDB)
 	assert.Contains(t, dialects, DialectPostgreSQL)
@@ -535,41 +535,41 @@ func TestColumnHasIdentityOptions(t *testing.T) {
 }
 
 func TestGenerationStorageConstants(t *testing.T) {
-	assert.Equal(t, GenerationStorage("VIRTUAL"), GenerationVirtual)
-	assert.Equal(t, GenerationStorage("STORED"), GenerationStored)
+	assert.Equal(t, GenerationVirtual, GenerationStorage("VIRTUAL"))
+	assert.Equal(t, GenerationStored, GenerationStorage("STORED"))
 }
 
 func TestConstraintTypeConstants(t *testing.T) {
-	assert.Equal(t, ConstraintType("PRIMARY KEY"), ConstraintPrimaryKey)
-	assert.Equal(t, ConstraintType("FOREIGN KEY"), ConstraintForeignKey)
-	assert.Equal(t, ConstraintType("UNIQUE"), ConstraintUnique)
-	assert.Equal(t, ConstraintType("CHECK"), ConstraintCheck)
+	assert.Equal(t, ConstraintPrimaryKey, ConstraintType("PRIMARY KEY"))
+	assert.Equal(t, ConstraintForeignKey, ConstraintType("FOREIGN KEY"))
+	assert.Equal(t, ConstraintUnique, ConstraintType("UNIQUE"))
+	assert.Equal(t, ConstraintCheck, ConstraintType("CHECK"))
 }
 
 func TestReferentialActionConstants(t *testing.T) {
-	assert.Equal(t, ReferentialAction(""), RefActionNone)
-	assert.Equal(t, ReferentialAction("CASCADE"), RefActionCascade)
-	assert.Equal(t, ReferentialAction("RESTRICT"), RefActionRestrict)
-	assert.Equal(t, ReferentialAction("SET NULL"), RefActionSetNull)
-	assert.Equal(t, ReferentialAction("SET DEFAULT"), RefActionSetDefault)
-	assert.Equal(t, ReferentialAction("NO ACTION"), RefActionNoAction)
+	assert.Equal(t, RefActionNone, ReferentialAction(""))
+	assert.Equal(t, RefActionCascade, ReferentialAction("CASCADE"))
+	assert.Equal(t, RefActionRestrict, ReferentialAction("RESTRICT"))
+	assert.Equal(t, RefActionSetNull, ReferentialAction("SET NULL"))
+	assert.Equal(t, RefActionSetDefault, ReferentialAction("SET DEFAULT"))
+	assert.Equal(t, RefActionNoAction, ReferentialAction("NO ACTION"))
 }
 
 func TestIndexTypeConstants(t *testing.T) {
-	assert.Equal(t, IndexType("BTREE"), IndexTypeBTree)
-	assert.Equal(t, IndexType("HASH"), IndexTypeHash)
-	assert.Equal(t, IndexType("FULLTEXT"), IndexTypeFullText)
-	assert.Equal(t, IndexType("SPATIAL"), IndexTypeSpatial)
-	assert.Equal(t, IndexType("GIN"), IndexTypeGIN)
-	assert.Equal(t, IndexType("GiST"), IndexTypeGiST)
+	assert.Equal(t, IndexTypeBTree, IndexType("BTREE"))
+	assert.Equal(t, IndexTypeHash, IndexType("HASH"))
+	assert.Equal(t, IndexTypeFullText, IndexType("FULLTEXT"))
+	assert.Equal(t, IndexTypeSpatial, IndexType("SPATIAL"))
+	assert.Equal(t, IndexTypeGIN, IndexType("GIN"))
+	assert.Equal(t, IndexTypeGiST, IndexType("GiST"))
 }
 
 func TestIndexVisibilityConstants(t *testing.T) {
-	assert.Equal(t, IndexVisibility("VISIBLE"), IndexVisible)
-	assert.Equal(t, IndexVisibility("INVISIBLE"), IndexInvisible)
+	assert.Equal(t, IndexVisible, IndexVisibility("VISIBLE"))
+	assert.Equal(t, IndexInvisible, IndexVisibility("INVISIBLE"))
 }
 
 func TestSortOrderConstants(t *testing.T) {
-	assert.Equal(t, SortOrder("ASC"), SortAsc)
-	assert.Equal(t, SortOrder("DESC"), SortDesc)
+	assert.Equal(t, SortAsc, SortOrder("ASC"))
+	assert.Equal(t, SortDesc, SortOrder("DESC"))
 }

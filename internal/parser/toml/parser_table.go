@@ -1,7 +1,6 @@
 package toml
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
@@ -160,10 +159,6 @@ type tomlMariaDBTableOptions struct {
 }
 
 func (c *converter) convertTable(tt *tomlTable) (*core.Table, error) {
-	if err := c.validateTableName(tt.Name); err != nil {
-		return nil, err
-	}
-
 	table := &core.Table{
 		Name:    tt.Name,
 		Comment: tt.Comment,
@@ -188,54 +183,13 @@ func (c *converter) convertTable(tt *tomlTable) (*core.Table, error) {
 		table.Constraints = append(table.Constraints, con)
 	}
 
-	if err := checkPKConflict(table); err != nil {
-		return nil, err
-	}
-
-	synthesizeConstraints(table)
-
 	table.Indexes = make([]*core.Index, 0, len(tt.Indexes))
 	for i := range tt.Indexes {
-		idx, err := convertTableIndex(&tt.Indexes[i])
-		if err != nil {
-			return nil, fmt.Errorf("index %q: %w", tt.Indexes[i].Name, err)
-		}
+		idx := convertTableIndex(&tt.Indexes[i])
 		table.Indexes = append(table.Indexes, idx)
 	}
 
-	if err := validateConstraints(table); err != nil {
-		return nil, err
-	}
-	if err := validateIndexes(table); err != nil {
-		return nil, err
-	}
-
 	return table, nil
-}
-
-// validateTableName checks emptiness, duplicates, length, and pattern - all
-// before we spend any time converting columns.
-func (c *converter) validateTableName(name string) error {
-	if strings.TrimSpace(name) == "" {
-		return fmt.Errorf("table name is empty")
-	}
-
-	lower := strings.ToLower(name)
-	if c.seenTables[lower] {
-		return fmt.Errorf("duplicate table name %q", name)
-	}
-	c.seenTables[lower] = true
-
-	if c.rules != nil {
-		if c.rules.MaxTableNameLength > 0 && len(name) > c.rules.MaxTableNameLength {
-			return fmt.Errorf("table %q exceeds maximum length %d", name, c.rules.MaxTableNameLength)
-		}
-		if c.nameRe != nil && !c.nameRe.MatchString(name) {
-			return fmt.Errorf("table %q does not match allowed pattern %q", name, c.nameRe.String())
-		}
-	}
-
-	return nil
 }
 
 func convertTableOptions(to *tomlTableOptions) core.TableOptions {
@@ -401,39 +355,48 @@ func convertMariaDBTableOptions(mdb *tomlMariaDBTableOptions) *core.MariaDBTable
 	}
 }
 
-// convertTableColumns populates table.Columns from the TOML column definitions,
-// injects timestamp columns when enabled, and ensures the table is non-empty.
+// convertTableColumns populates table.Columns from the TOML column definitions
+// and injects timestamp columns when enabled.
 func (c *converter) convertTableColumns(table *core.Table, tt *tomlTable) error {
 	table.Columns = make([]*core.Column, 0, len(tt.Columns))
-	seenCols := make(map[string]bool, len(tt.Columns))
 	for i := range tt.Columns {
 		col, err := c.convertColumn(&tt.Columns[i])
 		if err != nil {
 			return fmt.Errorf("column %q: %w", tt.Columns[i].Name, err)
 		}
-		lower := strings.ToLower(col.Name)
-		if seenCols[lower] {
-			return fmt.Errorf("duplicate column name %q", col.Name)
-		}
-		seenCols[lower] = true
 		table.Columns = append(table.Columns, col)
 	}
 
 	if table.Timestamps != nil && table.Timestamps.Enabled {
-		if err := injectTimestampColumns(table); err != nil {
+		if err := validateTimestampColumnNames(table.Timestamps); err != nil {
 			return err
 		}
+		injectTimestampColumns(table)
 	}
 
-	if len(table.Columns) == 0 {
-		return errors.New("table has no columns")
+	return nil
+}
+
+// validateTimestampColumnNames ensures created/updated timestamp column names
+// do not collide once defaults are resolved.
+func validateTimestampColumnNames(ts *core.TimestampsConfig) error {
+	createdCol := "created_at"
+	updatedCol := "updated_at"
+	if ts.CreatedColumn != "" {
+		createdCol = ts.CreatedColumn
+	}
+	if ts.UpdatedColumn != "" {
+		updatedCol = ts.UpdatedColumn
+	}
+	if strings.EqualFold(createdCol, updatedCol) {
+		return fmt.Errorf("timestamps created_column and updated_column resolve to the same name %q", createdCol)
 	}
 	return nil
 }
 
-// injectTimestampColumns resolves the created/updated column names, validates
-// they are distinct, and appends the columns when not already present.
-func injectTimestampColumns(table *core.Table) error {
+// injectTimestampColumns resolves the created/updated column names and appends
+// the columns when not already present.
+func injectTimestampColumns(table *core.Table) {
 	createdCol := "created_at"
 	updatedCol := "updated_at"
 	if table.Timestamps.CreatedColumn != "" {
@@ -444,30 +407,25 @@ func injectTimestampColumns(table *core.Table) error {
 	}
 
 	if strings.EqualFold(createdCol, updatedCol) {
-		return fmt.Errorf("timestamps created_column and updated_column resolve to the same name %q", createdCol)
+		return
 	}
 
 	if table.FindColumn(createdCol) == nil {
-		def := "CURRENT_TIMESTAMP"
 		table.Columns = append(table.Columns, &core.Column{
 			Name:         createdCol,
 			RawType:      "timestamp",
 			Type:         core.DataTypeDatetime,
-			DefaultValue: &def,
+			DefaultValue: new("CURRENT_TIMESTAMP"),
 		})
 	}
 
 	if table.FindColumn(updatedCol) == nil {
-		def := "CURRENT_TIMESTAMP"
-		upd := "CURRENT_TIMESTAMP"
 		table.Columns = append(table.Columns, &core.Column{
 			Name:         updatedCol,
 			RawType:      "timestamp",
 			Type:         core.DataTypeDatetime,
-			DefaultValue: &def,
-			OnUpdate:     &upd,
+			DefaultValue: new("CURRENT_TIMESTAMP"),
+			OnUpdate:     new("CURRENT_TIMESTAMP"),
 		})
 	}
-
-	return nil
 }

@@ -1,6 +1,7 @@
 package core
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"sort"
@@ -26,6 +27,7 @@ var dialectRawTypes = map[Dialect]map[string]bool{
 	DialectDB2:        db2Types,
 	DialectSnowflake:  snowflakeTypes,
 	DialectMSSQL:      mssqlTypes,
+	DialectTiDB:       tidbTypes,
 }
 
 var mysqlTypes = toSet(
@@ -244,7 +246,7 @@ var mssqlTypes = toSet(
 	"BINARY", "VARBINARY", "IMAGE",
 
 	// Other
-	"XML", "JSON", // JSON type supported in recent versions
+	"XML", "JSON",
 	"UNIQUEIDENTIFIER",
 	"SQL_VARIANT",
 	"GEOGRAPHY", "GEOMETRY",
@@ -253,17 +255,30 @@ var mssqlTypes = toSet(
 	"CURSOR", "TABLE",
 )
 
-// ValidateRawType checks whether rawType is a valid SQL type for the
-// given dialect. It returns nil when the type is valid or the dialect
-// is nil (no validation possible without a dialect). A descriptive error
-// is returned when the type is unrecognized.
-func ValidateRawType(rawType string, dialect *Dialect) error {
-	if dialect == nil {
-		return nil
-	}
+var tidbTypes = toSet(
+	// TiDB inherits from MySQL
+	"TINYINT", "SMALLINT", "MEDIUMINT", "INT", "INTEGER", "BIGINT",
+	"FLOAT", "DOUBLE", "DOUBLE PRECISION", "DECIMAL", "DEC", "NUMERIC",
+	"FIXED", "BIT", "BOOL", "BOOLEAN",
 
+	"DATE", "DATETIME", "TIMESTAMP", "TIME", "YEAR",
+
+	"CHAR", "VARCHAR", "BINARY", "VARBINARY",
+	"TINYBLOB", "BLOB", "MEDIUMBLOB", "LONGBLOB",
+	"TINYTEXT", "TEXT", "MEDIUMTEXT", "LONGTEXT",
+
+	"ENUM", "SET", "JSON",
+
+	"GEOMETRY", "POINT", "LINESTRING", "POLYGON",
+	"MULTIPOINT", "MULTILINESTRING", "MULTIPOLYGON", "GEOMETRYCOLLECTION",
+)
+
+// ValidateRawType checks whether rawType is a valid SQL type for the
+// given dialect. It returns nil when the type is valid.
+// A descriptive error is returned when the type is unrecognized.
+func ValidateRawType(rawType string, dialect *Dialect) error {
 	if strings.TrimSpace(rawType) == "" {
-		return fmt.Errorf("raw_type is empty")
+		return errors.New("raw_type is empty")
 	}
 
 	types, ok := dialectRawTypes[*dialect]
@@ -298,7 +313,7 @@ func toSet(names ...string) map[string]bool {
 
 // normalizeRawTypeBase extracts the base type name from a raw SQL type
 // string. It removes parenthesized portions (length, precision, enum
-// values, etc.), collapses whitespace and uppercases the result.
+// values, etc.), collapses whitespace, and uppercases the result.
 //
 // Examples:
 //

@@ -44,6 +44,21 @@ linters:
     - exptostd
     - fatcontext
     - usetesting
+    - modernize
+    - copyloopvar
+    - gocritic
+    - nilerr
+    - predeclared
+    - unconvert
+    - whitespace
+    - godot
+    - perfsprint
+    - testifylint
+    - intrange
+    - sloglint
+    - rowserrcheck
+    - sqlclosecheck
+    - bodyclose
 
   settings:
     revive:

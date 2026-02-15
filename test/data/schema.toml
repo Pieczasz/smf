@@ -16,7 +16,7 @@
 #       Write a human-friendly, portable type string.  The generator maps it
 #       to the correct dialect-specific DDL automatically.
 #
-#   2.  Sensible defaults — you only declare what deviates from the norm:
+#   2.  Sensible defaults - you only declare what deviates from the norm:
 #         nullable        -> false   (columns are NOT NULL by default)
 #         primary_key     -> false
 #         auto_increment  -> false
@@ -76,10 +76,10 @@
 #       MSSQL    : Full support.
 #
 #   FOREIGN KEY ON UPDATE:
-#       Oracle   : Does NOT support ON UPDATE CASCADE/SET NULL — only ON DELETE.
+#       Oracle   : Does NOT support ON UPDATE CASCADE/SET NULL - only ON DELETE.
 #                  Generator ignores on_update for Oracle or emits a trigger.
 #       SQLite   : Requires PRAGMA foreign_keys = ON at connection time.
-#       Snowflake: FKs are informational only — not enforced.
+#       Snowflake: FKs are informational only - not enforced.
 #       DB2      : ON UPDATE RESTRICT supported; CASCADE/SET NULL via triggers.
 #
 #   ENUM type:
@@ -126,7 +126,7 @@
 #       PostgreSQL      : GENERATED ALWAYS AS (expr) STORED  (no VIRTUAL before v17)
 #       SQLite          : GENERATED ALWAYS AS (expr) [VIRTUAL | STORED]
 #       Oracle          : col AS (expr) [VIRTUAL]
-#       DB2             : GENERATED ALWAYS AS (expr) — always materialized
+#       DB2             : GENERATED ALWAYS AS (expr) - always materialized
 #       Snowflake       : Not supported (use views)
 #       MSSQL / Azure   : AS (expr) [PERSISTED]
 #
@@ -148,8 +148,8 @@ name = "tenants"
 comment = "Tenant / account"
 
 [tables.options.mysql]
-engine = "InnoDB"  # MySQL / MariaDB only; ignored on other dialects
-charset = "utf8mb4"  # MySQL / MariaDB only
+engine = "InnoDB"
+charset = "utf8mb4"
 collate = "utf8mb4_unicode_ci"
 
 [tables.timestamps]
@@ -202,7 +202,7 @@ type = "bigint"
 primary_key = true
 auto_increment = true
 
-# Inline FK — generates fk_users_tenants automatically
+# Inline FK - generates fk_users_tenants automatically
 [[tables.columns]]
 name = "tenant_id"
 type = "bigint"
@@ -210,7 +210,7 @@ references = "tenants.id"
 on_delete = "CASCADE"
 on_update = "RESTRICT"
 
-# Inline UNIQUE + inline CHECK — two constraints from one column.
+# Inline UNIQUE + inline CHECK - two constraints from one column.
 [[tables.columns]]
 name = "email"
 type = "varchar(255)"
@@ -229,7 +229,7 @@ name = "display_name"
 type = "varchar(120)"
 nullable = true
 
-# Portable boolean default — parser converts `true` -> "TRUE", generator
+# Portable boolean default - parser converts `true` -> "TRUE", generator
 # maps to dialect-specific form (1, TRUE, etc.).
 [[tables.columns]]
 name = "is_active"
@@ -277,7 +277,7 @@ name = "created_at"
 type = "timestamp"
 default = "CURRENT_TIMESTAMP"
 
-# Composite UNIQUE requires the constraints section — column-level
+# Composite UNIQUE requires the constraints section - column-level
 # `unique = true` only works for single-columns uniqueness.
 
 [[tables.constraints]]

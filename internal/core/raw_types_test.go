@@ -54,7 +54,7 @@ func TestNormalizeRawTypeBase(t *testing.T) {
 		{"  int  ", "INT"},
 		{"  DOUBLE   PRECISION  ", "DOUBLE PRECISION"},
 
-		// Edge: nested or multiple parens (shouldn't happen, but be safe)
+		// Edge: nested or multiple parens (shouldn't happen but be safe)
 		{"NUMERIC(10)", "NUMERIC"},
 	}
 
@@ -74,8 +74,7 @@ func assertValidRawTypes(t *testing.T, dialect Dialect, rawTypes []string) {
 	t.Helper()
 	for _, rt := range rawTypes {
 		t.Run(rt, func(t *testing.T) {
-			d := dialect
-			if err := ValidateRawType(rt, &d); err != nil {
+			if err := ValidateRawType(rt, new(dialect)); err != nil {
 				t.Errorf("ValidateRawType(%q, %q) returned error: %v", rt, dialect, err)
 			}
 		})
@@ -215,8 +214,7 @@ func TestValidateRawTypeInvalid(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(string(tt.dialect)+"/"+tt.rawType, func(t *testing.T) {
-			d := tt.dialect
-			err := ValidateRawType(tt.rawType, &d)
+			err := ValidateRawType(tt.rawType, new(tt.dialect))
 			if err == nil {
 				t.Errorf("ValidateRawType(%q, %q) returned nil, want error", tt.rawType, tt.dialect)
 			}
@@ -229,13 +227,6 @@ func TestValidateRawTypeInvalid(t *testing.T) {
 				t.Errorf("error message should mention the dialect %q, got: %v", tt.dialect, err)
 			}
 		})
-	}
-}
-
-func TestValidateRawTypeNilDialect(t *testing.T) {
-	err := ValidateRawType("COMPLETELY_INVALID_TYPE", nil)
-	if err != nil {
-		t.Errorf("ValidateRawType with nil dialect should return nil, got: %v", err)
 	}
 }
 
@@ -254,7 +245,7 @@ func TestValidateRawTypeEmptyRawType(t *testing.T) {
 
 func TestAllDialectsHaveRawTypes(t *testing.T) {
 	for _, d := range SupportedDialects() {
-		dialect := Dialect(d)
+		dialect := d
 		if _, ok := dialectRawTypes[dialect]; !ok {
 			t.Errorf("dialect %q has no entry in dialectRawTypes", d)
 		}

@@ -1,7 +1,6 @@
 package toml
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -26,7 +25,7 @@ type tomlColumn struct {
 	DefaultValue any `toml:"default"`
 
 	// OnUpdate is used for MySQL ON UPDATE CURRENT_TIMESTAMP when there is
-	// no inline FK (references is empty).  When references IS set,
+	// no inline FK (references are empty).  When references ARE set,
 	// on_update is treated as a referential action (CASCADE, RESTRICT, …).
 	OnUpdate string `toml:"on_update"`
 	OnDelete string `toml:"on_delete"`
@@ -70,16 +69,6 @@ type tomlTiDBColumnOptions struct {
 }
 
 func (c *converter) convertColumn(tc *tomlColumn) (*core.Column, error) {
-	if err := c.validateColumnName(tc.Name); err != nil {
-		return nil, err
-	}
-
-	if tc.References != "" {
-		if _, _, ok := core.ParseReferences(tc.References); !ok {
-			return nil, fmt.Errorf("invalid references %q: expected format \"table.column\"", tc.References)
-		}
-	}
-
 	col := &core.Column{
 		Name:               tc.Name,
 		Nullable:           tc.Nullable,
@@ -94,7 +83,7 @@ func (c *converter) convertColumn(tc *tomlColumn) (*core.Column, error) {
 		EnumValues:         tc.EnumValues,
 		IdentitySeed:       tc.IdentitySeed,
 		IdentityIncrement:  tc.IdentityIncrement,
-		IdentityGeneration: tc.IdentityGeneration,
+		IdentityGeneration: core.IdentityGeneration(tc.IdentityGeneration),
 		SequenceName:       tc.SequenceName,
 	}
 
@@ -108,23 +97,7 @@ func (c *converter) convertColumn(tc *tomlColumn) (*core.Column, error) {
 	return col, nil
 }
 
-func (c *converter) validateColumnName(name string) error {
-	if strings.TrimSpace(name) == "" {
-		return errors.New("column name is empty")
-	}
-	if c.rules != nil {
-		if c.rules.MaxColumnNameLength > 0 && len(name) > c.rules.MaxColumnNameLength {
-			return fmt.Errorf("column %q exceeds maximum length %d", name, c.rules.MaxColumnNameLength)
-		}
-		if c.nameRe != nil && !c.nameRe.MatchString(name) {
-			return fmt.Errorf("column %q does not match allowed pattern %q", name, c.nameRe.String())
-		}
-	}
-	return nil
-}
-
-// resolveColumnType populates col.Type and col.RawType from the TOML column,
-// validating dialect-specific raw types when applicable.
+// resolveColumnType populates col.Type and col.RawType from the TOML column.
 func (c *converter) resolveColumnType(col *core.Column, tc *tomlColumn) error {
 	portableType := strings.TrimSpace(tc.Type)
 
@@ -133,18 +106,13 @@ func (c *converter) resolveColumnType(col *core.Column, tc *tomlColumn) error {
 	}
 
 	if portableType == "" {
-		return errors.New("type is empty")
+		return fmt.Errorf("column %q: type is empty", tc.Name)
 	}
 
 	col.Type = core.NormalizeDataType(portableType)
 
-	if tc.RawType != "" && c.dialect != nil {
-		if err := core.ValidateRawType(tc.RawType, c.dialect); err != nil {
-			return fmt.Errorf("column %q: %w", tc.Name, err)
-		}
+	if tc.RawType != "" {
 		col.RawType = tc.RawType
-	} else {
-		col.RawType = portableType
 	}
 
 	return nil
@@ -154,15 +122,13 @@ func (c *converter) resolveColumnType(col *core.Column, tc *tomlColumn) error {
 // behavior, and generated-column properties on an already-initialized column.
 func applyColumnActions(col *core.Column, tc *tomlColumn) {
 	if tc.DefaultValue != nil {
-		s := normalizeDefault(tc.DefaultValue)
-		col.DefaultValue = &s
+		col.DefaultValue = new(normalizeDefault(tc.DefaultValue))
 	}
 	if tc.References != "" {
 		col.RefOnDelete = core.ReferentialAction(tc.OnDelete)
 		col.RefOnUpdate = core.ReferentialAction(tc.OnUpdate)
 	} else if tc.OnUpdate != "" {
-		v := tc.OnUpdate
-		col.OnUpdate = &v
+		col.OnUpdate = new(tc.OnUpdate)
 	}
 
 	col.IsGenerated = tc.IsGenerated

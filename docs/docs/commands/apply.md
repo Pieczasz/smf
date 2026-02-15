@@ -10,15 +10,15 @@ smf apply [flags]
 
 ## Flags
 
-| Flag | Shorthand | Description | Default |
-| :--- | :--- | :--- | :--- |
-| `--dsn` | | Database connection string (required) | |
-| `--file` | `-f` | Path to migration SQL file (required) | |
-| `--dry-run` | `-d` | Print statements and run preflight checks without executing | `false` |
-| `--transaction` | `-t` | Run migration in a transaction if possible | `true` |
-| `--allow-non-transactional` | | Allow non-transactional DDL when `--transaction` is set | `false` |
-| `--unsafe` | `-u` | Allow destructive operations (DROP, TRUNCATE, etc.) | `false` |
-| `--timeout` | | Connection timeout in seconds | `300` |
+| Flag                        | Shorthand | Description                                                 | Default |
+|:----------------------------|:----------|:------------------------------------------------------------|:--------|
+| `--dsn`                     |           | Database connection string (required)                       |         |
+| `--file`                    | `-f`      | Path to migration SQL file (required)                       |         |
+| `--dry-run`                 | `-d`      | Print statements and run preflight checks without executing | `false` |
+| `--transaction`             | `-t`      | Run migration in a transaction if possible                  | `true`  |
+| `--allow-non-transactional` |           | Allow non-transactional DDL when `--transaction` is set     | `false` |
+| `--unsafe`                  | `-u`      | Allow destructive operations (DROP, TRUNCATE, etc.)         | `false` |
+| `--timeout`                 |           | Connection timeout in seconds                               | `300`   |
 
 ## Preflight Checks
 

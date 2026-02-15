@@ -14,6 +14,7 @@ func TestParseIndexSimpleColumns(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -53,6 +54,7 @@ func TestParseIndexAdvancedColumnDefs(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -100,6 +102,7 @@ func TestParseIndexDefaultValues(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -132,6 +135,7 @@ func TestParseIndexEmptyColumns(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -154,6 +158,7 @@ func TestParseIndexEmptyColumnsUnnamed(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -176,6 +181,7 @@ func TestParseDuplicateIndexName(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -212,6 +218,7 @@ func TestParseDuplicateIndexNameCaseInsensitive(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -247,6 +254,7 @@ func TestParseIndexReferencesNonexistentColumn(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -271,6 +279,7 @@ func TestParseIndexAdvancedColumnDefsNonexistentColumn(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -297,6 +306,7 @@ func TestParseIndexColumnDefWithoutOrder(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -333,6 +343,7 @@ func TestParseUnnamedIndexValid(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -364,6 +375,7 @@ func TestParseMultipleIndexesOneUnnamed(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -397,10 +409,11 @@ name = "items"
 	assert.Empty(t, db.Tables[0].Indexes[1].Name)
 }
 
-func TestParseColumnIndexsExistValid(t *testing.T) {
+func TestParseColumnIndexesExistValid(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"

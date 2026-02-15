@@ -12,6 +12,7 @@ func TestParseEmptyTable(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "empty"
@@ -25,6 +26,7 @@ func TestParseDuplicateTableName(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -51,6 +53,7 @@ func TestParseTableOptions(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -92,6 +95,7 @@ func TestParseTableOptionsPostgreSQL(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -129,6 +133,7 @@ func TestParseTableOptionsOracle(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -169,6 +174,7 @@ func TestParseTableOptionsSQLServer(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -204,6 +210,7 @@ func TestParseTableOptionsDB2(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -237,6 +244,7 @@ func TestParseTableOptionsSnowflake(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -271,6 +279,7 @@ func TestParseTableOptionsSnowflakeZeroRetention(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -297,6 +306,7 @@ func TestParseTableOptionsSQLite(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -324,6 +334,7 @@ func TestParseTableOptionsTiDB(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -377,6 +388,7 @@ func TestParseTableOptionsMariaDB(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -411,6 +423,7 @@ func TestParseTableOptionsMariaDBNilEncryptionKeyID(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -437,6 +450,7 @@ func TestParseTableOptionsOracleLoggingFalse(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -465,6 +479,7 @@ func TestParseTableOptionsMultipleDialects(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -519,6 +534,7 @@ func TestParseTableOptionsNoDialectSpecific(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -552,6 +568,7 @@ func TestParseTimestampsInjection(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -594,6 +611,7 @@ func TestParseTimestampsCustomColumnNames(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -625,6 +643,7 @@ func TestParseTimestampsSkipIfColumnsExist(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -661,6 +680,7 @@ func TestParseTimestampsDisabled(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -685,6 +705,7 @@ func TestParseTimestampsSameColumnName(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -711,6 +732,7 @@ func TestParseTimestampsDefaultsSameColumnName(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -734,6 +756,7 @@ func TestParseTimestampsDistinctColumnsValid(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
@@ -761,6 +784,7 @@ func TestParseTableWithoutPK(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "logs"
@@ -781,6 +805,7 @@ func TestParseDistinctColumnsValid(t *testing.T) {
 	const schema = `
 [database]
 name = "testdb"
+dialect = "mysql"
 
 [[tables]]
 name = "items"
