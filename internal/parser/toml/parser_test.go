@@ -27,9 +27,9 @@ func TestParseFileSchemaToml(t *testing.T) {
 	assert.Equal(t, "ecommerce", db.Name)
 	require.NotNil(t, db.Dialect)
 	assert.Equal(t, core.DialectMySQL, *db.Dialect)
-	assert.Len(t, db.Tables, 4)
+	assert.Len(t, db.Tables, 5)
 
-	want := []string{"tenants", "users", "roles", "user_roles"}
+	want := []string{"tenants", "users", "roles", "user_roles", "orders"}
 	for i, name := range want {
 		assert.Equal(t, name, db.Tables[i].Name)
 	}

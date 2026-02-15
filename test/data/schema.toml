@@ -130,6 +130,22 @@
 #       Snowflake       : Not supported (use views)
 #       MSSQL / Azure   : AS (expr) [PERSISTED]
 #
+#   Table partioning:
+#       Supports user-defined table partitioning in DDL
+#	    mysql (MySQL)
+#	    mariadb (MariaDB)
+#	    postgresql (PostgreSQL)
+#	    oracle (Oracle Database)
+#	    db2 (IBM Db2)
+#	    mssql (Microsoft SQL Server)
+#	    tidb (TiDB, MySQL compatible)
+#
+#	    Does not support native table partitioning in SQL DDL
+#	    sqlite
+#
+#	    Automatic internal partitioning, but no classic user-facing table PARTITION BY syntax
+#	    snowflake
+#
 #   Example schema:
 
 [database]
@@ -320,3 +336,42 @@ columns = ["user_id", "role_id"]
 [[tables.indexes]]
 name = "idx_user_roles_role"
 columns = ["role_id"]
+
+[[tables]]
+name = "orders"
+
+[[tables.columns]]
+name = "id"
+type = "bigint"
+primary_key = true
+
+[[tables.columns]]
+name = "created_at"
+type = "timestamp"
+
+[[tables.columns]]
+name = "region"
+type = "varchar(20)"
+
+[tables.partitioning]
+strategy = "RANGE"
+columns = ["created_at"]
+# expression = "YEAR(created_at)"  # Alternative: use an expression
+
+[[tables.partitioning.partitions]]
+name = "p2023"
+values_less_than = "2024-01-01"
+
+[[tables.partitioning.partitions]]
+name = "p2024"
+values_less_than = "2025-01-01"
+
+[[tables.partitioning.partitions]]
+name = "pmax"
+values_less_than = "MAXVALUE" # we should also support values_in = [...values] ig
+
+# MySQL / TiDB / MariaDB
+# [tables.partitioning.sub_partitioning]
+# strategy = "HASH"
+# columns = ["region"]
+# count = 4

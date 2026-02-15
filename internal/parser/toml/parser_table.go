@@ -9,13 +9,14 @@ import (
 
 // tomlTable maps [[tables]].
 type tomlTable struct {
-	Name        string           `toml:"name"`
-	Comment     string           `toml:"comment"`
-	Options     tomlTableOptions `toml:"options"`
-	Columns     []tomlColumn     `toml:"columns"`
-	Constraints []tomlConstraint `toml:"constraints"`
-	Indexes     []tomlIndex      `toml:"indexes"`
-	Timestamps  *tomlTimestamps  `toml:"timestamps"`
+	Name         string            `toml:"name"`
+	Comment      string            `toml:"comment"`
+	Options      tomlTableOptions  `toml:"options"`
+	Columns      []tomlColumn      `toml:"columns"`
+	Constraints  []tomlConstraint  `toml:"constraints"`
+	Indexes      []tomlIndex       `toml:"indexes"`
+	Partitioning *tomlPartitioning `toml:"partitioning"`
+	Timestamps   *tomlTimestamps   `toml:"timestamps"`
 }
 
 // tomlTimestamps maps [tables.timestamps].
@@ -106,22 +107,26 @@ type tomlPostgreSQLTableOptions struct {
 
 // tomlOracleTableOptions maps [tables.options.oracle].
 type tomlOracleTableOptions struct {
-	Organization    string `toml:"organization"`
-	Logging         *bool  `toml:"logging"`
-	Pctfree         int    `toml:"pctfree"`
-	Pctused         int    `toml:"pctused"`
-	InitTrans       int    `toml:"init_trans"`
-	SegmentCreation string `toml:"segment_creation"`
+	Organization          string `toml:"organization"`
+	Logging               *bool  `toml:"logging"`
+	Pctfree               int    `toml:"pctfree"`
+	Pctused               int    `toml:"pctused"`
+	InitTrans             int    `toml:"init_trans"`
+	SegmentCreation       string `toml:"segment_creation"`
+	Interval              string `toml:"interval"`
+	ReferencePartitioning string `toml:"reference_partitioning"`
 }
 
 // tomlSQLServerTableOptions maps [tables.options.sqlserver].
 type tomlSQLServerTableOptions struct {
-	FileGroup        string `toml:"file_group"`
-	DataCompression  string `toml:"data_compression"`
-	MemoryOptimized  bool   `toml:"memory_optimized"`
-	SystemVersioning bool   `toml:"system_versioning"`
-	TextImageOn      string `toml:"textimage_on"`
-	LedgerTable      bool   `toml:"ledger_table"`
+	FileGroup         string `toml:"file_group"`
+	DataCompression   string `toml:"data_compression"`
+	MemoryOptimized   bool   `toml:"memory_optimized"`
+	SystemVersioning  bool   `toml:"system_versioning"`
+	TextImageOn       string `toml:"textimage_on"`
+	LedgerTable       bool   `toml:"ledger_table"`
+	PartitionFunction string `toml:"partition_function"`
+	PartitionScheme   string `toml:"partition_scheme"`
 }
 
 // tomlDB2TableOptions maps [tables.options.db2].
@@ -162,6 +167,10 @@ func (c *converter) convertTable(tt *tomlTable) (*core.Table, error) {
 		Name:    tt.Name,
 		Comment: tt.Comment,
 		Options: convertTableOptions(&tt.Options),
+	}
+
+	if tt.Partitioning != nil {
+		table.Partitioning = convertPartitioning(tt.Partitioning)
 	}
 
 	if ts := tt.Timestamps; ts != nil {
@@ -296,23 +305,27 @@ func convertPostgreSQLTableOptions(pg *tomlPostgreSQLTableOptions) *core.Postgre
 
 func convertOracleTableOptions(o *tomlOracleTableOptions) *core.OracleTableOptions {
 	return &core.OracleTableOptions{
-		Organization:    o.Organization,
-		Logging:         o.Logging,
-		Pctfree:         o.Pctfree,
-		Pctused:         o.Pctused,
-		InitTrans:       o.InitTrans,
-		SegmentCreation: o.SegmentCreation,
+		Organization:          o.Organization,
+		Logging:               o.Logging,
+		Pctfree:               o.Pctfree,
+		Pctused:               o.Pctused,
+		InitTrans:             o.InitTrans,
+		SegmentCreation:       o.SegmentCreation,
+		Interval:              o.Interval,
+		ReferencePartitioning: o.ReferencePartitioning,
 	}
 }
 
 func convertSQLServerTableOptions(ss *tomlSQLServerTableOptions) *core.SQLServerTableOptions {
 	return &core.SQLServerTableOptions{
-		FileGroup:        ss.FileGroup,
-		DataCompression:  ss.DataCompression,
-		MemoryOptimized:  ss.MemoryOptimized,
-		SystemVersioning: ss.SystemVersioning,
-		TextImageOn:      ss.TextImageOn,
-		LedgerTable:      ss.LedgerTable,
+		FileGroup:         ss.FileGroup,
+		DataCompression:   ss.DataCompression,
+		MemoryOptimized:   ss.MemoryOptimized,
+		SystemVersioning:  ss.SystemVersioning,
+		TextImageOn:       ss.TextImageOn,
+		LedgerTable:       ss.LedgerTable,
+		PartitionFunction: ss.PartitionFunction,
+		PartitionScheme:   ss.PartitionScheme,
 	}
 }
 
@@ -425,5 +438,86 @@ func injectTimestampColumns(table *core.Table) {
 			DefaultValue: new("CURRENT_TIMESTAMP"),
 			OnUpdate:     new("CURRENT_TIMESTAMP"),
 		})
+	}
+}
+
+type tomlPartitioning struct {
+	Strategy        string               `toml:"strategy"`
+	Columns         []string             `toml:"columns"`
+	Expression      string               `toml:"expression"`
+	Partitions      []tomlPartitionDef   `toml:"partitions"`
+	SubPartitioning *tomlSubPartitioning `toml:"sub_partitioning"`
+}
+
+type tomlSubPartitioning struct {
+	Strategy    string             `toml:"strategy"`
+	Columns     []string           `toml:"columns"`
+	Count       int                `toml:"count"`
+	Definitions []tomlPartitionDef `toml:"definitions"`
+}
+
+type tomlPartitionDef struct {
+	Name           string   `toml:"name"`
+	ValuesLessThan string   `toml:"values_less_than"`
+	ValuesIn       []string `toml:"values_in"`
+	ValuesFrom     string   `toml:"values_from"`
+	ValuesTo       string   `toml:"values_to"`
+	IsDefault      bool     `toml:"is_default"`
+	Tablespace     string   `toml:"tablespace"`
+	Compression    string   `toml:"compression"`
+}
+
+func convertPartitioning(tp *tomlPartitioning) *core.Partitioning {
+	if tp == nil {
+		return nil
+	}
+	p := &core.Partitioning{
+		Strategy:   core.PartitionStrategy(strings.ToUpper(tp.Strategy)),
+		Columns:    tp.Columns,
+		Expression: tp.Expression,
+	}
+	if len(tp.Partitions) > 0 {
+		p.Partitions = make([]*core.PartitionDefinition, len(tp.Partitions))
+		for i := range tp.Partitions {
+			p.Partitions[i] = convertPartitionDef(&tp.Partitions[i])
+		}
+	}
+	if tp.SubPartitioning != nil {
+		p.SubPartitioning = convertSubPartitioning(tp.SubPartitioning)
+	}
+	return p
+}
+
+func convertSubPartitioning(tsp *tomlSubPartitioning) *core.SubPartitioning {
+	if tsp == nil {
+		return nil
+	}
+	sp := &core.SubPartitioning{
+		Strategy: core.PartitionStrategy(strings.ToUpper(tsp.Strategy)),
+		Columns:  tsp.Columns,
+		Count:    tsp.Count,
+	}
+	if len(tsp.Definitions) > 0 {
+		sp.Definitions = make([]*core.PartitionDefinition, len(tsp.Definitions))
+		for i := range tsp.Definitions {
+			sp.Definitions[i] = convertPartitionDef(&tsp.Definitions[i])
+		}
+	}
+	return sp
+}
+
+func convertPartitionDef(tpd *tomlPartitionDef) *core.PartitionDefinition {
+	if tpd == nil {
+		return nil
+	}
+	return &core.PartitionDefinition{
+		Name:           tpd.Name,
+		ValuesLessThan: tpd.ValuesLessThan,
+		ValuesIn:       tpd.ValuesIn,
+		ValuesFrom:     tpd.ValuesFrom,
+		ValuesTo:       tpd.ValuesTo,
+		IsDefault:      tpd.IsDefault,
+		Tablespace:     tpd.Tablespace,
+		Compression:    tpd.Compression,
 	}
 }

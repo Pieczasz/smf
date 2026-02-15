@@ -66,13 +66,14 @@ type ValidationRules struct {
 
 // Table represents a table in the schema.
 type Table struct {
-	Name        string            `json:"name"`
-	Columns     []*Column         `json:"columns"`
-	Constraints []*Constraint     `json:"constraints,omitempty"`
-	Indexes     []*Index          `json:"indexes,omitempty"`
-	Comment     string            `json:"comment,omitempty"`
-	Options     TableOptions      `json:"options"`
-	Timestamps  *TimestampsConfig `json:"timestamps,omitempty"`
+	Name         string            `json:"name"`
+	Columns      []*Column         `json:"columns"`
+	Constraints  []*Constraint     `json:"constraints,omitempty"`
+	Indexes      []*Index          `json:"indexes,omitempty"`
+	Comment      string            `json:"comment,omitempty"`
+	Options      TableOptions      `json:"options"`
+	Partitioning *Partitioning     `json:"partitioning,omitempty"`
+	Timestamps   *TimestampsConfig `json:"timestamps,omitempty"`
 }
 
 // TimestampsConfig controls automatic created_at / updated_at column injection.
@@ -257,6 +258,10 @@ type OracleTableOptions struct {
 	InitTrans int `json:"initrans,omitempty"`
 	// SegmentCreation controls segment allocation: "IMMEDIATE" or "DEFERRED".
 	SegmentCreation string `json:"segment_creation,omitempty"`
+	// Interval specifies the interval partitioning expression (e.g. "NUMTOYMINTERVAL(1, 'MONTH')").
+	Interval string `json:"interval,omitempty"`
+	// ReferencePartitioning specifies the foreign key constraint name for reference partitioning.
+	ReferencePartitioning string `json:"reference_partitioning,omitempty"`
 }
 
 // SQLServerTableOptions contains Microsoft SQL Server / Azure SQL options.
@@ -277,6 +282,10 @@ type SQLServerTableOptions struct {
 	TextImageOn string `json:"textimage_on,omitempty"`
 	// LedgerTable enables the ledger (append-only) table feature in Azure SQL.
 	LedgerTable bool `json:"ledger_table,omitempty"`
+	// PartitionFunction is the name of the partition function to use.
+	PartitionFunction string `json:"partition_function,omitempty"`
+	// PartitionScheme is the name of the partition scheme to use.
+	PartitionScheme string `json:"partition_scheme,omitempty"`
 }
 
 // DB2TableOptions contains IBM DB2-specific table options.
@@ -353,6 +362,51 @@ const (
 	IdentityAlways    IdentityGeneration = "ALWAYS"
 	IdentityByDefault IdentityGeneration = "BY DEFAULT"
 )
+
+// PartitionStrategy specify how we partition tables
+type PartitionStrategy string
+
+const (
+	PartitionStrategyRange        PartitionStrategy = "RANGE"
+	PartitionStrategyList         PartitionStrategy = "LIST"
+	PartitionStrategyHash         PartitionStrategy = "HASH"
+	PartitionStrategyKey          PartitionStrategy = "KEY"
+	PartitionStrategyRangeColumns PartitionStrategy = "RANGE COLUMNS"
+	PartitionStrategyListColumns  PartitionStrategy = "LIST COLUMNS"
+)
+
+// Partitioning defines how a table is partitioned.
+type Partitioning struct {
+	Strategy PartitionStrategy `json:"strategy"`
+	// Name of columns by which we partition table
+	Columns []string `json:"columns,omitempty"`
+	// Expression by which we partition table
+	Expression string `json:"expression,omitempty"`
+	// Partitions defines all partitions of our table
+	Partitions []*PartitionDefinition `json:"partitions,omitempty"`
+	// SubPartitioning defines subpartitions of partitions (available for MySQL dialects)
+	SubPartitioning *SubPartitioning `json:"subPartitioning,omitempty"`
+}
+
+// PartitionDefinition defines a single partition.
+type PartitionDefinition struct {
+	Name           string   `json:"name"`
+	ValuesLessThan string   `json:"valuesLessThan,omitempty"`
+	ValuesIn       []string `json:"valuesIn,omitempty"`
+	ValuesFrom     string   `json:"valuesFrom,omitempty"` // PostgreSQL specific
+	ValuesTo       string   `json:"valuesTo,omitempty"`   // PostgreSQL specific
+	IsDefault      bool     `json:"isDefault,omitempty"`  // PostgreSQL specific
+	Tablespace     string   `json:"tablespace,omitempty"`
+	Compression    string   `json:"compression,omitempty"`
+}
+
+// SubPartitioning defines the sub-partitioning strategy for a partitioned table.
+type SubPartitioning struct {
+	Strategy    PartitionStrategy      `json:"strategy"`
+	Columns     []string               `json:"columns,omitempty"`
+	Count       int                    `json:"count,omitempty"`
+	Definitions []*PartitionDefinition `json:"definitions,omitempty"`
+}
 
 // Column represents a single column inside schema.
 type Column struct {
