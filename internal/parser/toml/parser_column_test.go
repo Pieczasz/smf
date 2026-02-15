@@ -635,4 +635,3 @@ name = "items"
 	assert.Contains(t, err.Error(), "duplicate column name")
 	assert.Contains(t, err.Error(), "id")
 }
-

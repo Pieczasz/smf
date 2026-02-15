@@ -214,7 +214,6 @@ name = "items"
 	assert.Contains(t, err.Error(), "idx_code")
 }
 
-
 func TestParseIndexReferencesNonexistentColumn(t *testing.T) {
 	const schema = `
 [database]

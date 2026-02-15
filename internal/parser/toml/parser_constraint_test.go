@@ -387,7 +387,6 @@ name = "items"
 	assert.Contains(t, err.Error(), "uq_code")
 }
 
-
 func TestParseConstraintReferencesNonexistentColumn(t *testing.T) {
 	const schema = `
 [database]
