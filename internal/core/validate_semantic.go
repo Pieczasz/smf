@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"slices"
 )
 
 // validateSemantic validates dialect-specific and logical rules that are not
@@ -123,10 +124,8 @@ func validateFKTypeMismatch(table *Table, tableMap map[string]*Table) error {
 func tableIsPartOfPK(table *Table, colName string) bool {
 	for _, con := range table.Constraints {
 		if con.Type == ConstraintPrimaryKey {
-			for _, c := range con.Columns {
-				if c == colName {
-					return true
-				}
+			if slices.Contains(con.Columns, colName) {
+				return true
 			}
 		}
 	}
