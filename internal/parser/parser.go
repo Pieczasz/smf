@@ -1,7 +1,7 @@
-// Package parser provides the Parser interface for reading schema files
+// Package schema provides the Parser interface for reading schema files
 // in various formats (TOML, JSON, YAML, etc.) and converting them to
 // the canonical core.Database representation.
-package parser
+package schema
 
 import (
 	"io"

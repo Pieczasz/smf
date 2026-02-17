@@ -118,7 +118,7 @@ type tomlSQLiteColumnOptions struct {
 	StrictAutoincrement bool `toml:"strict_autoincrement"`
 }
 
-func (c *converter) convertColumn(tc *tomlColumn) (*core.Column, error) {
+func (p *Parser) parseColumn(tc *tomlColumn) (*core.Column, error) {
 	col := &core.Column{
 		Name:               tc.Name,
 		Nullable:           tc.Nullable,
@@ -138,7 +138,7 @@ func (c *converter) convertColumn(tc *tomlColumn) (*core.Column, error) {
 		Invisible:          tc.Invisible,
 	}
 
-	if err := c.resolveColumnType(col, tc); err != nil {
+	if err := p.resolveColumnType(col, tc); err != nil {
 		return nil, err
 	}
 
@@ -149,7 +149,7 @@ func (c *converter) convertColumn(tc *tomlColumn) (*core.Column, error) {
 }
 
 // resolveColumnType populates col.Type and col.RawType from the TOML column.
-func (c *converter) resolveColumnType(col *core.Column, tc *tomlColumn) error {
+func (p *Parser) resolveColumnType(col *core.Column, tc *tomlColumn) error {
 	portableType := strings.TrimSpace(tc.Type)
 
 	if strings.EqualFold(portableType, "enum") && len(tc.EnumValues) > 0 {

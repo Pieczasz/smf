@@ -64,9 +64,20 @@ func (p *Parser) Parse(r io.Reader) (*core.Database, error) {
 		return nil, fmt.Errorf("toml: decode error: %w", err)
 	}
 
-	db, err := newConverter(&sf).convert()
-	if err != nil {
-		return nil, err
+	dialect := core.Dialect(strings.ToLower(sf.Database.Dialect))
+	db := &core.Database{
+		Name:    sf.Database.Name,
+		Dialect: &dialect,
+		Tables:  make([]*core.Table, 0, len(sf.Tables)),
+	}
+	db.Validation = p.parseRules(sf.Validation)
+
+	for i := range sf.Tables {
+		t, err := p.parseTable(&sf.Tables[i])
+		if err != nil {
+			return nil, fmt.Errorf("toml: table %q: %w", sf.Tables[i].Name, err)
+		}
+		db.Tables = append(db.Tables, t)
 	}
 
 	if err := db.Validate(); err != nil {
@@ -76,38 +87,9 @@ func (p *Parser) Parse(r io.Reader) (*core.Database, error) {
 	return db, nil
 }
 
-type converter struct {
-	sf      *schemaFile
-	dialect *core.Dialect
-}
-
-func newConverter(sf *schemaFile) *converter {
-	return &converter{sf: sf}
-}
-
-func (c *converter) convert() (*core.Database, error) {
-	c.dialect = new(core.Dialect(strings.ToLower(c.sf.Database.Dialect)))
-	db := &core.Database{
-		Name:    c.sf.Database.Name,
-		Dialect: c.dialect,
-		Tables:  make([]*core.Table, 0, len(c.sf.Tables)),
-	}
-	db.Validation = convertRules(c.sf.Validation)
-
-	for i := range c.sf.Tables {
-		t, err := c.convertTable(&c.sf.Tables[i])
-		if err != nil {
-			return nil, fmt.Errorf("toml: table %q: %w", c.sf.Tables[i].Name, err)
-		}
-		db.Tables = append(db.Tables, t)
-	}
-
-	return db, nil
-}
-
-// convertRules converts [validation] into core.ValidationRules.
+// parseRules parses [validation] into core.ValidationRules.
 // No validation is performed here — that happens in db.Validate().
-func convertRules(v *tomlValidation) *core.ValidationRules {
+func (p *Parser) parseRules(v *tomlValidation) *core.ValidationRules {
 	if v == nil {
 		return nil
 	}

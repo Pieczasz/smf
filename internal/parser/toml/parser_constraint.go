@@ -17,7 +17,7 @@ type tomlConstraint struct {
 	Enforced          *bool    `toml:"enforced"` // pointer: absent -> true
 }
 
-func convertTableConstraint(tc *tomlConstraint) *core.Constraint {
+func parseTableConstraint(tc *tomlConstraint) *core.Constraint {
 	c := &core.Constraint{
 		Name:              tc.Name,
 		Type:              core.ConstraintType(tc.Type),
