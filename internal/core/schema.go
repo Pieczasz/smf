@@ -46,8 +46,8 @@ func SupportedDialects() []Dialect {
 	}
 }
 
-// IsValidDialect reports whether d is a recognized dialect string.
-func IsValidDialect(d string) bool {
+// ValidDialect reports whether d is a recognized dialect string.
+func ValidDialect(d string) bool {
 	for _, supported := range SupportedDialects() {
 		if strings.EqualFold(string(supported), d) {
 			return true

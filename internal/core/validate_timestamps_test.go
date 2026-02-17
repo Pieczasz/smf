@@ -17,7 +17,7 @@ func TestValidateDatabaseTimestampsValidation(t *testing.T) {
 			Tables: []*Table{
 				{
 					Name:       "users",
-					Columns:    []*Column{{Name: "id"}},
+					Columns:    []*Column{{Name: "id", Type: DataTypeInt}},
 					Timestamps: &TimestampsConfig{Enabled: false},
 				},
 			},
@@ -34,7 +34,7 @@ func TestValidateDatabaseTimestampsValidation(t *testing.T) {
 			Tables: []*Table{
 				{
 					Name:       "users",
-					Columns:    []*Column{{Name: "id"}},
+					Columns:    []*Column{{Name: "id", Type: DataTypeInt}},
 					Timestamps: &TimestampsConfig{Enabled: true},
 				},
 			},
@@ -51,7 +51,7 @@ func TestValidateDatabaseTimestampsValidation(t *testing.T) {
 			Tables: []*Table{
 				{
 					Name:    "users",
-					Columns: []*Column{{Name: "id"}},
+					Columns: []*Column{{Name: "id", Type: DataTypeInt}},
 					Timestamps: &TimestampsConfig{
 						Enabled:       true,
 						CreatedColumn: "created_at",

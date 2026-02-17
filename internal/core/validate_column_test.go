@@ -115,7 +115,7 @@ func TestValidateDatabaseInvalidReferencesFormat(t *testing.T) {
 			{
 				Name: "users",
 				Columns: []*Column{
-					{Name: "role_id", References: "roles"},
+					{Name: "role_id", Type: DataTypeInt, References: "roles"},
 				},
 			},
 		},

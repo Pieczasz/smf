@@ -15,16 +15,16 @@ func TestValidateDatabaseSuccessAndSynthesis(t *testing.T) {
 			{
 				Name: "users",
 				Columns: []*Column{
-					{Name: "id", PrimaryKey: true},
-					{Name: "email", Unique: true},
-					{Name: "age", Check: "age >= 0"},
-					{Name: "role_id", References: "roles.id", RefOnDelete: "CASCADE", RefOnUpdate: "RESTRICT"},
+					{Name: "id", Type: DataTypeInt, PrimaryKey: true},
+					{Name: "email", Type: DataTypeString, Unique: true},
+					{Name: "age", Type: DataTypeInt, Check: "age >= 0"},
+					{Name: "role_id", Type: DataTypeInt, References: "roles.id", RefOnDelete: "CASCADE", RefOnUpdate: "RESTRICT"},
 				},
 			},
 			{
 				Name: "roles",
 				Columns: []*Column{
-					{Name: "id", PrimaryKey: true},
+					{Name: "id", Type: DataTypeInt, PrimaryKey: true},
 				},
 			},
 		},
@@ -60,7 +60,7 @@ func TestValidateDatabaseMissingDialect(t *testing.T) {
 	db := &Database{
 		Name: "app",
 		Tables: []*Table{
-			{Name: "users", Columns: []*Column{{Name: "id"}}},
+			{Name: "users", Columns: []*Column{{Name: "id", Type: DataTypeInt}}},
 		},
 	}
 
@@ -77,7 +77,7 @@ func TestValidateDatabaseInvalidAllowedNamePattern(t *testing.T) {
 			AllowedNamePattern: "(",
 		},
 		Tables: []*Table{
-			{Name: "users", Columns: []*Column{{Name: "id"}}},
+			{Name: "users", Columns: []*Column{{Name: "id", Type: DataTypeInt}}},
 		},
 	}
 
@@ -91,8 +91,8 @@ func TestValidateDatabaseDuplicateTableNames(t *testing.T) {
 		Name:    "app",
 		Dialect: new(DialectMySQL),
 		Tables: []*Table{
-			{Name: "users", Columns: []*Column{{Name: "id"}}},
-			{Name: "users", Columns: []*Column{{Name: "id"}}},
+			{Name: "users", Columns: []*Column{{Name: "id", Type: DataTypeInt}}},
+			{Name: "users", Columns: []*Column{{Name: "id", Type: DataTypeInt}}},
 		},
 	}
 
@@ -109,8 +109,8 @@ func TestValidateDatabaseErrorPrefixIncludesTableName(t *testing.T) {
 			{
 				Name: "users",
 				Columns: []*Column{
-					{Name: "id"},
-					{Name: "id"},
+					{Name: "id", Type: DataTypeInt},
+					{Name: "id", Type: DataTypeInt},
 				},
 			},
 		},
@@ -126,7 +126,7 @@ func TestValidateDatabaseMissingName(t *testing.T) {
 		Name:    "   ",
 		Dialect: new(DialectMySQL),
 		Tables: []*Table{
-			{Name: "users", Columns: []*Column{{Name: "id"}}},
+			{Name: "users", Columns: []*Column{{Name: "id", Type: DataTypeInt}}},
 		},
 	}
 

@@ -156,10 +156,6 @@ func (c *converter) resolveColumnType(col *core.Column, tc *tomlColumn) error {
 		portableType = core.BuildEnumTypeRaw(tc.EnumValues)
 	}
 
-	if portableType == "" {
-		return fmt.Errorf("column %q: type is empty", tc.Name)
-	}
-
 	col.Type = core.NormalizeDataType(portableType)
 
 	if tc.RawType != "" {

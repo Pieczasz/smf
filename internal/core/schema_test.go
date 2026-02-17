@@ -326,24 +326,24 @@ func TestSupportedDialects(t *testing.T) {
 	assert.Contains(t, dialects, DialectMSSQL)
 }
 
-func TestIsValidDialect(t *testing.T) {
+func TestValidDialect(t *testing.T) {
 	t.Run("valid dialects", func(t *testing.T) {
 		for _, d := range SupportedDialects() {
-			assert.True(t, IsValidDialect(string(d)), "expected %q to be valid", d)
+			assert.True(t, ValidDialect(string(d)), "expected %q to be valid", d)
 		}
 	})
 
 	t.Run("case insensitive", func(t *testing.T) {
-		assert.True(t, IsValidDialect("MySQL"))
-		assert.True(t, IsValidDialect("POSTGRESQL"))
-		assert.True(t, IsValidDialect("Snowflake"))
+		assert.True(t, ValidDialect("MySQL"))
+		assert.True(t, ValidDialect("POSTGRESQL"))
+		assert.True(t, ValidDialect("Snowflake"))
 	})
 
 	t.Run("invalid dialects", func(t *testing.T) {
-		assert.False(t, IsValidDialect(""))
-		assert.False(t, IsValidDialect("mongo"))
-		assert.False(t, IsValidDialect("redis"))
-		assert.False(t, IsValidDialect("cassandra"))
+		assert.False(t, ValidDialect(""))
+		assert.False(t, ValidDialect("mongo"))
+		assert.False(t, ValidDialect("redis"))
+		assert.False(t, ValidDialect("cassandra"))
 	})
 }
 

@@ -58,6 +58,9 @@ func (db *Database) validateRequiredFields() error {
 	if db.Dialect == nil {
 		return fmt.Errorf("dialect is required; supported dialects: %v", SupportedDialects())
 	}
+	if !ValidDialect(string(*db.Dialect)) {
+		return fmt.Errorf("unsupported dialect %q; supported dialects: %v", *db.Dialect, SupportedDialects())
+	}
 	if strings.TrimSpace(db.Name) == "" {
 		return errors.New("database name is required")
 	}

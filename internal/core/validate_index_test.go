@@ -14,7 +14,7 @@ func TestValidateDatabaseIndexDuplicateNames(t *testing.T) {
 		Tables: []*Table{
 			{
 				Name:    "users",
-				Columns: []*Column{{Name: "email"}},
+				Columns: []*Column{{Name: "email", Type: DataTypeString}},
 				Indexes: []*Index{
 					{Name: "idx_email", Columns: []ColumnIndex{{Name: "email"}}},
 					{Name: "idx_email", Columns: []ColumnIndex{{Name: "email"}}},
@@ -35,7 +35,7 @@ func TestValidateDatabaseIndexHasNoColumns(t *testing.T) {
 		Tables: []*Table{
 			{
 				Name:    "users",
-				Columns: []*Column{{Name: "email"}},
+				Columns: []*Column{{Name: "email", Type: DataTypeString}},
 				Indexes: []*Index{
 					{Name: "idx_email"},
 				},
@@ -55,7 +55,7 @@ func TestValidateDatabaseUnnamedIndexHasNoColumns(t *testing.T) {
 		Tables: []*Table{
 			{
 				Name:    "users",
-				Columns: []*Column{{Name: "email"}},
+				Columns: []*Column{{Name: "email", Type: DataTypeString}},
 				Indexes: []*Index{
 					{},
 				},
@@ -75,7 +75,7 @@ func TestValidateDatabaseIndexReferencesNonexistentColumn(t *testing.T) {
 		Tables: []*Table{
 			{
 				Name:    "users",
-				Columns: []*Column{{Name: "email"}},
+				Columns: []*Column{{Name: "email", Type: DataTypeString}},
 				Indexes: []*Index{
 					{Name: "idx_missing", Columns: []ColumnIndex{{Name: "missing"}}},
 				},

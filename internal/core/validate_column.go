@@ -11,6 +11,10 @@ func (c *Column) Validate(rules *ValidationRules, nameRe *regexp.Regexp) error {
 		return fmt.Errorf("column %w", err)
 	}
 
+	if c.Type == "" && c.RawType == "" || c.Type == DataTypeUnknown {
+		return fmt.Errorf("column %q: type is empty", c.Name)
+	}
+
 	// TODO: validate this field (col.DefaultValue)
 	// TODO: validate this field (col.OnUpdate)
 	// TODO: validate this field (col.Comment)

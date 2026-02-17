@@ -86,12 +86,7 @@ func newConverter(sf *schemaFile) *converter {
 }
 
 func (c *converter) convert() (*core.Database, error) {
-	dialect, err := parseDialect(c.sf.Database.Dialect)
-	if err != nil {
-		return nil, err
-	}
-	c.dialect = dialect
-
+	c.dialect = new(core.Dialect(strings.ToLower(c.sf.Database.Dialect)))
 	db := &core.Database{
 		Name:    c.sf.Database.Name,
 		Dialect: c.dialect,
@@ -108,20 +103,6 @@ func (c *converter) convert() (*core.Database, error) {
 	}
 
 	return db, nil
-}
-
-// parseDialect converts the raw dialect string into a *core.Dialect.
-// Returns nil when the string is empty (db.Validate() will flag it).
-// Returns an error when the string is non-empty but unrecognized — this is a
-// genuine parse error because the input cannot be mapped to a known type.
-func parseDialect(raw string) (*core.Dialect, error) {
-	if raw == "" {
-		return nil, nil
-	}
-	if !core.IsValidDialect(raw) {
-		return nil, fmt.Errorf("toml: unsupported dialect %q; supported dialects: %v", raw, core.SupportedDialects())
-	}
-	return new(core.Dialect(strings.ToLower(raw))), nil
 }
 
 // convertRules converts [validation] into core.ValidationRules.
