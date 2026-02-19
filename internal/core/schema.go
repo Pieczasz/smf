@@ -550,8 +550,8 @@ type MSSQLAlwaysEncryptedOptions struct {
 	ColumnEncryptionKey string `json:"columnEncryptionKey,omitempty"`
 
 	// EncryptionType specifies the encryption mode:
-	// - "DETERMINISTIC": Same plaintext always encrypts to same ciphertext (allows equality searches, joins, grouping)
-	// - "RANDOMIZED": Same plaintext encrypts to different ciphertext each time (more secure, but no operations allowed)
+	// - "DETERMINISTIC": The Same plaintext always encrypts to same ciphertext (allows equality searches, joins, grouping)
+	// - "RANDOMIZED": The same plaintext encrypts to different ciphertext each time (more secure, but no operations allowed)
 	EncryptionType string `json:"encryptionType,omitempty"`
 
 	// Algorithm is the encryption algorithm, typically "AEAD_AES_256_CBC_HMAC_SHA_256".
@@ -594,7 +594,7 @@ type DB2ColumnOptions struct {
 // SQLiteColumnOptions contains SQLite-specific column-level options.
 //
 // SQLite's column options are minimal. The main distinguishing feature
-// is the AUTOINCREMENT keyword which provides stricter guarantees than
+// is the AUTOINCREMENT keyword that provides stricter guarantees than
 // the default INTEGER PRIMARY KEY behavior.
 type SQLiteColumnOptions struct {
 	// StrictAutoincrement forces use of the AUTOINCREMENT keyword.

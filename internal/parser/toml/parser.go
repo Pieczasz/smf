@@ -64,10 +64,9 @@ func (p *Parser) Parse(r io.Reader) (*core.Database, error) {
 		return nil, fmt.Errorf("toml: decode error: %w", err)
 	}
 
-	dialect := core.Dialect(strings.ToLower(sf.Database.Dialect))
 	db := &core.Database{
 		Name:    sf.Database.Name,
-		Dialect: &dialect,
+		Dialect: new(core.Dialect(strings.ToLower(sf.Database.Dialect))),
 		Tables:  make([]*core.Table, 0, len(sf.Tables)),
 	}
 	db.Validation = parseRules(sf.Validation)

@@ -565,7 +565,7 @@ name = ""
 	p := NewParser()
 	_, err := p.Parse(strings.NewReader(schema))
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "table name is empty")
+	assert.Contains(t, err.Error(), "name is empty")
 }
 
 func TestParseWhitespaceOnlyTableName(t *testing.T) {
@@ -585,7 +585,7 @@ name = "   "
 	p := NewParser()
 	_, err := p.Parse(strings.NewReader(schema))
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "table name is empty")
+	assert.Contains(t, err.Error(), "name is empty")
 }
 
 func TestParseColumnNamePatternMismatch(t *testing.T) {

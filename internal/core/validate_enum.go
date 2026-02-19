@@ -111,47 +111,47 @@ func (con *Constraint) validateEnums(table *Table) error {
 	return nil
 }
 
-func (idx *Index) validateEnums(table *Table) error {
-	if err := idx.validateType(table); err != nil {
+func (i *Index) validateEnums(table *Table) error {
+	if err := i.validateType(table); err != nil {
 		return err
 	}
-	if err := idx.validateVisibility(table); err != nil {
+	if err := i.validateVisibility(table); err != nil {
 		return err
 	}
-	return idx.validateColumnsOrder(table)
+	return i.validateColumnsOrder(table)
 }
 
-func (idx *Index) validateType(table *Table) error {
-	if idx.Type == "" {
+func (i *Index) validateType(table *Table) error {
+	if i.Type == "" {
 		return nil
 	}
-	switch idx.Type {
+	switch i.Type {
 	case IndexTypeBTree, IndexTypeHash, IndexTypeFullText, IndexTypeSpatial, IndexTypeGIN, IndexTypeGiST:
 		return nil
 	default:
-		return fmt.Errorf("table %q, index %q: invalid index type %q", table.Name, idx.Name, idx.Type)
+		return fmt.Errorf("table %q, index %q: invalid index type %q", table.Name, i.Name, i.Type)
 	}
 }
 
-func (idx *Index) validateVisibility(table *Table) error {
-	if idx.Visibility == "" {
+func (i *Index) validateVisibility(table *Table) error {
+	if i.Visibility == "" {
 		return nil
 	}
-	switch idx.Visibility {
+	switch i.Visibility {
 	case IndexVisible, IndexInvisible:
 		return nil
 	default:
-		return fmt.Errorf("table %q, index %q: invalid visibility %q", table.Name, idx.Name, idx.Visibility)
+		return fmt.Errorf("table %q, index %q: invalid visibility %q", table.Name, i.Name, i.Visibility)
 	}
 }
 
-func (idx *Index) validateColumnsOrder(table *Table) error {
-	for _, ic := range idx.Columns {
+func (i *Index) validateColumnsOrder(table *Table) error {
+	for _, ic := range i.Columns {
 		if ic.Order != "" {
 			switch ic.Order {
 			case SortAsc, SortDesc:
 			default:
-				return fmt.Errorf("table %q, index %q, column %q: invalid sort order %q", table.Name, idx.Name, ic.Name, ic.Order)
+				return fmt.Errorf("table %q, index %q, column %q: invalid sort order %q", table.Name, i.Name, ic.Name, ic.Order)
 			}
 		}
 	}
