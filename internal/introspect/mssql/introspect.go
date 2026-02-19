@@ -3,6 +3,7 @@ package mssql
 import (
 	"context"
 	"database/sql"
+
 	"smf/internal/core"
 	"smf/internal/introspect"
 )
@@ -17,6 +18,6 @@ func New() introspect.Introspecter {
 	return &mssqlIntrospecter{}
 }
 
-func (i *mssqlIntrospecter) Introspect(ctx context.Context, db *sql.DB) (*core.Database, error) {
+func (i *mssqlIntrospecter) Introspect(_ context.Context, _ *sql.DB) (*core.Database, error) {
 	return nil, nil
 }

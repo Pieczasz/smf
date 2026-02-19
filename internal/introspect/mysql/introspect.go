@@ -6,6 +6,7 @@ package mysql
 import (
 	"context"
 	"database/sql"
+
 	"smf/internal/core"
 	"smf/internal/introspect"
 )
@@ -22,6 +23,6 @@ func New() introspect.Introspecter {
 	return &introspecter{}
 }
 
-func (i *introspecter) Introspect(ctx context.Context, db *sql.DB) (*core.Database, error) {
+func (i *introspecter) Introspect(_ context.Context, _ *sql.DB) (*core.Database, error) {
 	return nil, nil
 }
