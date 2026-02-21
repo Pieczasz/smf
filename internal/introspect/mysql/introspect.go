@@ -19,10 +19,40 @@ func init() {
 
 type introspecter struct{}
 
+type introspectCtx struct {
+	dialect core.Dialect
+	version string
+	db      *sql.DB
+	ctx     context.Context
+}
+
 func New() introspect.Introspecter {
 	return &introspecter{}
 }
 
-func (i *introspecter) Introspect(_ context.Context, _ *sql.DB) (*core.Database, error) {
-	return nil, nil
+func (i *introspecter) Introspect(ctx context.Context, db *sql.DB) (*core.Database, error) {
+	d := new(core.Database)
+	err := db.QueryRowContext(ctx, "SELECT DATABASE()").Scan(&d.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	dialect, version, err := detectDialect(ctx, db)
+	ic := &introspectCtx{
+		dialect: dialect,
+		version: version,
+		db:      db,
+		ctx:     ctx,
+	}
+	if err != nil {
+		return nil, err
+	}
+	d.Dialect = &dialect
+
+	err = introspectTables(ic, d)
+	if err != nil {
+		return nil, err
+	}
+
+	return d, nil
 }

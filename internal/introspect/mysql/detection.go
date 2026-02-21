@@ -8,7 +8,7 @@ import (
 	"smf/internal/core"
 )
 
-func DetectDialect(ctx context.Context, db *sql.DB) (core.Dialect, string, error) {
+func detectDialect(ctx context.Context, db *sql.DB) (core.Dialect, string, error) {
 	var varName, comment string
 
 	err := db.QueryRowContext(ctx, "SHOW VARIABLES LIKE 'version_comment'").Scan(&varName, &comment)
