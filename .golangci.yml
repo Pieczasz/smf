@@ -59,6 +59,7 @@ linters:
     - rowserrcheck
     - sqlclosecheck
     - bodyclose
+    - dupl
 
   settings:
     revive:
