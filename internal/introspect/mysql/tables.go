@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"smf/internal/core"
+	"smf/internal/introspect"
 
 	"golang.org/x/sync/errgroup"
 )
@@ -176,7 +177,7 @@ func parseCreateTableDDL(dialect core.Dialect, tableName, ddl string) (*core.Tab
 		return nil, err
 	}
 
-	items := splitBodyItems(sections.body)
+	items := introspect.SplitBy(sections.body, ',')
 
 	for _, item := range items {
 		switch classifyBodyItem(item) {
@@ -222,43 +223,8 @@ func splitDDLSections(ddl string) (ddlSections, error) {
 		return ddlSections{}, fmt.Errorf("missing opening parenthesis in CREATE TABLE DDL")
 	}
 
-	var depth int
-	var singleQuoted, doubleQuoted, backticked bool
-	closeIdx := -1
-
-	for i := openIdx; i < len(ddl); i++ {
-		ch := ddl[i]
-
-		if (singleQuoted || doubleQuoted) && ch == '\\' {
-			i++ // the second incrementation happens through the for loop
-			continue
-		}
-
-		switch {
-		case ch == '\'' && !doubleQuoted && !backticked:
-			singleQuoted = !singleQuoted
-		case ch == '"' && !singleQuoted && !backticked:
-			doubleQuoted = !doubleQuoted
-		case ch == '`' && !singleQuoted && !doubleQuoted:
-			backticked = !backticked
-		case !singleQuoted && !doubleQuoted && !backticked:
-			if ch == '(' {
-				depth++
-			} else if ch == ')' {
-				depth--
-				if depth == 0 {
-					closeIdx = i
-					break
-				}
-			}
-		}
-
-		if closeIdx != -1 {
-			break
-		}
-	}
-
-	if closeIdx == -1 {
+	closeIdx, err := introspect.FindMatchingParen(ddl, openIdx)
+	if err != nil || closeIdx == -1 {
 		return ddlSections{}, fmt.Errorf("unbalanced parentheses in CREATE TABLE DDL")
 	}
 
@@ -267,49 +233,6 @@ func splitDDLSections(ddl string) (ddlSections, error) {
 		body: ddl[openIdx+1 : closeIdx],
 		tail: strings.TrimSpace(ddl[closeIdx+1:]),
 	}, nil
-}
-
-// splitBodyItems splits the body of a CREATE TABLE statement by top-level.
-func splitBodyItems(body string) []string {
-	var items []string
-	var depth, start int
-	var singleQuoted, doubleQuoted, backticked bool
-
-	for i := 0; i < len(body); i++ {
-		ch := body[i]
-
-		if (singleQuoted || doubleQuoted) && ch == '\\' {
-			i++ // the second incrementation happens through the for loop
-			continue
-		}
-
-		switch {
-		case ch == '\'' && !doubleQuoted && !backticked:
-			singleQuoted = !singleQuoted
-		case ch == '"' && !singleQuoted && !backticked:
-			doubleQuoted = !doubleQuoted
-		case ch == '`' && !singleQuoted && !doubleQuoted:
-			backticked = !backticked
-		case !singleQuoted && !doubleQuoted && !backticked:
-			switch ch {
-			case '(':
-				depth++
-			case ')':
-				depth--
-			case ',':
-				if depth == 0 {
-					items = append(items, strings.TrimSpace(body[start:i]))
-					start = i + 1
-				}
-			}
-		}
-	}
-
-	if last := strings.TrimSpace(body[start:]); last != "" {
-		items = append(items, last)
-	}
-
-	return items
 }
 
 // classifyBodyItem determines whether a body item is a column definition.
