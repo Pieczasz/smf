@@ -1,7 +1,7 @@
 package mysql
 
 import (
-	"fmt"
+	"errors"
 
 	"smf/internal/core"
 )
@@ -15,5 +15,5 @@ import (
 func parseConstraint(_ core.Dialect, item string) (*core.Constraint, error) {
 	// TODO: implement full constraint parsing.
 	_ = item
-	return nil, fmt.Errorf("parseConstraint not yet implemented")
+	return nil, errors.New("parseConstraint not yet implemented")
 }

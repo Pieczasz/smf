@@ -13,7 +13,6 @@ import (
 	"smf/internal/introspect"
 )
 
-//revive:disable-next-line:function-length Reason: single scenario-style integration test avoids duplicated per-feature setup blocks
 func TestMariaDBCoreIntrospectionScenarios(t *testing.T) {
 	ctx := context.Background()
 	mariaDBContainer, err := mariadbcontainer.Run(ctx, "mariadb:11.0.3")

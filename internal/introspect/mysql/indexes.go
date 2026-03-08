@@ -1,7 +1,7 @@
 package mysql
 
 import (
-	"fmt"
+	"errors"
 
 	"smf/internal/core"
 )
@@ -15,5 +15,5 @@ import (
 func parseIndex(_ core.Dialect, item string) (*core.Index, error) {
 	// TODO: implement full index parsing.
 	_ = item
-	return nil, fmt.Errorf("parseIndex not yet implemented")
+	return nil, errors.New("parseIndex not yet implemented")
 }

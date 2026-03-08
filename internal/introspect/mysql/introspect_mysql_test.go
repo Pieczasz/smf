@@ -17,7 +17,6 @@ import (
 	"smf/internal/introspect"
 )
 
-//revive:disable:function-length Reason: comprehensive test requires setup and assertions
 func TestMySQLTableOptions(t *testing.T) {
 	ctx := context.Background()
 
@@ -239,7 +238,6 @@ func TestMySQLColumnOptions(t *testing.T) {
 	require.Equal(t, core.DataTypeBoolean, isActiveCol.Type)
 }
 
-//revive:disable-next-line:function-length
 func TestMySQLConstraints(t *testing.T) {
 	ctx := context.Background()
 

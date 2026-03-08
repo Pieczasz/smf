@@ -2,15 +2,16 @@ package mysql
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"runtime"
 	"strings"
 	"sync"
 
+	"golang.org/x/sync/errgroup"
+
 	"smf/internal/core"
 	"smf/internal/introspect"
-
-	"golang.org/x/sync/errgroup"
 )
 
 // bodyItemKind classifies a single item inside the CREATE TABLE body.
@@ -144,7 +145,7 @@ func introspectTable(ctx context.Context, ic *introspectCtx, tableName string) (
 }
 
 func queryShowCreateTable(ctx context.Context, ic *introspectCtx, tableName string) (string, error) {
-	query := fmt.Sprintf("SHOW CREATE TABLE %s", core.QuoteMySQLIdentifier(tableName))
+	query := "SHOW CREATE TABLE " + core.QuoteMySQLIdentifier(tableName)
 	var ignored string
 	var ddl string
 	if err := ic.db.QueryRowContext(ctx, query).Scan(&ignored, &ddl); err != nil {
@@ -220,12 +221,12 @@ func splitDDLSections(ddl string) (ddlSections, error) {
 		}
 	}
 	if openIdx == -1 {
-		return ddlSections{}, fmt.Errorf("missing opening parenthesis in CREATE TABLE DDL")
+		return ddlSections{}, errors.New("missing opening parenthesis in CREATE TABLE DDL")
 	}
 
 	closeIdx, err := introspect.FindMatchingParen(ddl, openIdx)
 	if err != nil || closeIdx == -1 {
-		return ddlSections{}, fmt.Errorf("unbalanced parentheses in CREATE TABLE DDL")
+		return ddlSections{}, errors.New("unbalanced parentheses in CREATE TABLE DDL")
 	}
 
 	return ddlSections{
