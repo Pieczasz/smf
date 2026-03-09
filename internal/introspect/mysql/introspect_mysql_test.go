@@ -7,6 +7,7 @@ package mysql
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"testing"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -17,170 +18,99 @@ import (
 	"smf/internal/introspect"
 )
 
+func setupMySQLTableOptionsDB(t *testing.T, db *sql.DB, dbName string) {
+	t.Helper()
+	_, err := db.Exec("CREATE DATABASE " + dbName)
+	require.NoError(t, err)
+	_, err = db.Exec("USE " + dbName)
+	require.NoError(t, err)
+	_, err = db.Exec(`CREATE TABLE t_charset_format (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(255)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC AVG_ROW_LENGTH=100 MAX_ROWS=1000000 MIN_ROWS=100 PACK_KEYS=1 COMMENT 'charset format test'`)
+	require.NoError(t, err)
+	_, err = db.Exec(`CREATE TABLE t_compress (id INT AUTO_INCREMENT PRIMARY KEY, data VARCHAR(255)) ENGINE=InnoDB CHARSET=utf8mb4 COLLATE=utf8mb4_bin AUTO_INCREMENT=1000 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION='ZLIB' ENCRYPTION='N' STATS_PERSISTENT=1 STATS_AUTO_RECALC=DEFAULT STATS_SAMPLE_PAGES=10 PACK_KEYS=0 DELAY_KEY_WRITE=1`)
+	require.NoError(t, err)
+	_, err = db.Exec(`CREATE TABLE t_dirs (id INT AUTO_INCREMENT PRIMARY KEY, total DECIMAL(10,2)) ENGINE=InnoDB AUTO_INCREMENT=10000 CHECKSUM=1 DATA DIRECTORY='/var/lib/mysql-data' INDEX DIRECTORY='/var/lib/mysql-index'`)
+	require.NoError(t, err)
+	_, err = db.Exec(`CREATE TABLE t_myisam (id INT AUTO_INCREMENT PRIMARY KEY, message TEXT) ENGINE=MyISAM ROW_FORMAT=FIXED PACK_KEYS=DEFAULT DELAY_KEY_WRITE=0`)
+	require.NoError(t, err)
+}
+
 func TestMySQLTableOptions(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
 	ctx := context.Background()
+	db := sharedMySQLContainer
 
-	mysqlContainer, err := mysqlcontainer.Run(ctx, "mysql:8.0")
-	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, mysqlContainer.Terminate(ctx))
-	}()
-
-	connStr, err := mysqlContainer.ConnectionString(ctx)
-	require.NoError(t, err)
-
-	db, err := sql.Open("mysql", connStr)
-	require.NoError(t, err)
-	defer db.Close()
-
-	_, err = db.Exec("CREATE DATABASE testdb")
-	require.NoError(t, err)
-
-	_, err = db.Exec("USE testdb")
-	require.NoError(t, err)
-
-	_, err = db.Exec(`
-		CREATE TABLE users (
-			id INT AUTO_INCREMENT PRIMARY KEY,
-			name VARCHAR(255),
-			email VARCHAR(255)
-		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-		  ROW_FORMAT=DYNAMIC AVG_ROW_LENGTH=100
-		  MAX_ROWS=1000000 MIN_ROWS=100
-		  PACK_KEYS=1
-		  COMMENT 'User table with various options'
-	`)
-	require.NoError(t, err)
-
-	_, err = db.Exec(`
-		CREATE TABLE products (
-			id INT AUTO_INCREMENT PRIMARY KEY,
-			name VARCHAR(255),
-			price DECIMAL(10,2)
-		) ENGINE=InnoDB CHARSET=utf8mb4 COLLATE=utf8mb4_bin
-		  AUTO_INCREMENT=1000
-		  ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8
-		  COMPRESSION='ZLIB' ENCRYPTION='N'
-		  STATS_PERSISTENT=1 STATS_AUTO_RECALC=DEFAULT STATS_SAMPLE_PAGES=10
-		  PACK_KEYS=0 DELAY_KEY_WRITE=1
-	`)
-	require.NoError(t, err)
-
-	_, err = db.Exec(`
-		CREATE TABLE orders (
-			id INT AUTO_INCREMENT PRIMARY KEY,
-			user_id INT,
-			total DECIMAL(10,2)
-		) ENGINE=InnoDB
-		  AUTO_INCREMENT=10000
-		  CHECKSUM=1
-		  DATA DIRECTORY='/var/lib/mysql-data'
-		  INDEX DIRECTORY='/var/lib/mysql-index'
-	`)
-	require.NoError(t, err)
-
-	_, err = db.Exec(`
-		CREATE TABLE logs (
-			id INT AUTO_INCREMENT PRIMARY KEY,
-			message TEXT
-		) ENGINE=MyISAM
-		  ROW_FORMAT=FIXED
-		  PACK_KEYS=DEFAULT
-		  DELAY_KEY_WRITE=0
-	`)
-	require.NoError(t, err)
-
-	_, err = db.Exec(`
-		CREATE TABLE simple_table (
-			id INT PRIMARY KEY,
-			name VARCHAR(100)
-		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-	`)
-	require.NoError(t, err)
+	dbName := "testdb_table_opts"
+	setupMySQLTableOptionsDB(t, db, dbName)
 
 	intr, err := introspect.NewIntrospecter(core.DialectMySQL)
-	require.NoError(t, err)
-
-	_, err = db.Exec("USE testdb")
 	require.NoError(t, err)
 
 	result, err := intr.Introspect(ctx, db)
 	require.NoError(t, err)
 	require.NotNil(t, result)
-	require.Equal(t, "testdb", result.Name)
+	require.Equal(t, dbName, result.Name)
 	require.Equal(t, core.DialectMySQL, result.Dialect)
-	require.Len(t, result.Tables, 5)
 
-	usersTable := result.FindTable("users")
-	require.NotNil(t, usersTable)
-	require.NotNil(t, usersTable.Options.MySQL)
-	require.Equal(t, "InnoDB", usersTable.Options.MySQL.Engine)
-	require.Equal(t, "utf8mb4", usersTable.Options.MySQL.Charset)
-	require.Equal(t, "utf8mb4_unicode_ci", usersTable.Options.MySQL.Collate)
-	require.Equal(t, "DYNAMIC", usersTable.Options.MySQL.RowFormat)
-	require.Equal(t, uint64(100), usersTable.Options.MySQL.AvgRowLength)
-	require.Equal(t, uint64(1000000), usersTable.Options.MySQL.MaxRows)
-	require.Equal(t, uint64(100), usersTable.Options.MySQL.MinRows)
-	require.Equal(t, "1", usersTable.Options.MySQL.PackKeys)
-	require.Equal(t, "User table with various options", usersTable.Comment)
-
-	productsTable := result.FindTable("products")
-	require.NotNil(t, productsTable)
-	require.NotNil(t, productsTable.Options.MySQL)
-	require.Equal(t, "InnoDB", productsTable.Options.MySQL.Engine)
-	require.Equal(t, "utf8mb4", productsTable.Options.MySQL.Charset)
-	require.Equal(t, "utf8mb4_bin", productsTable.Options.MySQL.Collate)
-	require.Equal(t, uint64(1000), productsTable.Options.MySQL.AutoIncrement)
-	require.Equal(t, "COMPRESSED", productsTable.Options.MySQL.RowFormat)
-	require.Equal(t, uint64(8), productsTable.Options.MySQL.KeyBlockSize)
-	require.Equal(t, "ZLIB", productsTable.Options.MySQL.Compression)
-	require.Equal(t, "N", productsTable.Options.MySQL.Encryption)
-	require.Equal(t, "1", productsTable.Options.MySQL.StatsPersistent)
-	require.Equal(t, "DEFAULT", productsTable.Options.MySQL.StatsAutoRecalc)
-	require.Equal(t, "10", productsTable.Options.MySQL.StatsSamplePages)
-	require.Equal(t, "0", productsTable.Options.MySQL.PackKeys)
-	require.Equal(t, uint64(1), productsTable.Options.MySQL.DelayKeyWrite)
-
-	ordersTable := result.FindTable("orders")
-	require.NotNil(t, ordersTable)
-	require.NotNil(t, ordersTable.Options.MySQL)
-	require.Equal(t, uint64(10000), ordersTable.Options.MySQL.AutoIncrement)
-	require.Equal(t, uint64(1), ordersTable.Options.MySQL.Checksum)
-	require.Equal(t, "/var/lib/mysql-data", ordersTable.Options.MySQL.DataDirectory)
-	require.Equal(t, "/var/lib/mysql-index", ordersTable.Options.MySQL.IndexDirectory)
-
-	logsTable := result.FindTable("logs")
-	require.NotNil(t, logsTable)
-	require.NotNil(t, logsTable.Options.MySQL)
-	require.Equal(t, "MyISAM", logsTable.Options.MySQL.Engine)
-	require.Equal(t, "FIXED", logsTable.Options.MySQL.RowFormat)
-	require.Equal(t, "DEFAULT", logsTable.Options.MySQL.PackKeys)
-	require.Equal(t, uint64(0), logsTable.Options.MySQL.DelayKeyWrite)
-
-	simpleTable := result.FindTable("simple_table")
-	require.NotNil(t, simpleTable)
-	require.NotNil(t, simpleTable.Options.MySQL)
-	require.Equal(t, "InnoDB", simpleTable.Options.MySQL.Engine)
-	require.Equal(t, "utf8mb4", simpleTable.Options.MySQL.Charset)
+	t.Run("charset_and_format", func(t *testing.T) {
+		tbl := result.FindTable("t_charset_format")
+		require.NotNil(t, tbl)
+		require.NotNil(t, tbl.Options.MySQL)
+		require.Equal(t, "InnoDB", tbl.Options.MySQL.Engine)
+		require.Equal(t, "utf8mb4", tbl.Options.MySQL.Charset)
+		require.Equal(t, "utf8mb4_unicode_ci", tbl.Options.MySQL.Collate)
+		require.Equal(t, "DYNAMIC", tbl.Options.MySQL.RowFormat)
+		require.Equal(t, uint64(100), tbl.Options.MySQL.AvgRowLength)
+		require.Equal(t, uint64(1000000), tbl.Options.MySQL.MaxRows)
+		require.Equal(t, uint64(100), tbl.Options.MySQL.MinRows)
+		require.Equal(t, "1", tbl.Options.MySQL.PackKeys)
+		require.Equal(t, "charset format test", tbl.Comment)
+	})
+	t.Run("compression_and_stats", func(t *testing.T) {
+		tbl := result.FindTable("t_compress")
+		require.NotNil(t, tbl)
+		opts := tbl.Options.MySQL
+		require.Equal(t, "InnoDB", opts.Engine)
+		require.Equal(t, uint64(1000), opts.AutoIncrement)
+		require.Equal(t, "COMPRESSED", opts.RowFormat)
+		require.Equal(t, uint64(8), opts.KeyBlockSize)
+		require.Equal(t, "ZLIB", opts.Compression)
+		require.Equal(t, "N", opts.Encryption)
+		require.Equal(t, "1", opts.StatsPersistent)
+		require.Equal(t, "DEFAULT", opts.StatsAutoRecalc)
+		require.Equal(t, "10", opts.StatsSamplePages)
+		require.Equal(t, "0", opts.PackKeys)
+		require.Equal(t, uint64(1), opts.DelayKeyWrite)
+	})
+	t.Run("directories_and_checksum", func(t *testing.T) {
+		tbl := result.FindTable("t_dirs")
+		require.NotNil(t, tbl)
+		opts := tbl.Options.MySQL
+		require.Equal(t, uint64(10000), opts.AutoIncrement)
+		require.Equal(t, uint64(1), opts.Checksum)
+		require.Equal(t, "/var/lib/mysql-data", opts.DataDirectory)
+		require.Equal(t, "/var/lib/mysql-index", opts.IndexDirectory)
+	})
+	t.Run("myisam_options", func(t *testing.T) {
+		tbl := result.FindTable("t_myisam")
+		require.NotNil(t, tbl)
+		opts := tbl.Options.MySQL
+		require.Equal(t, "MyISAM", opts.Engine)
+		require.Equal(t, "FIXED", opts.RowFormat)
+		require.Equal(t, "DEFAULT", opts.PackKeys)
+		require.Equal(t, uint64(0), opts.DelayKeyWrite)
+	})
 }
 
 func TestMySQLColumnOptions(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
 	ctx := context.Background()
+	db := sharedMySQLContainer
 
-	mysqlContainer, err := mysqlcontainer.Run(ctx, "mysql:8.0")
-	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, mysqlContainer.Terminate(ctx))
-	}()
-
-	connStr, err := mysqlContainer.ConnectionString(ctx)
-	require.NoError(t, err)
-
-	db, err := sql.Open("mysql", connStr)
-	require.NoError(t, err)
-	defer db.Close()
-
-	_, err = db.Exec("CREATE DATABASE testdb_col")
+	_, err := db.Exec("CREATE DATABASE testdb_col")
 	require.NoError(t, err)
 
 	_, err = db.Exec("USE testdb_col")
@@ -238,109 +168,69 @@ func TestMySQLColumnOptions(t *testing.T) {
 	require.Equal(t, core.DataTypeBoolean, isActiveCol.Type)
 }
 
-func TestMySQLConstraints(t *testing.T) {
-	ctx := context.Background()
-
-	mysqlContainer, err := mysqlcontainer.Run(ctx, "mysql:8.0")
+func setupMySQLConstraintsDB(t *testing.T, db *sql.DB) {
+	t.Helper()
+	_, err := db.Exec("CREATE DATABASE test_constraints")
 	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, mysqlContainer.Terminate(ctx))
-	}()
-
-	connStr, err := mysqlContainer.ConnectionString(ctx)
-	require.NoError(t, err)
-
-	db, err := sql.Open("mysql", connStr)
-	require.NoError(t, err)
-	defer db.Close()
-
-	_, err = db.Exec("CREATE DATABASE test_constraints")
-	require.NoError(t, err)
-
 	_, err = db.Exec("USE test_constraints")
 	require.NoError(t, err)
-
-	_, err = db.Exec(`
-		CREATE TABLE users (
-			id INT AUTO_INCREMENT PRIMARY KEY,
-			email VARCHAR(255) UNIQUE NOT NULL,
-			name VARCHAR(100) NOT NULL
-		) ENGINE=InnoDB
-	`)
+	_, err = db.Exec(`CREATE TABLE users (id INT AUTO_INCREMENT PRIMARY KEY, email VARCHAR(255) UNIQUE NOT NULL, name VARCHAR(100) NOT NULL) ENGINE=InnoDB`)
 	require.NoError(t, err)
-
-	_, err = db.Exec(`
-		CREATE TABLE posts (
-			id INT AUTO_INCREMENT PRIMARY KEY,
-			user_id INT NOT NULL,
-			title VARCHAR(255) NOT NULL,
-			content TEXT,
-			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE RESTRICT
-		) ENGINE=InnoDB
-	`)
+	_, err = db.Exec(`CREATE TABLE posts (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, title VARCHAR(255) NOT NULL, content TEXT, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE RESTRICT) ENGINE=InnoDB`)
 	require.NoError(t, err)
-
-	_, err = db.Exec(`
-		CREATE TABLE products (
-			id INT PRIMARY KEY,
-			price DECIMAL(10,2) NOT NULL,
-			discount_price DECIMAL(10,2),
-			CONSTRAINT chk_price CHECK (price > 0),
-			CONSTRAINT chk_discount CHECK (discount_price IS NULL OR discount_price < price)
-		) ENGINE=InnoDB
-	`)
+	_, err = db.Exec(`CREATE TABLE products (id INT PRIMARY KEY, price DECIMAL(10,2) NOT NULL, discount_price DECIMAL(10,2), CONSTRAINT chk_price CHECK (price > 0), CONSTRAINT chk_discount CHECK (discount_price IS NULL OR discount_price < price)) ENGINE=InnoDB`)
 	require.NoError(t, err)
+}
+
+func TestMySQLConstraints(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+	ctx := context.Background()
+	db := sharedMySQLContainer
+
+	setupMySQLConstraintsDB(t, db)
 
 	intr, err := introspect.NewIntrospecter(core.DialectMySQL)
-	require.NoError(t, err)
-
-	_, err = db.Exec("USE test_constraints")
 	require.NoError(t, err)
 
 	result, err := intr.Introspect(ctx, db)
 	require.NoError(t, err)
 	require.NotNil(t, result)
-	require.Len(t, result.Tables, 3)
 
-	usersTable := result.FindTable("users")
-	require.NotNil(t, usersTable)
-	require.NotNil(t, usersTable.PrimaryKey())
-	require.Len(t, usersTable.PrimaryKey().Columns, 1)
-	require.Equal(t, "id", usersTable.PrimaryKey().Columns[0])
-
-	postsTable := result.FindTable("posts")
-	require.NotNil(t, postsTable)
-
-	fkConstraint := findConstraintByType(postsTable, core.ConstraintForeignKey)
-	require.NotNil(t, fkConstraint)
-	require.Equal(t, "user_id", fkConstraint.Columns[0])
-	require.Equal(t, "users", fkConstraint.ReferencedTable)
-	require.Equal(t, "id", fkConstraint.ReferencedColumns[0])
-	require.Equal(t, core.RefActionCascade, fkConstraint.OnDelete)
-	require.Equal(t, core.RefActionRestrict, fkConstraint.OnUpdate)
-
-	productsTable := result.FindTable("products")
-	require.NotNil(t, productsTable)
-	require.Len(t, productsTable.Constraints, 2)
+	t.Run("primary_key", func(t *testing.T) {
+		usersTable := result.FindTable("users")
+		require.NotNil(t, usersTable)
+		require.NotNil(t, usersTable.PrimaryKey())
+		require.Len(t, usersTable.PrimaryKey().Columns, 1)
+		require.Equal(t, "id", usersTable.PrimaryKey().Columns[0])
+	})
+	t.Run("foreign_key", func(t *testing.T) {
+		postsTable := result.FindTable("posts")
+		require.NotNil(t, postsTable)
+		fkConstraint := findConstraintByType(postsTable, core.ConstraintForeignKey)
+		require.NotNil(t, fkConstraint)
+		require.Equal(t, "user_id", fkConstraint.Columns[0])
+		require.Equal(t, "users", fkConstraint.ReferencedTable)
+		require.Equal(t, "id", fkConstraint.ReferencedColumns[0])
+		require.Equal(t, core.RefActionCascade, fkConstraint.OnDelete)
+		require.Equal(t, core.RefActionRestrict, fkConstraint.OnUpdate)
+	})
+	t.Run("check_constraints", func(t *testing.T) {
+		productsTable := result.FindTable("products")
+		require.NotNil(t, productsTable)
+		require.Len(t, productsTable.Constraints, 2)
+	})
 }
 
 func TestMySQLIndexes(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
 	ctx := context.Background()
+	db := sharedMySQLContainer
 
-	mysqlContainer, err := mysqlcontainer.Run(ctx, "mysql:8.0")
-	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, mysqlContainer.Terminate(ctx))
-	}()
-
-	connStr, err := mysqlContainer.ConnectionString(ctx)
-	require.NoError(t, err)
-
-	db, err := sql.Open("mysql", connStr)
-	require.NoError(t, err)
-	defer db.Close()
-
-	_, err = db.Exec("CREATE DATABASE test_indexes")
+	_, err := db.Exec("CREATE DATABASE test_indexes")
 	require.NoError(t, err)
 
 	_, err = db.Exec("USE test_indexes")
@@ -390,44 +280,28 @@ func TestMySQLIndexes(t *testing.T) {
 	require.NotNil(t, locationsTable)
 }
 
-func TestMySQLAllTableOptions(t *testing.T) {
-	ctx := context.Background()
-
-	mysqlContainer, err := mysqlcontainer.Run(ctx, "mysql:8.0")
+func runMySQLTableOptionCase(ctx context.Context, t *testing.T, db *sql.DB, name, schema string, verify func(*testing.T, *core.Database)) {
+	t.Helper()
+	dbName := "test_opt_" + strings.ReplaceAll(name, " ", "_")
+	_, err := db.Exec("CREATE DATABASE " + dbName)
 	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, mysqlContainer.Terminate(ctx))
-	}()
-
-	connStr, err := mysqlContainer.ConnectionString(ctx)
+	_, err = db.Exec("USE " + dbName)
 	require.NoError(t, err)
-
-	db, err := sql.Open("mysql", connStr)
+	_, err = db.Exec(schema)
 	require.NoError(t, err)
-	defer db.Close()
-
-	_, err = db.Exec("CREATE DATABASE test_all_options")
+	intr, err := introspect.NewIntrospecter(core.DialectMySQL)
 	require.NoError(t, err)
-
-	_, err = db.Exec("USE test_all_options")
+	result, err := intr.Introspect(ctx, db)
 	require.NoError(t, err)
+	verify(t, result)
+}
 
-	testCases := []struct {
-		name   string
-		schema string
-		verify func(*testing.T, *core.Database)
-	}{
-		{
-			name: "InnoDB with compression and encryption",
-			schema: `
-				CREATE TABLE t_innodb_compressed (
-					id INT PRIMARY KEY,
-					data VARCHAR(255)
-				) ENGINE=InnoDB
-				  ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8
-				  COMPRESSION='ZLIB' ENCRYPTION='Y'
-			`,
-			verify: func(t *testing.T, db *core.Database) {
+func testMySQLAllTableOptionsBatchOne(ctx context.Context, t *testing.T, db *sql.DB) {
+	t.Helper()
+	t.Run("innodb_compression_encryption", func(t *testing.T) {
+		runMySQLTableOptionCase(ctx, t, db, "innodb_compression_encryption",
+			`CREATE TABLE t_innodb_compressed (id INT PRIMARY KEY, data VARCHAR(255)) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION='ZLIB' ENCRYPTION='Y'`,
+			func(t *testing.T, db *core.Database) {
 				t.Helper()
 				tbl := db.FindTable("t_innodb_compressed")
 				require.NotNil(t, tbl)
@@ -437,20 +311,12 @@ func TestMySQLAllTableOptions(t *testing.T) {
 				require.Equal(t, uint64(8), opts.KeyBlockSize)
 				require.Equal(t, "ZLIB", opts.Compression)
 				require.Equal(t, "Y", opts.Encryption)
-			},
-		},
-		{
-			name: "InnoDB with statistics options",
-			schema: `
-				CREATE TABLE t_innodb_stats (
-					id INT PRIMARY KEY,
-					data VARCHAR(255)
-				) ENGINE=InnoDB
-				  STATS_PERSISTENT=1
-				  STATS_AUTO_RECALC=0
-				  STATS_SAMPLE_PAGES=20
-			`,
-			verify: func(t *testing.T, db *core.Database) {
+			})
+	})
+	t.Run("innodb_statistics", func(t *testing.T) {
+		runMySQLTableOptionCase(ctx, t, db, "innodb_statistics",
+			`CREATE TABLE t_innodb_stats (id INT PRIMARY KEY, data VARCHAR(255)) ENGINE=InnoDB STATS_PERSISTENT=1 STATS_AUTO_RECALC=0 STATS_SAMPLE_PAGES=20`,
+			func(t *testing.T, db *core.Database) {
 				t.Helper()
 				tbl := db.FindTable("t_innodb_stats")
 				require.NotNil(t, tbl)
@@ -458,20 +324,12 @@ func TestMySQLAllTableOptions(t *testing.T) {
 				require.Equal(t, "1", opts.StatsPersistent)
 				require.Equal(t, "0", opts.StatsAutoRecalc)
 				require.Equal(t, "20", opts.StatsSamplePages)
-			},
-		},
-		{
-			name: "MyISAM with pack keys and delay key write",
-			schema: `
-				CREATE TABLE t_myisam (
-					id INT PRIMARY KEY,
-					data VARCHAR(255)
-				) ENGINE=MyISAM
-				  ROW_FORMAT=Dynamic
-				  PACK_KEYS=1
-				  DELAY_KEY_WRITE=1
-			`,
-			verify: func(t *testing.T, db *core.Database) {
+			})
+	})
+	t.Run("myisam_pack_keys", func(t *testing.T) {
+		runMySQLTableOptionCase(ctx, t, db, "myisam_pack_keys",
+			`CREATE TABLE t_myisam (id INT PRIMARY KEY, data VARCHAR(255)) ENGINE=MyISAM ROW_FORMAT=Dynamic PACK_KEYS=1 DELAY_KEY_WRITE=1`,
+			func(t *testing.T, db *core.Database) {
 				t.Helper()
 				tbl := db.FindTable("t_myisam")
 				require.NotNil(t, tbl)
@@ -480,58 +338,40 @@ func TestMySQLAllTableOptions(t *testing.T) {
 				require.Equal(t, "Dynamic", opts.RowFormat)
 				require.Equal(t, "1", opts.PackKeys)
 				require.Equal(t, uint64(1), opts.DelayKeyWrite)
-			},
-		},
-		{
-			name: "InnoDB with auto increment and row format",
-			schema: `
-				CREATE TABLE t_auto_increment (
-					id BIGINT PRIMARY KEY,
-					data VARCHAR(255)
-				) ENGINE=InnoDB
-				  AUTO_INCREMENT=100000
-				  ROW_FORMAT=Compact
-			`,
-			verify: func(t *testing.T, db *core.Database) {
+			})
+	})
+}
+
+func testMySQLAllTableOptionsBatchTwo(ctx context.Context, t *testing.T, db *sql.DB) {
+	t.Helper()
+	t.Run("innodb_auto_increment_row_format", func(t *testing.T) {
+		runMySQLTableOptionCase(ctx, t, db, "innodb_auto_increment_row_format",
+			`CREATE TABLE t_auto_increment (id BIGINT PRIMARY KEY, data VARCHAR(255)) ENGINE=InnoDB AUTO_INCREMENT=100000 ROW_FORMAT=Compact`,
+			func(t *testing.T, db *core.Database) {
 				t.Helper()
 				tbl := db.FindTable("t_auto_increment")
 				require.NotNil(t, tbl)
 				opts := tbl.Options.MySQL
 				require.Equal(t, uint64(100000), opts.AutoIncrement)
 				require.Equal(t, "Compact", opts.RowFormat)
-			},
-		},
-		{
-			name: "InnoDB with charset and collation",
-			schema: `
-				CREATE TABLE t_charset (
-					id INT PRIMARY KEY,
-					data VARCHAR(255)
-				) ENGINE=InnoDB
-				  CHARSET=utf8mb4
-				  COLLATE=utf8mb4_unicode_ci
-			`,
-			verify: func(t *testing.T, db *core.Database) {
+			})
+	})
+	t.Run("innodb_charset_collation", func(t *testing.T) {
+		runMySQLTableOptionCase(ctx, t, db, "innodb_charset_collation",
+			`CREATE TABLE t_charset (id INT PRIMARY KEY, data VARCHAR(255)) ENGINE=InnoDB CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+			func(t *testing.T, db *core.Database) {
 				t.Helper()
 				tbl := db.FindTable("t_charset")
 				require.NotNil(t, tbl)
 				opts := tbl.Options.MySQL
 				require.Equal(t, "utf8mb4", opts.Charset)
 				require.Equal(t, "utf8mb4_unicode_ci", opts.Collate)
-			},
-		},
-		{
-			name: "Table with all hints",
-			schema: `
-				CREATE TABLE t_hints (
-					id INT PRIMARY KEY,
-					data VARCHAR(255)
-				) ENGINE=InnoDB
-				  AVG_ROW_LENGTH=128
-				  MAX_ROWS=500000
-				  MIN_ROWS=10
-			`,
-			verify: func(t *testing.T, db *core.Database) {
+			})
+	})
+	t.Run("row_length_hints", func(t *testing.T) {
+		runMySQLTableOptionCase(ctx, t, db, "row_length_hints",
+			`CREATE TABLE t_hints (id INT PRIMARY KEY, data VARCHAR(255)) ENGINE=InnoDB AVG_ROW_LENGTH=128 MAX_ROWS=500000 MIN_ROWS=10`,
+			func(t *testing.T, db *core.Database) {
 				t.Helper()
 				tbl := db.FindTable("t_hints")
 				require.NotNil(t, tbl)
@@ -539,68 +379,39 @@ func TestMySQLAllTableOptions(t *testing.T) {
 				require.Equal(t, uint64(128), opts.AvgRowLength)
 				require.Equal(t, uint64(500000), opts.MaxRows)
 				require.Equal(t, uint64(10), opts.MinRows)
-			},
-		},
-		{
-			name: "Table with checksum",
-			schema: `
-				CREATE TABLE t_checksum (
-					id INT PRIMARY KEY,
-					data VARCHAR(255)
-				) ENGINE=InnoDB
-				  CHECKSUM=1
-			`,
-			verify: func(t *testing.T, db *core.Database) {
+			})
+	})
+	t.Run("checksum", func(t *testing.T) {
+		runMySQLTableOptionCase(ctx, t, db, "checksum",
+			`CREATE TABLE t_checksum (id INT PRIMARY KEY, data VARCHAR(255)) ENGINE=InnoDB CHECKSUM=1`,
+			func(t *testing.T, db *core.Database) {
 				t.Helper()
 				tbl := db.FindTable("t_checksum")
 				require.NotNil(t, tbl)
-				opts := tbl.Options.MySQL
-				require.Equal(t, uint64(1), opts.Checksum)
-			},
-		},
+				require.Equal(t, uint64(1), tbl.Options.MySQL.Checksum)
+			})
+	})
+}
+
+func TestMySQLAllTableOptions(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
 	}
+	ctx := context.Background()
+	db := sharedMySQLContainer
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			_, err := db.Exec(tc.schema)
-			require.NoError(t, err)
-		})
-	}
-
-	intr, err := introspect.NewIntrospecter(core.DialectMySQL)
-	require.NoError(t, err)
-
-	_, err = db.Exec("USE test_all_options")
-	require.NoError(t, err)
-
-	result, err := intr.Introspect(ctx, db)
-	require.NoError(t, err)
-	require.NotNil(t, result)
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			tc.verify(t, result)
-		})
-	}
+	testMySQLAllTableOptionsBatchOne(ctx, t, db)
+	testMySQLAllTableOptionsBatchTwo(ctx, t, db)
 }
 
 func TestMySQLGeneratedColumns(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
 	ctx := context.Background()
+	db := sharedMySQLContainer
 
-	mysqlContainer, err := mysqlcontainer.Run(ctx, "mysql:8.0")
-	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, mysqlContainer.Terminate(ctx))
-	}()
-
-	connStr, err := mysqlContainer.ConnectionString(ctx)
-	require.NoError(t, err)
-
-	db, err := sql.Open("mysql", connStr)
-	require.NoError(t, err)
-	defer db.Close()
-
-	_, err = db.Exec("CREATE DATABASE test_generated")
+	_, err := db.Exec("CREATE DATABASE test_generated")
 	require.NoError(t, err)
 
 	_, err = db.Exec("USE test_generated")
@@ -643,22 +454,13 @@ func TestMySQLGeneratedColumns(t *testing.T) {
 }
 
 func TestMySQLEnumAndSet(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
 	ctx := context.Background()
+	db := sharedMySQLContainer
 
-	mysqlContainer, err := mysqlcontainer.Run(ctx, "mysql:8.0")
-	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, mysqlContainer.Terminate(ctx))
-	}()
-
-	connStr, err := mysqlContainer.ConnectionString(ctx)
-	require.NoError(t, err)
-
-	db, err := sql.Open("mysql", connStr)
-	require.NoError(t, err)
-	defer db.Close()
-
-	_, err = db.Exec("CREATE DATABASE test_enum")
+	_, err := db.Exec("CREATE DATABASE test_enum")
 	require.NoError(t, err)
 
 	_, err = db.Exec("USE test_enum")
@@ -702,6 +504,9 @@ func TestMySQLEnumAndSet(t *testing.T) {
 }
 
 func TestMySQLVersionDetection(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
 	ctx := context.Background()
 
 	testVersions := []string{"8.0", "8.0.23", "8.0.35"}
@@ -752,22 +557,13 @@ func TestMySQLVersionDetection(t *testing.T) {
 }
 
 func TestMySQLInvisibleColumn(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
 	ctx := context.Background()
+	db := sharedMySQLContainer
 
-	mysqlContainer, err := mysqlcontainer.Run(ctx, "mysql:8.0")
-	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, mysqlContainer.Terminate(ctx))
-	}()
-
-	connStr, err := mysqlContainer.ConnectionString(ctx)
-	require.NoError(t, err)
-
-	db, err := sql.Open("mysql", connStr)
-	require.NoError(t, err)
-	defer db.Close()
-
-	_, err = db.Exec("CREATE DATABASE test_invisible")
+	_, err := db.Exec("CREATE DATABASE test_invisible")
 	require.NoError(t, err)
 
 	_, err = db.Exec("USE test_invisible")
@@ -809,22 +605,13 @@ func TestMySQLInvisibleColumn(t *testing.T) {
 }
 
 func TestMySQLInvisibleIndex(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
 	ctx := context.Background()
+	db := sharedMySQLContainer
 
-	mysqlContainer, err := mysqlcontainer.Run(ctx, "mysql:8.0")
-	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, mysqlContainer.Terminate(ctx))
-	}()
-
-	connStr, err := mysqlContainer.ConnectionString(ctx)
-	require.NoError(t, err)
-
-	db, err := sql.Open("mysql", connStr)
-	require.NoError(t, err)
-	defer db.Close()
-
-	_, err = db.Exec("CREATE DATABASE test_inv_idx")
+	_, err := db.Exec("CREATE DATABASE test_inv_idx")
 	require.NoError(t, err)
 
 	_, err = db.Exec("USE test_inv_idx")
@@ -864,22 +651,13 @@ func TestMySQLInvisibleIndex(t *testing.T) {
 }
 
 func TestMySQLEngineAttributes(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
 	ctx := context.Background()
+	db := sharedMySQLContainer
 
-	mysqlContainer, err := mysqlcontainer.Run(ctx, "mysql:8.0")
-	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, mysqlContainer.Terminate(ctx))
-	}()
-
-	connStr, err := mysqlContainer.ConnectionString(ctx)
-	require.NoError(t, err)
-
-	db, err := sql.Open("mysql", connStr)
-	require.NoError(t, err)
-	defer db.Close()
-
-	_, err = db.Exec("CREATE DATABASE test_engine_attr")
+	_, err := db.Exec("CREATE DATABASE test_engine_attr")
 	require.NoError(t, err)
 
 	_, err = db.Exec("USE test_engine_attr")
@@ -913,22 +691,13 @@ func TestMySQLEngineAttributes(t *testing.T) {
 }
 
 func TestMySQLPageCompression(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
 	ctx := context.Background()
+	db := sharedMySQLContainer
 
-	mysqlContainer, err := mysqlcontainer.Run(ctx, "mysql:8.0")
-	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, mysqlContainer.Terminate(ctx))
-	}()
-
-	connStr, err := mysqlContainer.ConnectionString(ctx)
-	require.NoError(t, err)
-
-	db, err := sql.Open("mysql", connStr)
-	require.NoError(t, err)
-	defer db.Close()
-
-	_, err = db.Exec("CREATE DATABASE test_page_compress")
+	_, err := db.Exec("CREATE DATABASE test_page_compress")
 	require.NoError(t, err)
 
 	_, err = db.Exec("USE test_page_compress")
@@ -976,22 +745,13 @@ func TestMySQLPageCompression(t *testing.T) {
 }
 
 func TestMySQLFederatedOptions(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
 	ctx := context.Background()
+	db := sharedMySQLContainer
 
-	mysqlContainer, err := mysqlcontainer.Run(ctx, "mysql:8.0")
-	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, mysqlContainer.Terminate(ctx))
-	}()
-
-	connStr, err := mysqlContainer.ConnectionString(ctx)
-	require.NoError(t, err)
-
-	db, err := sql.Open("mysql", connStr)
-	require.NoError(t, err)
-	defer db.Close()
-
-	_, err = db.Exec("CREATE DATABASE test_federated")
+	_, err := db.Exec("CREATE DATABASE test_federated")
 	require.NoError(t, err)
 
 	_, err = db.Exec("USE test_federated")
@@ -1037,22 +797,13 @@ func TestMySQLFederatedOptions(t *testing.T) {
 }
 
 func TestMySQLColumnEngineAttributes(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
 	ctx := context.Background()
+	db := sharedMySQLContainer
 
-	mysqlContainer, err := mysqlcontainer.Run(ctx, "mysql:8.0")
-	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, mysqlContainer.Terminate(ctx))
-	}()
-
-	connStr, err := mysqlContainer.ConnectionString(ctx)
-	require.NoError(t, err)
-
-	db, err := sql.Open("mysql", connStr)
-	require.NoError(t, err)
-	defer db.Close()
-
-	_, err = db.Exec("CREATE DATABASE test_col_engine_attr")
+	_, err := db.Exec("CREATE DATABASE test_col_engine_attr")
 	require.NoError(t, err)
 
 	_, err = db.Exec("USE test_col_engine_attr")
@@ -1100,22 +851,13 @@ func TestMySQLColumnEngineAttributes(t *testing.T) {
 }
 
 func TestMySQLInsertMethod(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
 	ctx := context.Background()
+	db := sharedMySQLContainer
 
-	mysqlContainer, err := mysqlcontainer.Run(ctx, "mysql:8.0")
-	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, mysqlContainer.Terminate(ctx))
-	}()
-
-	connStr, err := mysqlContainer.ConnectionString(ctx)
-	require.NoError(t, err)
-
-	db, err := sql.Open("mysql", connStr)
-	require.NoError(t, err)
-	defer db.Close()
-
-	_, err = db.Exec("CREATE DATABASE test_insert_method")
+	_, err := db.Exec("CREATE DATABASE test_insert_method")
 	require.NoError(t, err)
 
 	_, err = db.Exec("USE test_insert_method")
@@ -1175,22 +917,13 @@ func TestMySQLInsertMethod(t *testing.T) {
 }
 
 func TestMySQLIETFQuotes(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
 	ctx := context.Background()
+	db := sharedMySQLContainer
 
-	mysqlContainer, err := mysqlcontainer.Run(ctx, "mysql:8.0")
-	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, mysqlContainer.Terminate(ctx))
-	}()
-
-	connStr, err := mysqlContainer.ConnectionString(ctx)
-	require.NoError(t, err)
-
-	db, err := sql.Open("mysql", connStr)
-	require.NoError(t, err)
-	defer db.Close()
-
-	_, err = db.Exec("CREATE DATABASE test_ietf")
+	_, err := db.Exec("CREATE DATABASE test_ietf")
 	require.NoError(t, err)
 
 	_, err = db.Exec("USE test_ietf")
@@ -1236,22 +969,13 @@ func TestMySQLIETFQuotes(t *testing.T) {
 }
 
 func TestMySQLAutoextendSize(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
 	ctx := context.Background()
+	db := sharedMySQLContainer
 
-	mysqlContainer, err := mysqlcontainer.Run(ctx, "mysql:8.0")
-	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, mysqlContainer.Terminate(ctx))
-	}()
-
-	connStr, err := mysqlContainer.ConnectionString(ctx)
-	require.NoError(t, err)
-
-	db, err := sql.Open("mysql", connStr)
-	require.NoError(t, err)
-	defer db.Close()
-
-	_, err = db.Exec("CREATE DATABASE test_autoextend")
+	_, err := db.Exec("CREATE DATABASE test_autoextend")
 	require.NoError(t, err)
 
 	_, err = db.Exec("USE test_autoextend")
