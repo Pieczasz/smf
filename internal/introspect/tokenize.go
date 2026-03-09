@@ -1,6 +1,16 @@
 package introspect
 
-import "strings"
+import (
+	"strings"
+)
+
+// quoteState tracks nesting inside string literals and parentheses during tokenization.
+type quoteState struct {
+	singular   bool
+	doubled    bool
+	backticked bool
+	parenDepth int
+}
 
 // Tokenize splits a SQL string by whitespace, but keeps whitespace intact if they
 // are inside single quotes, double quotes, backticks, or parentheses.
@@ -10,54 +20,60 @@ import "strings"
 func Tokenize(s string) []string {
 	var tokens []string
 	var current strings.Builder
-	singular, doubled, backticked := false, false, false
-	parenDepth := 0
+	var q quoteState
 
 	for _, r := range s {
-		switch r {
-		case '\'':
-			if !doubled && !backticked {
-				singular = !singular
-			}
-			current.WriteRune(r)
-		case '"':
-			if !singular && !backticked {
-				doubled = !doubled
-			}
-			current.WriteRune(r)
-		case '`':
-			if !singular && !doubled {
-				backticked = !backticked
-			}
-			current.WriteRune(r)
-		case '(':
-			if !singular && !doubled && !backticked {
-				parenDepth++
-			}
-			current.WriteRune(r)
-		case ')':
-			if !singular && !doubled && !backticked {
-				parenDepth--
-			}
-			current.WriteRune(r)
-		case ' ', '\t':
-			if !singular && !doubled && !backticked && parenDepth == 0 {
+		if r == ' ' || r == '\t' {
+			if !q.nested() {
 				if current.Len() > 0 {
 					tokens = append(tokens, current.String())
 					current.Reset()
 				}
-			} else {
-				current.WriteRune(r)
+				continue
 			}
-		default:
-			current.WriteRune(r)
 		}
+		q.updateQuotes(r)
+		q.updateParens(r)
+		current.WriteRune(r)
 	}
 
 	if current.Len() > 0 {
 		tokens = append(tokens, current.String())
 	}
 	return tokens
+}
+
+func (q *quoteState) nested() bool {
+	return q.singular || q.doubled || q.backticked || q.parenDepth > 0
+}
+
+func (q *quoteState) updateQuotes(r rune) {
+	switch r {
+	case '\'':
+		if !q.doubled && !q.backticked {
+			q.singular = !q.singular
+		}
+	case '"':
+		if !q.singular && !q.backticked {
+			q.doubled = !q.doubled
+		}
+	case '`':
+		if !q.singular && !q.doubled {
+			q.backticked = !q.backticked
+		}
+	}
+}
+
+func (q *quoteState) updateParens(r rune) {
+	if q.singular || q.doubled || q.backticked {
+		return
+	}
+	switch r {
+	case '(':
+		q.parenDepth++
+	case ')':
+		q.parenDepth--
+	}
 }
 
 // FindMatchingParen returns the index of the closing parenthesis that matches
@@ -78,27 +94,48 @@ func FindMatchingParen(s string, startPos int) (int, error) {
 			continue
 		}
 
-		switch {
-		case ch == '\'' && !doubleQuoted && !backticked:
-			singleQuoted = !singleQuoted
-		case ch == '"' && !singleQuoted && !backticked:
-			doubleQuoted = !doubleQuoted
-		case ch == '`' && !singleQuoted && !doubleQuoted:
-			backticked = !backticked
-		case !singleQuoted && !doubleQuoted && !backticked:
-			switch ch {
-			case '(':
-				depth++
-			case ')':
-				depth--
-				if depth == 0 {
-					return i, nil
-				}
-			}
+		i = applyParenState(ch, i, &depth, &singleQuoted, &doubleQuoted, &backticked)
+		if depth == 0 && i >= startPos+1 {
+			return i, nil
 		}
 	}
 
 	return -1, nil
+}
+
+// applyParenState updates quote/depth state for a single character and returns the (possibly unchanged) index.
+func applyParenState(ch byte, i int, depth *int, singleQuoted, doubleQuoted, backticked *bool) int {
+	toggleParenQuotes(ch, singleQuoted, doubleQuoted, backticked)
+	if !*singleQuoted && !*doubleQuoted && !*backticked {
+		updateParenDepth(ch, depth)
+	}
+	return i
+}
+
+func toggleParenQuotes(ch byte, singleQuoted, doubleQuoted, backticked *bool) {
+	switch ch {
+	case '\'':
+		if !*doubleQuoted && !*backticked {
+			*singleQuoted = !*singleQuoted
+		}
+	case '"':
+		if !*singleQuoted && !*backticked {
+			*doubleQuoted = !*doubleQuoted
+		}
+	case '`':
+		if !*singleQuoted && !*doubleQuoted {
+			*backticked = !*backticked
+		}
+	}
+}
+
+func updateParenDepth(ch byte, depth *int) {
+	switch ch {
+	case '(':
+		*depth++
+	case ')':
+		*depth--
+	}
 }
 
 // SplitBy splits string s by delimiter when not inside quotes or parentheses.
@@ -106,46 +143,15 @@ func FindMatchingParen(s string, startPos int) (int, error) {
 func SplitBy(s string, delimiter rune) []string {
 	var parts []string
 	var current strings.Builder
-	singleQuoted, doubleQuoted, backticked := false, false, false
-	parenDepth := 0
+	var q quoteState
 
 	for _, r := range s {
-		switch r {
-		case '\'':
-			if !doubleQuoted && !backticked {
-				singleQuoted = !singleQuoted
+		if r == delimiter && !q.nested() {
+			if trimmed := strings.TrimSpace(current.String()); trimmed != "" {
+				parts = append(parts, trimmed)
+				current.Reset()
 			}
-			current.WriteRune(r)
-		case '"':
-			if !singleQuoted && !backticked {
-				doubleQuoted = !doubleQuoted
-			}
-			current.WriteRune(r)
-		case '`':
-			if !singleQuoted && !doubleQuoted {
-				backticked = !backticked
-			}
-			current.WriteRune(r)
-		case '(':
-			if !singleQuoted && !doubleQuoted && !backticked {
-				parenDepth++
-			}
-			current.WriteRune(r)
-		case ')':
-			if !singleQuoted && !doubleQuoted && !backticked {
-				parenDepth--
-			}
-			current.WriteRune(r)
-		case delimiter:
-			if !singleQuoted && !doubleQuoted && !backticked && parenDepth == 0 {
-				if trimmed := strings.TrimSpace(current.String()); trimmed != "" {
-					parts = append(parts, trimmed)
-					current.Reset()
-				}
-			} else {
-				current.WriteRune(r)
-			}
-		default:
+		} else {
 			current.WriteRune(r)
 		}
 	}

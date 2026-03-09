@@ -162,6 +162,25 @@ func parseCreateTableDDL(dialect core.Dialect, tableName, ddl string) (*core.Tab
 		Indexes:     make([]*core.Index, 0),
 	}
 
+	initTableOptions(dialect, table)
+
+	sections, err := splitDDLSections(ddl)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := parseTableBody(dialect, table, sections.body); err != nil {
+		return nil, err
+	}
+
+	// TODO: parse sections.tail for table options (ENGINE, CHARSET, etc.)
+	_ = sections.tail
+
+	return table, nil
+}
+
+// initTableOptions initializes the dialect-specific Options fields on the table.
+func initTableOptions(dialect core.Dialect, table *core.Table) {
 	switch dialect {
 	case core.DialectMySQL:
 		table.Options.MySQL = &core.MySQLTableOptions{}
@@ -172,43 +191,41 @@ func parseCreateTableDDL(dialect core.Dialect, tableName, ddl string) (*core.Tab
 		table.Options.MySQL = &core.MySQLTableOptions{}
 		table.Options.TiDB = &core.TiDBTableOptions{}
 	}
+}
 
-	sections, err := splitDDLSections(ddl)
-	if err != nil {
-		return nil, err
-	}
-
-	items := introspect.SplitBy(sections.body, ',')
-
-	for _, item := range items {
-		switch classifyBodyItem(item) {
-		case bodyItemColumn:
-			col, err := parseColumn(dialect, item)
-			if err != nil {
-				return nil, fmt.Errorf("parse column: %w", err)
-			}
-			table.Columns = append(table.Columns, col)
-
-		case bodyItemConstraint:
-			constraint, err := parseConstraint(dialect, item)
-			if err != nil {
-				return nil, fmt.Errorf("parse constraint: %w", err)
-			}
-			table.Constraints = append(table.Constraints, constraint)
-
-		case bodyItemIndex:
-			idx, err := parseIndex(dialect, item)
-			if err != nil {
-				return nil, fmt.Errorf("parse index: %w", err)
-			}
-			table.Indexes = append(table.Indexes, idx)
+// parseTableBody parses each comma-separated item inside the CREATE TABLE body.
+func parseTableBody(dialect core.Dialect, table *core.Table, body string) error {
+	for _, item := range introspect.SplitBy(body, ',') {
+		if err := parseBodyItem(dialect, table, item); err != nil {
+			return err
 		}
 	}
+	return nil
+}
 
-	// TODO: parse sections.tail for table options (ENGINE, CHARSET, etc.)
-	_ = sections.tail
-
-	return table, nil
+// parseBodyItem routes a single body item to the appropriate parser.
+func parseBodyItem(dialect core.Dialect, table *core.Table, item string) error {
+	switch classifyBodyItem(item) {
+	case bodyItemColumn:
+		col, err := parseColumn(dialect, item)
+		if err != nil {
+			return fmt.Errorf("parse column: %w", err)
+		}
+		table.Columns = append(table.Columns, col)
+	case bodyItemConstraint:
+		constraint, err := parseConstraint(dialect, item)
+		if err != nil {
+			return fmt.Errorf("parse constraint: %w", err)
+		}
+		table.Constraints = append(table.Constraints, constraint)
+	case bodyItemIndex:
+		idx, err := parseIndex(dialect, item)
+		if err != nil {
+			return fmt.Errorf("parse index: %w", err)
+		}
+		table.Indexes = append(table.Indexes, idx)
+	}
+	return nil
 }
 
 // splitDDLSections splits a CREATE TABLE statement into head, body, and tail.
