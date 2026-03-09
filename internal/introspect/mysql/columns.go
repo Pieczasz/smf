@@ -41,104 +41,160 @@ func parseColumn(_ core.Dialect, item string) (*core.Column, error) {
 	col.Type = core.NormalizeDataType(rawType)
 	for ; i < len(tokens); i++ {
 		upperToken := strings.ToUpper(tokens[i])
+		i = applyColumnAttribute(col, tokens, i, upperToken)
+	}
+	return col, nil
+}
 
-		switch upperToken {
-		case "NOT":
-			if i+1 < len(tokens) && strings.ToUpper(tokens[i+1]) == "NULL" {
-				col.Nullable = false
-				i++
-			}
-		case "NULL":
-			col.Nullable = true
-		case "AUTO_INCREMENT":
-			col.AutoIncrement = true
-		case "PRIMARY":
-			if i+1 < len(tokens) && strings.ToUpper(tokens[i+1]) == "KEY" {
-				col.PrimaryKey = true
-				i++
-			}
-		case "UNIQUE":
-			col.Unique = true
-			// Optional: sometimes written as UNIQUE KEY
-			if i+1 < len(tokens) && strings.ToUpper(tokens[i+1]) == "KEY" {
-				i++
-			}
-		case "DEFAULT":
-			if i+1 < len(tokens) {
-				val := tokens[i+1]
-				col.DefaultValue = &val
-				i++
-			}
-		case "ON":
-			if i+2 < len(tokens) {
-				nextUpper := strings.ToUpper(tokens[i+1])
-				action1 := strings.ToUpper(tokens[i+2])
+// applyColumnAttribute processes a single column attribute keyword at position i and returns the new index.
+func applyColumnAttribute(col *core.Column, tokens []string, i int, upperToken string) int {
+	if j := applyColumnNullability(col, tokens, i, upperToken); j != i {
+		return j
+	}
+	if j := applyColumnKeyAttr(col, tokens, i, upperToken); j != i {
+		return j
+	}
+	if j := applyColumnTextAttr(col, tokens, i, upperToken); j != i {
+		return j
+	}
+	return applyColumnCheckAttr(col, tokens, i, upperToken)
+}
 
-				parseAction := func() (string, int) {
-					if action1 == "SET" || action1 == "NO" {
-						if i+3 < len(tokens) {
-							action2 := strings.ToUpper(tokens[i+3])
-							return action1 + " " + action2, 3
-						}
-					}
-					return action1, 2
-				}
+// applyColumnNullability handles NOT NULL / NULL / AUTO_INCREMENT.
+func applyColumnNullability(col *core.Column, tokens []string, i int, upperToken string) int {
+	switch upperToken {
+	case "NOT":
+		if i+1 < len(tokens) && strings.ToUpper(tokens[i+1]) == "NULL" {
+			col.Nullable = false
+			return i + 1
+		}
+	case "NULL":
+		col.Nullable = true
+		return i
+	case "AUTO_INCREMENT":
+		col.AutoIncrement = true
+		return i
+	}
+	return i
+}
 
-				switch nextUpper {
-				case "DELETE":
-					action, skip := parseAction()
-					col.RefOnDelete = core.ReferentialAction(action)
-					i += skip
+// applyColumnKeyAttr handles PRIMARY KEY / UNIQUE / DEFAULT / ON clauses.
+func applyColumnKeyAttr(col *core.Column, tokens []string, i int, upperToken string) int {
+	switch upperToken {
+	case "PRIMARY":
+		if i+1 < len(tokens) && strings.ToUpper(tokens[i+1]) == "KEY" {
+			col.PrimaryKey = true
+			return i + 1
+		}
+	case "UNIQUE":
+		col.Unique = true
+		if i+1 < len(tokens) && strings.ToUpper(tokens[i+1]) == "KEY" {
+			return i + 1
+		}
+		return i
+	case "DEFAULT":
+		if i+1 < len(tokens) {
+			val := tokens[i+1]
+			col.DefaultValue = &val
+			return i + 1
+		}
+	case "ON":
+		return applyColumnOnClause(col, tokens, i)
+	}
+	return i
+}
 
-				case "UPDATE":
-					action, skip := parseAction()
-					if action == "CASCADE" || action == "RESTRICT" || action == "SET NULL" || action == "NO ACTION" || action == "SET DEFAULT" {
-						col.RefOnUpdate = core.ReferentialAction(action)
-						i += skip
-					} else {
-						val := tokens[i+2]
-						col.OnUpdate = &val
-						i += 2
-					}
-				}
-			}
-		case "COMMENT":
-			if i+1 < len(tokens) {
-				col.Comment = tokens[i+1]
-				i++
-			}
-		case "COLLATE":
-			if i+1 < len(tokens) {
-				col.Collate = tokens[i+1]
-				i++
-			}
-		case "CHARSET":
-			if i+1 < len(tokens) {
-				col.Charset = tokens[i+1]
-				i++
-			}
-		case "CHARACTER":
-			if i+2 < len(tokens) && strings.ToUpper(tokens[i+1]) == "SET" {
-				col.Charset = tokens[i+2]
-				i += 2
-			}
-		case "CHECK":
-			if i+1 < len(tokens) {
-				col.Check = tokens[i+1]
-				i++
-			}
-		case "REFERENCES":
-			if i+1 < len(tokens) {
-				ref := tokens[i+1]
-				i++
-				if i+1 < len(tokens) && strings.HasPrefix(tokens[i+1], "(") {
-					ref += tokens[i+1]
-					i++
-				}
-				col.References = ref
-			}
+// applyColumnTextAttr handles COMMENT / COLLATE / CHARSET text options.
+func applyColumnTextAttr(col *core.Column, tokens []string, i int, upperToken string) int {
+	switch upperToken {
+	case "COMMENT":
+		if i+1 < len(tokens) {
+			col.Comment = tokens[i+1]
+			return i + 1
+		}
+	case "COLLATE":
+		if i+1 < len(tokens) {
+			col.Collate = tokens[i+1]
+			return i + 1
+		}
+	case "CHARSET":
+		if i+1 < len(tokens) {
+			col.Charset = tokens[i+1]
+			return i + 1
 		}
 	}
+	return i
+}
 
-	return col, nil
+// applyColumnCheckAttr handles CHARACTER SET / CHECK / REFERENCES.
+func applyColumnCheckAttr(col *core.Column, tokens []string, i int, upperToken string) int {
+	switch upperToken {
+	case "CHARACTER":
+		if i+2 < len(tokens) && strings.ToUpper(tokens[i+1]) == "SET" {
+			col.Charset = tokens[i+2]
+			return i + 2
+		}
+	case "CHECK":
+		if i+1 < len(tokens) {
+			col.Check = tokens[i+1]
+			return i + 1
+		}
+	case "REFERENCES":
+		return applyColumnReferences(col, tokens, i)
+	}
+	return i
+}
+
+// resolveMultiWordAction resolves a referential action that may span two tokens (e.g. "SET NULL", "NO ACTION").
+func resolveMultiWordAction(tokens []string, i int, action1 string) (string, int) {
+	if (action1 == "SET" || action1 == "NO") && i+3 < len(tokens) {
+		return action1 + " " + strings.ToUpper(tokens[i+3]), 3
+	}
+	return action1, 2
+}
+
+// applyColumnOnClause handles ON DELETE / ON UPDATE clauses and returns the new index.
+func applyColumnOnClause(col *core.Column, tokens []string, i int) int {
+	if i+2 >= len(tokens) {
+		return i
+	}
+	nextUpper := strings.ToUpper(tokens[i+1])
+	action1 := strings.ToUpper(tokens[i+2])
+	action, skip := resolveMultiWordAction(tokens, i, action1)
+
+	switch nextUpper {
+	case "DELETE":
+		col.RefOnDelete = core.ReferentialAction(action)
+		return i + skip
+	case "UPDATE":
+		return applyOnUpdate(col, tokens, i, action, skip)
+	}
+	return i
+}
+
+// applyOnUpdate sets the ON UPDATE referential action or timestamp expression.
+func applyOnUpdate(col *core.Column, tokens []string, i int, action string, skip int) int {
+	switch action {
+	case "CASCADE", "RESTRICT", "SET NULL", "NO ACTION", "SET DEFAULT":
+		col.RefOnUpdate = core.ReferentialAction(action)
+		return i + skip
+	}
+	val := tokens[i+2]
+	col.OnUpdate = &val
+	return i + 2
+}
+
+// applyColumnReferences handles REFERENCES clause and returns the new index.
+func applyColumnReferences(col *core.Column, tokens []string, i int) int {
+	if i+1 >= len(tokens) {
+		return i
+	}
+	ref := tokens[i+1]
+	i++
+	if i+1 < len(tokens) && strings.HasPrefix(tokens[i+1], "(") {
+		ref += tokens[i+1]
+		i++
+	}
+	col.References = ref
+	return i
 }
