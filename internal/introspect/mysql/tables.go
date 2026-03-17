@@ -136,7 +136,7 @@ func introspectTable(ctx context.Context, ic *introspectCtx, tableName string) (
 		return nil, fmt.Errorf("show create table: %w", err)
 	}
 
-	table, err := parseCreateTableDDL(ic.dialect, tableName, ddl)
+	table, err := parseCreateTable(ic.dialect, tableName, ddl)
 	if err != nil {
 		return nil, fmt.Errorf("parse: %w", err)
 	}
@@ -154,7 +154,7 @@ func queryShowCreateTable(ctx context.Context, ic *introspectCtx, tableName stri
 	return ddl, nil
 }
 
-func parseCreateTableDDL(dialect core.Dialect, tableName, ddl string) (*core.Table, error) {
+func parseCreateTable(dialect core.Dialect, tableName, ddl string) (*core.Table, error) {
 	table := &core.Table{
 		Name:        tableName,
 		Columns:     make([]*core.Column, 0),
@@ -164,7 +164,7 @@ func parseCreateTableDDL(dialect core.Dialect, tableName, ddl string) (*core.Tab
 
 	initTableOptions(dialect, table)
 
-	sections, err := splitDDLSections(ddl)
+	sections, err := splitSections(ddl)
 	if err != nil {
 		return nil, err
 	}
@@ -228,8 +228,8 @@ func parseBodyItem(dialect core.Dialect, table *core.Table, item string) error {
 	return nil
 }
 
-// splitDDLSections splits a CREATE TABLE statement into head, body, and tail.
-func splitDDLSections(ddl string) (ddlSections, error) {
+// splitSections splits a CREATE TABLE statement into head, body, and tail.
+func splitSections(ddl string) (ddlSections, error) {
 	openIdx := -1
 	for i, ch := range ddl {
 		if ch == '(' {

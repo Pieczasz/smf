@@ -20,10 +20,10 @@ func init() {
 type introspecter struct{}
 
 type introspectCtx struct {
+	ctx     context.Context
 	dialect core.Dialect
 	version string
 	db      *sql.DB
-	ctx     context.Context
 }
 
 func New() introspect.Introspecter {
