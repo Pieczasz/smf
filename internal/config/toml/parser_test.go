@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"smf/internal/core"
+	"smf/internal/schema"
 )
 
 func testdataPath(file string) string {
@@ -26,7 +26,7 @@ func TestParseFileSchemaToml(t *testing.T) {
 	require.NotNil(t, db)
 
 	assert.Equal(t, "ecommerce", db.Name)
-	assert.Equal(t, core.DialectMySQL, db.Dialect)
+	assert.Equal(t, schema.DialectMySQL, db.Dialect)
 	assert.Len(t, db.Tables, 4)
 
 	want := []string{"tenants", "users", "roles", "user_roles"}
@@ -68,12 +68,12 @@ func TestParseFileTenants(t *testing.T) {
 	testTenantConstraints(t, tbl)
 }
 
-func testTenantColumns(t *testing.T, tbl *core.Table) {
+func testTenantColumns(t *testing.T, tbl *schema.Table) {
 	t.Helper()
 	id := tbl.FindColumn("id")
 	require.NotNil(t, id)
 	assert.Empty(t, id.RawType)
-	assert.Equal(t, core.DataTypeInt, id.Type)
+	assert.Equal(t, schema.DataTypeInt, id.Type)
 	assert.True(t, id.PrimaryKey)
 	assert.True(t, id.AutoIncrement)
 	assert.False(t, id.Nullable)
@@ -81,7 +81,7 @@ func testTenantColumns(t *testing.T, tbl *core.Table) {
 	slug := tbl.FindColumn("slug")
 	require.NotNil(t, slug)
 	assert.Empty(t, slug.RawType)
-	assert.Equal(t, core.DataTypeString, slug.Type)
+	assert.Equal(t, schema.DataTypeString, slug.Type)
 	assert.True(t, slug.Unique, "slug should have inline unique = true")
 
 	name := tbl.FindColumn("name")
@@ -92,7 +92,7 @@ func testTenantColumns(t *testing.T, tbl *core.Table) {
 	require.NotNil(t, plan)
 	// v2: type = "enum" + values = [...] -> RawType is empty (handled by generator default)
 	assert.Empty(t, plan.RawType)
-	assert.Equal(t, core.DataTypeEnum, plan.Type)
+	assert.Equal(t, schema.DataTypeEnum, plan.Type)
 	assert.Equal(t, []string{"free", "pro", "enterprise"}, plan.EnumValues)
 	require.NotNil(t, plan.DefaultValue)
 	assert.Equal(t, "free", *plan.DefaultValue)
@@ -100,14 +100,14 @@ func testTenantColumns(t *testing.T, tbl *core.Table) {
 	settings := tbl.FindColumn("settings")
 	require.NotNil(t, settings)
 	assert.Empty(t, settings.RawType)
-	assert.Equal(t, core.DataTypeJSON, settings.Type)
+	assert.Equal(t, schema.DataTypeJSON, settings.Type)
 	assert.True(t, settings.Nullable)
 
 	// Timestamps injected columns.
 	createdAt := tbl.FindColumn("created_at")
 	require.NotNil(t, createdAt)
 	assert.Empty(t, createdAt.RawType)
-	assert.Equal(t, core.DataTypeDatetime, createdAt.Type)
+	assert.Equal(t, schema.DataTypeDatetime, createdAt.Type)
 	require.NotNil(t, createdAt.DefaultValue)
 	assert.Equal(t, "CURRENT_TIMESTAMP", *createdAt.DefaultValue)
 
@@ -120,18 +120,18 @@ func testTenantColumns(t *testing.T, tbl *core.Table) {
 	assert.Equal(t, "CURRENT_TIMESTAMP", *updatedAt.OnUpdate)
 }
 
-func testTenantConstraints(t *testing.T, tbl *core.Table) {
+func testTenantConstraints(t *testing.T, tbl *schema.Table) {
 	t.Helper()
 	// PK from column-level primary_key = true.
 	pk := tbl.PrimaryKey()
 	require.NotNil(t, pk)
-	assert.Equal(t, core.ConstraintPrimaryKey, pk.Type)
+	assert.Equal(t, schema.ConstraintPrimaryKey, pk.Type)
 	assert.Equal(t, []string{"id"}, pk.Columns)
 
 	// UNIQUE from column-level unique = true on slug.
-	var uqSlug *core.Constraint
+	var uqSlug *schema.Constraint
 	for _, c := range tbl.Constraints {
-		if c.Type == core.ConstraintUnique {
+		if c.Type == schema.ConstraintUnique {
 			for _, col := range c.Columns {
 				if col == "slug" {
 					uqSlug = c
@@ -169,18 +169,18 @@ func TestParseFileUsers(t *testing.T) {
 	testUsersSimpleIndex(t, tbl)
 }
 
-func testUsersInlineFK(t *testing.T, tbl *core.Table) {
+func testUsersInlineFK(t *testing.T, tbl *schema.Table) {
 	t.Helper()
 	tenantID := tbl.FindColumn("tenant_id")
 	require.NotNil(t, tenantID)
 	assert.Equal(t, "tenants.id", tenantID.References)
-	assert.Equal(t, core.RefActionCascade, tenantID.RefOnDelete)
-	assert.Equal(t, core.RefActionRestrict, tenantID.RefOnUpdate)
+	assert.Equal(t, schema.RefActionCascade, tenantID.RefOnDelete)
+	assert.Equal(t, schema.RefActionRestrict, tenantID.RefOnUpdate)
 
 	// Auto-synthesized FK constraint.
-	var fk *core.Constraint
+	var fk *schema.Constraint
 	for _, c := range tbl.Constraints {
-		if c.Type == core.ConstraintForeignKey && c.ReferencedTable == "tenants" {
+		if c.Type == schema.ConstraintForeignKey && c.ReferencedTable == "tenants" {
 			fk = c
 			break
 		}
@@ -189,11 +189,11 @@ func testUsersInlineFK(t *testing.T, tbl *core.Table) {
 	assert.Equal(t, []string{"tenant_id"}, fk.Columns)
 	assert.Equal(t, "tenants", fk.ReferencedTable)
 	assert.Equal(t, []string{"id"}, fk.ReferencedColumns)
-	assert.Equal(t, core.RefActionCascade, fk.OnDelete)
-	assert.Equal(t, core.RefActionRestrict, fk.OnUpdate)
+	assert.Equal(t, schema.RefActionCascade, fk.OnDelete)
+	assert.Equal(t, schema.RefActionRestrict, fk.OnUpdate)
 }
 
-func testUsersInlineUniqueAndCheck(t *testing.T, tbl *core.Table) {
+func testUsersInlineUniqueAndCheck(t *testing.T, tbl *schema.Table) {
 	t.Helper()
 	email := tbl.FindColumn("email")
 	require.NotNil(t, email)
@@ -201,9 +201,9 @@ func testUsersInlineUniqueAndCheck(t *testing.T, tbl *core.Table) {
 	assert.Equal(t, "email LIKE '%@%'", email.Check)
 
 	// Auto-synthesized UNIQUE.
-	var uqEmail *core.Constraint
+	var uqEmail *schema.Constraint
 	for _, c := range tbl.Constraints {
-		if c.Type == core.ConstraintUnique {
+		if c.Type == schema.ConstraintUnique {
 			for _, col := range c.Columns {
 				if col == "email" {
 					uqEmail = c
@@ -214,9 +214,9 @@ func testUsersInlineUniqueAndCheck(t *testing.T, tbl *core.Table) {
 	require.NotNil(t, uqEmail, "expected auto-synthesized UNIQUE constraint for email")
 
 	// Auto-synthesized CHECK.
-	var chkEmail *core.Constraint
+	var chkEmail *schema.Constraint
 	for _, c := range tbl.Constraints {
-		if c.Type == core.ConstraintCheck && c.CheckExpression == "email LIKE '%@%'" {
+		if c.Type == schema.ConstraintCheck && c.CheckExpression == "email LIKE '%@%'" {
 			chkEmail = c
 			break
 		}
@@ -226,41 +226,41 @@ func testUsersInlineUniqueAndCheck(t *testing.T, tbl *core.Table) {
 	assert.True(t, *chkEmail.Enforced)
 }
 
-func testUsersBooleanDefault(t *testing.T, tbl *core.Table) {
+func testUsersBooleanDefault(t *testing.T, tbl *schema.Table) {
 	t.Helper()
 	isActive := tbl.FindColumn("is_active")
 	require.NotNil(t, isActive)
 	assert.Empty(t, isActive.RawType)
-	assert.Equal(t, core.DataTypeBoolean, isActive.Type)
+	assert.Equal(t, schema.DataTypeBoolean, isActive.Type)
 	require.NotNil(t, isActive.DefaultValue)
 	assert.Equal(t, "TRUE", *isActive.DefaultValue, "native TOML bool should convert to portable TRUE")
 }
 
-func testUsersPasswordHash(t *testing.T, tbl *core.Table) {
+func testUsersPasswordHash(t *testing.T, tbl *schema.Table) {
 	t.Helper()
 	pwHash := tbl.FindColumn("password_hash")
 	require.NotNil(t, pwHash)
 	assert.Empty(t, pwHash.RawType)
-	assert.Equal(t, core.DataTypeBinary, pwHash.Type)
+	assert.Equal(t, schema.DataTypeBinary, pwHash.Type)
 }
 
-func testUsersNullableDisplayName(t *testing.T, tbl *core.Table) {
+func testUsersNullableDisplayName(t *testing.T, tbl *schema.Table) {
 	t.Helper()
 	displayName := tbl.FindColumn("display_name")
 	require.NotNil(t, displayName)
 	assert.True(t, displayName.Nullable)
 }
 
-func testUsersSimpleIndex(t *testing.T, tbl *core.Table) {
+func testUsersSimpleIndex(t *testing.T, tbl *schema.Table) {
 	t.Helper()
 	assert.Len(t, tbl.Indexes, 1)
 	idx := tbl.FindIndex("idx_users_tenant")
 	require.NotNil(t, idx)
-	assert.Equal(t, core.IndexTypeBTree, idx.Type)
-	assert.Equal(t, core.IndexVisible, idx.Visibility)
+	assert.Equal(t, schema.IndexTypeBTree, idx.Type)
+	assert.Equal(t, schema.IndexVisible, idx.Visibility)
 	require.Len(t, idx.Columns, 1)
 	assert.Equal(t, "tenant_id", idx.Columns[0].Name)
-	assert.Equal(t, core.SortAsc, idx.Columns[0].Order)
+	assert.Equal(t, schema.SortAsc, idx.Columns[0].Order)
 }
 
 func TestParseFileRoles(t *testing.T) {
@@ -290,9 +290,9 @@ func TestParseFileRoles(t *testing.T) {
 		assert.Equal(t, "tenants.id", tenantID.References)
 
 		// Auto-synthesized FK.
-		var fk *core.Constraint
+		var fk *schema.Constraint
 		for _, c := range tbl.Constraints {
-			if c.Type == core.ConstraintForeignKey && c.ReferencedTable == "tenants" {
+			if c.Type == schema.ConstraintForeignKey && c.ReferencedTable == "tenants" {
 				fk = c
 				break
 			}
@@ -303,7 +303,7 @@ func TestParseFileRoles(t *testing.T) {
 	t.Run("ExplicitCompositeUnique", func(t *testing.T) {
 		uq := tbl.FindConstraint("uq_roles_tenant_name")
 		require.NotNil(t, uq)
-		assert.Equal(t, core.ConstraintUnique, uq.Type)
+		assert.Equal(t, schema.ConstraintUnique, uq.Type)
 		assert.Equal(t, []string{"tenant_id", "name"}, uq.Columns)
 	})
 
@@ -341,9 +341,9 @@ func TestParseFileUserRoles(t *testing.T) {
 		assert.Equal(t, "roles.id", roleID.References)
 
 		// Auto-synthesized FKs.
-		var fkUser, fkRole *core.Constraint
+		var fkUser, fkRole *schema.Constraint
 		for _, c := range tbl.Constraints {
-			if c.Type == core.ConstraintForeignKey {
+			if c.Type == schema.ConstraintForeignKey {
 				if c.ReferencedTable == "users" {
 					fkUser = c
 				}
@@ -354,11 +354,11 @@ func TestParseFileUserRoles(t *testing.T) {
 		}
 		require.NotNil(t, fkUser)
 		assert.Equal(t, []string{"user_id"}, fkUser.Columns)
-		assert.Equal(t, core.RefActionCascade, fkUser.OnDelete)
+		assert.Equal(t, schema.RefActionCascade, fkUser.OnDelete)
 
 		require.NotNil(t, fkRole)
 		assert.Equal(t, []string{"role_id"}, fkRole.Columns)
-		assert.Equal(t, core.RefActionCascade, fkRole.OnDelete)
+		assert.Equal(t, schema.RefActionCascade, fkRole.OnDelete)
 	})
 
 	t.Run("SimpleIndex", func(t *testing.T) {
@@ -372,7 +372,7 @@ func TestParseFileUserRoles(t *testing.T) {
 
 func TestParseMinimalSchema(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -391,7 +391,7 @@ name = "items"
   type = "varchar(100)"
 `
 	p := NewParser()
-	db, err := p.Parse(strings.NewReader(schema))
+	db, err := p.Parse(strings.NewReader(s))
 	require.NoError(t, err)
 	require.NotNil(t, db)
 
@@ -408,11 +408,11 @@ name = "items"
 	assert.Equal(t, []string{"id"}, pk.Columns)
 
 	assert.True(t, tbl.Columns[0].PrimaryKey)
-	assert.Equal(t, core.DataTypeInt, tbl.Columns[0].Type)
+	assert.Equal(t, schema.DataTypeInt, tbl.Columns[0].Type)
 }
 func TestParseValidationRules(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -432,7 +432,7 @@ name = "items"
   primary_key = true
 `
 	p := NewParser()
-	db, err := p.Parse(strings.NewReader(schema))
+	db, err := p.Parse(strings.NewReader(s))
 	require.NoError(t, err)
 	require.NotNil(t, db.Validation)
 
@@ -444,7 +444,7 @@ name = "items"
 
 func TestParseValidationRulesRejectsLongTableName(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -461,14 +461,14 @@ name = "very_long_table"
   primary_key = true
 `
 	p := NewParser()
-	_, err := p.Parse(strings.NewReader(schema))
+	_, err := p.Parse(strings.NewReader(s))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "exceeds maximum length")
 }
 
 func TestParseValidationRulesRejectsLongColumnName(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -485,14 +485,14 @@ name = "t"
   primary_key = true
 `
 	p := NewParser()
-	_, err := p.Parse(strings.NewReader(schema))
+	_, err := p.Parse(strings.NewReader(s))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "exceeds maximum length")
 }
 
 func TestParseValidationRulesRejectsBadPattern(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -509,14 +509,14 @@ name = "items123"
   primary_key = true
 `
 	p := NewParser()
-	_, err := p.Parse(strings.NewReader(schema))
+	_, err := p.Parse(strings.NewReader(s))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "does not match allowed pattern")
 }
 
 func TestParseUnsupportedDialect(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "foobardb"
@@ -530,7 +530,7 @@ name = "items"
   primary_key = true
 `
 	p := NewParser()
-	_, err := p.Parse(strings.NewReader(schema))
+	_, err := p.Parse(strings.NewReader(s))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported dialect")
 	assert.Contains(t, err.Error(), "foobardb")
@@ -538,7 +538,7 @@ name = "items"
 
 func TestParseInvalidAllowedNamePattern(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -555,14 +555,14 @@ name = "items"
   primary_key = true
 `
 	p := NewParser()
-	_, err := p.Parse(strings.NewReader(schema))
+	_, err := p.Parse(strings.NewReader(s))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid allowed_name_pattern")
 }
 
 func TestParseEmptyTableName(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -576,14 +576,14 @@ name = ""
   primary_key = true
 `
 	p := NewParser()
-	_, err := p.Parse(strings.NewReader(schema))
+	_, err := p.Parse(strings.NewReader(s))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "name is empty")
 }
 
 func TestParseWhitespaceOnlyTableName(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -597,14 +597,14 @@ name = "   "
   primary_key = true
 `
 	p := NewParser()
-	_, err := p.Parse(strings.NewReader(schema))
+	_, err := p.Parse(strings.NewReader(s))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "name is empty")
 }
 
 func TestParseColumnNamePatternMismatch(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -621,7 +621,7 @@ name = "items"
   primary_key = true
 `
 	p := NewParser()
-	_, err := p.Parse(strings.NewReader(schema))
+	_, err := p.Parse(strings.NewReader(s))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "does not match allowed pattern")
 	assert.Contains(t, err.Error(), "col123")
@@ -629,7 +629,7 @@ name = "items"
 
 func TestParseInvalidRawTypeForDialect(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -647,14 +647,14 @@ name = "items"
   columns = ["data"]
 `
 	p := NewParser()
-	_, err := p.Parse(strings.NewReader(schema))
+	_, err := p.Parse(strings.NewReader(s))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "TOTALLY_FAKE_TYPE")
 }
 
 func TestParseMySQLColumnOptions(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -673,7 +673,7 @@ name = "items"
     secondary_engine_attribute = '{"key":"val"}'
 `
 	p := NewParser()
-	db, err := p.Parse(strings.NewReader(schema))
+	db, err := p.Parse(strings.NewReader(s))
 	require.NoError(t, err)
 
 	col := db.Tables[0].FindColumn("id")
@@ -686,7 +686,7 @@ name = "items"
 
 func TestParseTiDBColumnOptions(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -703,7 +703,7 @@ name = "items"
     shard_bits = 5
 `
 	p := NewParser()
-	db, err := p.Parse(strings.NewReader(schema))
+	db, err := p.Parse(strings.NewReader(s))
 	require.NoError(t, err)
 
 	col := db.Tables[0].FindColumn("id")
@@ -714,7 +714,7 @@ name = "items"
 
 func TestParseFloatDefaultValue(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -729,7 +729,7 @@ name = "items"
   default     = 3.14
 `
 	p := NewParser()
-	db, err := p.Parse(strings.NewReader(schema))
+	db, err := p.Parse(strings.NewReader(s))
 	require.NoError(t, err)
 
 	col := db.Tables[0].FindColumn("score")
@@ -740,7 +740,7 @@ name = "items"
 
 func TestParseDatetimeDefaultValue(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -755,7 +755,7 @@ name = "items"
   default     = 2024-01-01T00:00:00Z
 `
 	p := NewParser()
-	db, err := p.Parse(strings.NewReader(schema))
+	db, err := p.Parse(strings.NewReader(s))
 	require.NoError(t, err)
 
 	col := db.Tables[0].FindColumn("created")
@@ -790,7 +790,7 @@ func TestParseFileExampleSchemaToml(t *testing.T) {
 	require.NotNil(t, db)
 
 	assert.Equal(t, "ecommerce", db.Name)
-	assert.Equal(t, core.DialectMySQL, db.Dialect)
+	assert.Equal(t, schema.DialectMySQL, db.Dialect)
 	assert.Len(t, db.Tables, 4)
 
 	// Verify all table names.

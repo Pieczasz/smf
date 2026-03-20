@@ -14,8 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 	mysqlcontainer "github.com/testcontainers/testcontainers-go/modules/mysql"
 
-	"smf/internal/core"
 	"smf/internal/introspect"
+	"smf/internal/schema"
 )
 
 func setupMySQLTableOptionsDB(t *testing.T, db *sql.DB, dbName string) {
@@ -44,14 +44,14 @@ func TestMySQLTableOptions(t *testing.T) {
 	dbName := "testdb_table_opts"
 	setupMySQLTableOptionsDB(t, db, dbName)
 
-	intr, err := introspect.NewIntrospecter(core.DialectMySQL)
+	intr, err := introspect.NewIntrospecter(schema.DialectMySQL)
 	require.NoError(t, err)
 
 	result, err := intr.Introspect(ctx, db)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.Equal(t, dbName, result.Name)
-	require.Equal(t, core.DialectMySQL, result.Dialect)
+	require.Equal(t, schema.DialectMySQL, result.Dialect)
 
 	t.Run("charset_and_format", func(t *testing.T) {
 		tbl := result.FindTable("t_charset_format")
@@ -130,7 +130,7 @@ func TestMySQLColumnOptions(t *testing.T) {
 	`)
 	require.NoError(t, err)
 
-	intr, err := introspect.NewIntrospecter(core.DialectMySQL)
+	intr, err := introspect.NewIntrospecter(schema.DialectMySQL)
 	require.NoError(t, err)
 
 	_, err = db.Exec("USE testdb_col")
@@ -146,7 +146,7 @@ func TestMySQLColumnOptions(t *testing.T) {
 	idCol := eventsTable.FindColumn("id")
 	require.NotNil(t, idCol)
 	require.True(t, idCol.PrimaryKey)
-	require.Equal(t, core.DataTypeInt, idCol.Type)
+	require.Equal(t, schema.DataTypeInt, idCol.Type)
 
 	nameCol := eventsTable.FindColumn("name")
 	require.NotNil(t, nameCol)
@@ -165,7 +165,7 @@ func TestMySQLColumnOptions(t *testing.T) {
 
 	isActiveCol := eventsTable.FindColumn("is_active")
 	require.NotNil(t, isActiveCol)
-	require.Equal(t, core.DataTypeBoolean, isActiveCol.Type)
+	require.Equal(t, schema.DataTypeBoolean, isActiveCol.Type)
 }
 
 func setupMySQLConstraintsDB(t *testing.T, db *sql.DB) {
@@ -191,7 +191,7 @@ func TestMySQLConstraints(t *testing.T) {
 
 	setupMySQLConstraintsDB(t, db)
 
-	intr, err := introspect.NewIntrospecter(core.DialectMySQL)
+	intr, err := introspect.NewIntrospecter(schema.DialectMySQL)
 	require.NoError(t, err)
 
 	result, err := intr.Introspect(ctx, db)
@@ -208,13 +208,13 @@ func TestMySQLConstraints(t *testing.T) {
 	t.Run("foreign_key", func(t *testing.T) {
 		postsTable := result.FindTable("posts")
 		require.NotNil(t, postsTable)
-		fkConstraint := findConstraintByType(postsTable, core.ConstraintForeignKey)
+		fkConstraint := findConstraintByType(postsTable, schema.ConstraintForeignKey)
 		require.NotNil(t, fkConstraint)
 		require.Equal(t, "user_id", fkConstraint.Columns[0])
 		require.Equal(t, "users", fkConstraint.ReferencedTable)
 		require.Equal(t, "id", fkConstraint.ReferencedColumns[0])
-		require.Equal(t, core.RefActionCascade, fkConstraint.OnDelete)
-		require.Equal(t, core.RefActionRestrict, fkConstraint.OnUpdate)
+		require.Equal(t, schema.RefActionCascade, fkConstraint.OnDelete)
+		require.Equal(t, schema.RefActionRestrict, fkConstraint.OnUpdate)
 	})
 	t.Run("check_constraints", func(t *testing.T) {
 		productsTable := result.FindTable("products")
@@ -260,7 +260,7 @@ func TestMySQLIndexes(t *testing.T) {
 	`)
 	require.NoError(t, err)
 
-	intr, err := introspect.NewIntrospecter(core.DialectMySQL)
+	intr, err := introspect.NewIntrospecter(schema.DialectMySQL)
 	require.NoError(t, err)
 
 	_, err = db.Exec("USE test_indexes")
@@ -280,16 +280,16 @@ func TestMySQLIndexes(t *testing.T) {
 	require.NotNil(t, locationsTable)
 }
 
-func runMySQLTableOptionCase(ctx context.Context, t *testing.T, db *sql.DB, name, schema string, verify func(*testing.T, *core.Database)) {
+func runMySQLTableOptionCase(ctx context.Context, t *testing.T, db *sql.DB, name, schem string, verify func(*testing.T, *schema.Database)) {
 	t.Helper()
 	dbName := "test_opt_" + strings.ReplaceAll(name, " ", "_")
 	_, err := db.Exec("CREATE DATABASE " + dbName)
 	require.NoError(t, err)
 	_, err = db.Exec("USE " + dbName)
 	require.NoError(t, err)
-	_, err = db.Exec(schema)
+	_, err = db.Exec(schem)
 	require.NoError(t, err)
-	intr, err := introspect.NewIntrospecter(core.DialectMySQL)
+	intr, err := introspect.NewIntrospecter(schema.DialectMySQL)
 	require.NoError(t, err)
 	result, err := intr.Introspect(ctx, db)
 	require.NoError(t, err)
@@ -301,7 +301,7 @@ func testMySQLAllTableOptionsBatchOne(ctx context.Context, t *testing.T, db *sql
 	t.Run("innodb_compression_encryption", func(t *testing.T) {
 		runMySQLTableOptionCase(ctx, t, db, "innodb_compression_encryption",
 			`CREATE TABLE t_innodb_compressed (id INT PRIMARY KEY, data VARCHAR(255)) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION='ZLIB' ENCRYPTION='Y'`,
-			func(t *testing.T, db *core.Database) {
+			func(t *testing.T, db *schema.Database) {
 				t.Helper()
 				tbl := db.FindTable("t_innodb_compressed")
 				require.NotNil(t, tbl)
@@ -316,7 +316,7 @@ func testMySQLAllTableOptionsBatchOne(ctx context.Context, t *testing.T, db *sql
 	t.Run("innodb_statistics", func(t *testing.T) {
 		runMySQLTableOptionCase(ctx, t, db, "innodb_statistics",
 			`CREATE TABLE t_innodb_stats (id INT PRIMARY KEY, data VARCHAR(255)) ENGINE=InnoDB STATS_PERSISTENT=1 STATS_AUTO_RECALC=0 STATS_SAMPLE_PAGES=20`,
-			func(t *testing.T, db *core.Database) {
+			func(t *testing.T, db *schema.Database) {
 				t.Helper()
 				tbl := db.FindTable("t_innodb_stats")
 				require.NotNil(t, tbl)
@@ -329,7 +329,7 @@ func testMySQLAllTableOptionsBatchOne(ctx context.Context, t *testing.T, db *sql
 	t.Run("myisam_pack_keys", func(t *testing.T) {
 		runMySQLTableOptionCase(ctx, t, db, "myisam_pack_keys",
 			`CREATE TABLE t_myisam (id INT PRIMARY KEY, data VARCHAR(255)) ENGINE=MyISAM ROW_FORMAT=Dynamic PACK_KEYS=1 DELAY_KEY_WRITE=1`,
-			func(t *testing.T, db *core.Database) {
+			func(t *testing.T, db *schema.Database) {
 				t.Helper()
 				tbl := db.FindTable("t_myisam")
 				require.NotNil(t, tbl)
@@ -347,7 +347,7 @@ func testMySQLAllTableOptionsBatchTwo(ctx context.Context, t *testing.T, db *sql
 	t.Run("innodb_auto_increment_row_format", func(t *testing.T) {
 		runMySQLTableOptionCase(ctx, t, db, "innodb_auto_increment_row_format",
 			`CREATE TABLE t_auto_increment (id BIGINT PRIMARY KEY, data VARCHAR(255)) ENGINE=InnoDB AUTO_INCREMENT=100000 ROW_FORMAT=Compact`,
-			func(t *testing.T, db *core.Database) {
+			func(t *testing.T, db *schema.Database) {
 				t.Helper()
 				tbl := db.FindTable("t_auto_increment")
 				require.NotNil(t, tbl)
@@ -359,7 +359,7 @@ func testMySQLAllTableOptionsBatchTwo(ctx context.Context, t *testing.T, db *sql
 	t.Run("innodb_charset_collation", func(t *testing.T) {
 		runMySQLTableOptionCase(ctx, t, db, "innodb_charset_collation",
 			`CREATE TABLE t_charset (id INT PRIMARY KEY, data VARCHAR(255)) ENGINE=InnoDB CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
-			func(t *testing.T, db *core.Database) {
+			func(t *testing.T, db *schema.Database) {
 				t.Helper()
 				tbl := db.FindTable("t_charset")
 				require.NotNil(t, tbl)
@@ -371,7 +371,7 @@ func testMySQLAllTableOptionsBatchTwo(ctx context.Context, t *testing.T, db *sql
 	t.Run("row_length_hints", func(t *testing.T) {
 		runMySQLTableOptionCase(ctx, t, db, "row_length_hints",
 			`CREATE TABLE t_hints (id INT PRIMARY KEY, data VARCHAR(255)) ENGINE=InnoDB AVG_ROW_LENGTH=128 MAX_ROWS=500000 MIN_ROWS=10`,
-			func(t *testing.T, db *core.Database) {
+			func(t *testing.T, db *schema.Database) {
 				t.Helper()
 				tbl := db.FindTable("t_hints")
 				require.NotNil(t, tbl)
@@ -384,7 +384,7 @@ func testMySQLAllTableOptionsBatchTwo(ctx context.Context, t *testing.T, db *sql
 	t.Run("checksum", func(t *testing.T) {
 		runMySQLTableOptionCase(ctx, t, db, "checksum",
 			`CREATE TABLE t_checksum (id INT PRIMARY KEY, data VARCHAR(255)) ENGINE=InnoDB CHECKSUM=1`,
-			func(t *testing.T, db *core.Database) {
+			func(t *testing.T, db *schema.Database) {
 				t.Helper()
 				tbl := db.FindTable("t_checksum")
 				require.NotNil(t, tbl)
@@ -428,7 +428,7 @@ func TestMySQLGeneratedColumns(t *testing.T) {
 	`)
 	require.NoError(t, err)
 
-	intr, err := introspect.NewIntrospecter(core.DialectMySQL)
+	intr, err := introspect.NewIntrospecter(schema.DialectMySQL)
 	require.NoError(t, err)
 
 	_, err = db.Exec("USE test_generated")
@@ -445,12 +445,12 @@ func TestMySQLGeneratedColumns(t *testing.T) {
 	require.NotNil(t, totalPriceCol)
 	require.True(t, totalPriceCol.IsGenerated)
 	require.Equal(t, "(quantity * unit_price)", totalPriceCol.GenerationExpression)
-	require.Equal(t, core.GenerationStored, totalPriceCol.GenerationStorage)
+	require.Equal(t, schema.GenerationStored, totalPriceCol.GenerationStorage)
 
 	totalPriceVirtualCol := ordersTable.FindColumn("total_price_virtual")
 	require.NotNil(t, totalPriceVirtualCol)
 	require.True(t, totalPriceVirtualCol.IsGenerated)
-	require.Equal(t, core.GenerationVirtual, totalPriceVirtualCol.GenerationStorage)
+	require.Equal(t, schema.GenerationVirtual, totalPriceVirtualCol.GenerationStorage)
 }
 
 func TestMySQLEnumAndSet(t *testing.T) {
@@ -475,7 +475,7 @@ func TestMySQLEnumAndSet(t *testing.T) {
 	`)
 	require.NoError(t, err)
 
-	intr, err := introspect.NewIntrospecter(core.DialectMySQL)
+	intr, err := introspect.NewIntrospecter(schema.DialectMySQL)
 	require.NoError(t, err)
 
 	_, err = db.Exec("USE test_enum")
@@ -490,13 +490,13 @@ func TestMySQLEnumAndSet(t *testing.T) {
 
 	statusCol := subsTable.FindColumn("status")
 	require.NotNil(t, statusCol)
-	require.Equal(t, core.DataTypeEnum, statusCol.Type)
+	require.Equal(t, schema.DataTypeEnum, statusCol.Type)
 	require.Equal(t, []string{"active", "inactive", "pending", "canceled"}, statusCol.EnumValues)
 	require.False(t, statusCol.Nullable)
 
 	tierCol := subsTable.FindColumn("tier")
 	require.NotNil(t, tierCol)
-	require.Equal(t, core.DataTypeEnum, tierCol.Type)
+	require.Equal(t, schema.DataTypeEnum, tierCol.Type)
 	require.Contains(t, tierCol.EnumValues, "free")
 	require.Contains(t, tierCol.EnumValues, "basic")
 	require.Contains(t, tierCol.EnumValues, "premium")
@@ -542,7 +542,7 @@ func TestMySQLVersionDetection(t *testing.T) {
 			`)
 			require.NoError(t, err)
 
-			intr, err := introspect.NewIntrospecter(core.DialectMySQL)
+			intr, err := introspect.NewIntrospecter(schema.DialectMySQL)
 			require.NoError(t, err)
 
 			_, err = db.Exec("USE test_version")
@@ -551,7 +551,7 @@ func TestMySQLVersionDetection(t *testing.T) {
 			result, err := intr.Introspect(ctx, db)
 			require.NoError(t, err)
 			require.NotNil(t, result)
-			require.Equal(t, core.DialectMySQL, result.Dialect)
+			require.Equal(t, schema.DialectMySQL, result.Dialect)
 		})
 	}
 }
@@ -578,7 +578,7 @@ func TestMySQLInvisibleColumn(t *testing.T) {
 	`)
 	require.NoError(t, err)
 
-	intr, err := introspect.NewIntrospecter(core.DialectMySQL)
+	intr, err := introspect.NewIntrospecter(schema.DialectMySQL)
 	require.NoError(t, err)
 
 	_, err = db.Exec("USE test_invisible")
@@ -628,7 +628,7 @@ func TestMySQLInvisibleIndex(t *testing.T) {
 	`)
 	require.NoError(t, err)
 
-	intr, err := introspect.NewIntrospecter(core.DialectMySQL)
+	intr, err := introspect.NewIntrospecter(schema.DialectMySQL)
 	require.NoError(t, err)
 
 	_, err = db.Exec("USE test_inv_idx")
@@ -643,11 +643,11 @@ func TestMySQLInvisibleIndex(t *testing.T) {
 
 	visibleIdx := productsTable.FindIndex("idx_sku")
 	require.NotNil(t, visibleIdx)
-	require.Equal(t, core.IndexVisible, visibleIdx.Visibility)
+	require.Equal(t, schema.IndexVisible, visibleIdx.Visibility)
 
 	invisibleIdx := productsTable.FindIndex("idx_name")
 	require.NotNil(t, invisibleIdx)
-	require.Equal(t, core.IndexInvisible, invisibleIdx.Visibility)
+	require.Equal(t, schema.IndexInvisible, invisibleIdx.Visibility)
 }
 
 func TestMySQLEngineAttributes(t *testing.T) {
@@ -673,7 +673,7 @@ func TestMySQLEngineAttributes(t *testing.T) {
 	`)
 	require.NoError(t, err)
 
-	intr, err := introspect.NewIntrospecter(core.DialectMySQL)
+	intr, err := introspect.NewIntrospecter(schema.DialectMySQL)
 	require.NoError(t, err)
 
 	_, err = db.Exec("USE test_engine_attr")
@@ -722,7 +722,7 @@ func TestMySQLPageCompression(t *testing.T) {
 	`)
 	require.NoError(t, err)
 
-	intr, err := introspect.NewIntrospecter(core.DialectMySQL)
+	intr, err := introspect.NewIntrospecter(schema.DialectMySQL)
 	require.NoError(t, err)
 
 	_, err = db.Exec("USE test_page_compress")
@@ -777,7 +777,7 @@ func TestMySQLFederatedOptions(t *testing.T) {
 	`)
 	require.NoError(t, err)
 
-	intr, err := introspect.NewIntrospecter(core.DialectMySQL)
+	intr, err := introspect.NewIntrospecter(schema.DialectMySQL)
 	require.NoError(t, err)
 
 	_, err = db.Exec("USE test_federated")
@@ -825,7 +825,7 @@ func TestMySQLColumnEngineAttributes(t *testing.T) {
 	`)
 	require.NoError(t, err)
 
-	intr, err := introspect.NewIntrospecter(core.DialectMySQL)
+	intr, err := introspect.NewIntrospecter(schema.DialectMySQL)
 	require.NoError(t, err)
 
 	_, err = db.Exec("USE test_col_engine_attr")
@@ -890,7 +890,7 @@ func TestMySQLInsertMethod(t *testing.T) {
 	`)
 	require.NoError(t, err)
 
-	intr, err := introspect.NewIntrospecter(core.DialectMySQL)
+	intr, err := introspect.NewIntrospecter(schema.DialectMySQL)
 	require.NoError(t, err)
 
 	_, err = db.Exec("USE test_insert_method")
@@ -947,7 +947,7 @@ func TestMySQLIETFQuotes(t *testing.T) {
 	`)
 	require.NoError(t, err)
 
-	intr, err := introspect.NewIntrospecter(core.DialectMySQL)
+	intr, err := introspect.NewIntrospecter(schema.DialectMySQL)
 	require.NoError(t, err)
 
 	_, err = db.Exec("USE test_ietf")
@@ -990,7 +990,7 @@ func TestMySQLAutoextendSize(t *testing.T) {
 	`)
 	require.NoError(t, err)
 
-	intr, err := introspect.NewIntrospecter(core.DialectMySQL)
+	intr, err := introspect.NewIntrospecter(schema.DialectMySQL)
 	require.NoError(t, err)
 
 	_, err = db.Exec("USE test_autoextend")

@@ -6,18 +6,18 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"smf/internal/core"
+	"smf/internal/schema"
 )
 
 func TestAutoIncrementOnNonInteger(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectMySQL,
-		Tables: []*core.Table{
+		Dialect: schema.DialectMySQL,
+		Tables: []*schema.Table{
 			{
 				Name: "users",
-				Columns: []*core.Column{
-					{Name: "id", Type: core.DataTypeString, AutoIncrement: true},
+				Columns: []*schema.Column{
+					{Name: "id", Type: schema.DataTypeString, AutoIncrement: true},
 				},
 			},
 		},
@@ -29,14 +29,14 @@ func TestAutoIncrementOnNonInteger(t *testing.T) {
 }
 
 func TestAutoIncrementSQLiteOnNonPK(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectSQLite,
-		Tables: []*core.Table{
+		Dialect: schema.DialectSQLite,
+		Tables: []*schema.Table{
 			{
 				Name: "users",
-				Columns: []*core.Column{
-					{Name: "id", Type: core.DataTypeInt, AutoIncrement: true},
+				Columns: []*schema.Column{
+					{Name: "id", Type: schema.DataTypeInt, AutoIncrement: true},
 				},
 			},
 		},
@@ -48,14 +48,14 @@ func TestAutoIncrementSQLiteOnNonPK(t *testing.T) {
 }
 
 func TestAutoIncrementValid(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectMySQL,
-		Tables: []*core.Table{
+		Dialect: schema.DialectMySQL,
+		Tables: []*schema.Table{
 			{
 				Name: "users",
-				Columns: []*core.Column{
-					{Name: "id", Type: core.DataTypeInt, AutoIncrement: true, PrimaryKey: true},
+				Columns: []*schema.Column{
+					{Name: "id", Type: schema.DataTypeInt, AutoIncrement: true, PrimaryKey: true},
 				},
 			},
 		},
@@ -66,14 +66,14 @@ func TestAutoIncrementValid(t *testing.T) {
 }
 
 func TestNullablePKColumnLevel(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectMySQL,
-		Tables: []*core.Table{
+		Dialect: schema.DialectMySQL,
+		Tables: []*schema.Table{
 			{
 				Name: "users",
-				Columns: []*core.Column{
-					{Name: "id", Type: core.DataTypeInt, PrimaryKey: true, Nullable: true},
+				Columns: []*schema.Column{
+					{Name: "id", Type: schema.DataTypeInt, PrimaryKey: true, Nullable: true},
 				},
 			},
 		},
@@ -85,18 +85,18 @@ func TestNullablePKColumnLevel(t *testing.T) {
 }
 
 func TestNullablePKTableLevel(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectMySQL,
-		Tables: []*core.Table{
+		Dialect: schema.DialectMySQL,
+		Tables: []*schema.Table{
 			{
 				Name: "users",
-				Columns: []*core.Column{
-					{Name: "id", Type: core.DataTypeInt, Nullable: true},
+				Columns: []*schema.Column{
+					{Name: "id", Type: schema.DataTypeInt, Nullable: true},
 				},
-				Constraints: []*core.Constraint{
+				Constraints: []*schema.Constraint{
 					{
-						Type:    core.ConstraintPrimaryKey,
+						Type:    schema.ConstraintPrimaryKey,
 						Columns: []string{"id"},
 					},
 				},
@@ -110,15 +110,15 @@ func TestNullablePKTableLevel(t *testing.T) {
 }
 
 func TestGeneratedColumnWithoutExpression(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectMySQL,
-		Tables: []*core.Table{
+		Dialect: schema.DialectMySQL,
+		Tables: []*schema.Table{
 			{
 				Name: "users",
-				Columns: []*core.Column{
-					{Name: "id", Type: core.DataTypeInt, PrimaryKey: true},
-					{Name: "full_name", Type: core.DataTypeString, IsGenerated: true},
+				Columns: []*schema.Column{
+					{Name: "id", Type: schema.DataTypeInt, PrimaryKey: true},
+					{Name: "full_name", Type: schema.DataTypeString, IsGenerated: true},
 				},
 			},
 		},
@@ -130,14 +130,14 @@ func TestGeneratedColumnWithoutExpression(t *testing.T) {
 }
 
 func TestIdentityOnNonAutoIncrement(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectMySQL,
-		Tables: []*core.Table{
+		Dialect: schema.DialectMySQL,
+		Tables: []*schema.Table{
 			{
 				Name: "users",
-				Columns: []*core.Column{
-					{Name: "id", Type: core.DataTypeInt, PrimaryKey: true, IdentitySeed: 100},
+				Columns: []*schema.Column{
+					{Name: "id", Type: schema.DataTypeInt, PrimaryKey: true, IdentitySeed: 100},
 				},
 			},
 		},
@@ -149,17 +149,17 @@ func TestIdentityOnNonAutoIncrement(t *testing.T) {
 }
 
 func TestTiDBAutoRandomOnNonPK(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectTiDB,
-		Tables: []*core.Table{
+		Dialect: schema.DialectTiDB,
+		Tables: []*schema.Table{
 			{
 				Name: "users",
-				Columns: []*core.Column{
+				Columns: []*schema.Column{
 					{
 						Name: "id",
-						Type: core.DataTypeInt,
-						TiDB: &core.TiDBColumnOptions{ShardBits: 5},
+						Type: schema.DataTypeInt,
+						TiDB: &schema.TiDBColumnOptions{ShardBits: 5},
 					},
 				},
 			},
@@ -172,18 +172,18 @@ func TestTiDBAutoRandomOnNonPK(t *testing.T) {
 }
 
 func TestTiDBAutoRandomOnNonInteger(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectTiDB,
-		Tables: []*core.Table{
+		Dialect: schema.DialectTiDB,
+		Tables: []*schema.Table{
 			{
 				Name: "users",
-				Columns: []*core.Column{
+				Columns: []*schema.Column{
 					{
 						Name:       "id",
-						Type:       core.DataTypeString,
+						Type:       schema.DataTypeString,
 						PrimaryKey: true,
-						TiDB:       &core.TiDBColumnOptions{ShardBits: 5},
+						TiDB:       &schema.TiDBColumnOptions{ShardBits: 5},
 					},
 				},
 			},
@@ -196,21 +196,21 @@ func TestTiDBAutoRandomOnNonInteger(t *testing.T) {
 }
 
 func TestForeignKeyTypeMismatch(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectMySQL,
-		Tables: []*core.Table{
+		Dialect: schema.DialectMySQL,
+		Tables: []*schema.Table{
 			{
 				Name: "users",
-				Columns: []*core.Column{
-					{Name: "id", Type: core.DataTypeInt, PrimaryKey: true},
-					{Name: "group_id", Type: core.DataTypeString, References: "groups.id"},
+				Columns: []*schema.Column{
+					{Name: "id", Type: schema.DataTypeInt, PrimaryKey: true},
+					{Name: "group_id", Type: schema.DataTypeString, References: "groups.id"},
 				},
 			},
 			{
 				Name: "groups",
-				Columns: []*core.Column{
-					{Name: "id", Type: core.DataTypeInt, PrimaryKey: true},
+				Columns: []*schema.Column{
+					{Name: "id", Type: schema.DataTypeInt, PrimaryKey: true},
 				},
 			},
 		},
@@ -222,16 +222,16 @@ func TestForeignKeyTypeMismatch(t *testing.T) {
 }
 
 func TestRawTypeInvalid(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectMySQL,
-		Tables: []*core.Table{
+		Dialect: schema.DialectMySQL,
+		Tables: []*schema.Table{
 			{
 				Name: "users",
-				Columns: []*core.Column{
+				Columns: []*schema.Column{
 					{
 						Name:    "id",
-						Type:    core.DataTypeInt,
+						Type:    schema.DataTypeInt,
 						RawType: "JSONB",
 					},
 				},
@@ -245,16 +245,16 @@ func TestRawTypeInvalid(t *testing.T) {
 }
 
 func TestRawTypeValid(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectMySQL,
-		Tables: []*core.Table{
+		Dialect: schema.DialectMySQL,
+		Tables: []*schema.Table{
 			{
 				Name: "users",
-				Columns: []*core.Column{
+				Columns: []*schema.Column{
 					{
 						Name:    "id",
-						Type:    core.DataTypeInt,
+						Type:    schema.DataTypeInt,
 						RawType: "BIGINT",
 					},
 				},

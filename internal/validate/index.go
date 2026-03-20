@@ -3,17 +3,17 @@ package validate
 import (
 	"fmt"
 
-	"smf/internal/core"
+	"smf/internal/schema"
 )
 
-func Indexes(t *core.Table) error {
+func Indexes(t *schema.Table) error {
 	if err := IndexNames(t); err != nil {
 		return err
 	}
 	return IndexColumns(t)
 }
 
-func IndexNames(t *core.Table) error {
+func IndexNames(t *schema.Table) error {
 	seen := make(map[string]bool, len(t.Indexes))
 	for _, idx := range t.Indexes {
 		if idx.Name == "" {
@@ -30,7 +30,7 @@ func IndexNames(t *core.Table) error {
 	return nil
 }
 
-func IndexColumns(t *core.Table) error {
+func IndexColumns(t *schema.Table) error {
 	for _, idx := range t.Indexes {
 		if len(idx.Columns) == 0 {
 			name := idx.Name

@@ -1,7 +1,7 @@
 package toml
 
 import (
-	"smf/internal/core"
+	"smf/internal/schema"
 )
 
 // tomlConstraint maps [[tables.constraints]].
@@ -17,15 +17,15 @@ type tomlConstraint struct {
 	Enforced          *bool    `toml:"enforced"` // pointer: absent -> true/not supported
 }
 
-func constraint(tc *tomlConstraint) *core.Constraint {
-	c := &core.Constraint{
+func constraint(tc *tomlConstraint) *schema.Constraint {
+	c := &schema.Constraint{
 		Name:              tc.Name,
-		Type:              core.ConstraintType(tc.Type),
+		Type:              schema.ConstraintType(tc.Type),
 		Columns:           tc.Columns,
 		ReferencedTable:   tc.ReferencedTable,
 		ReferencedColumns: tc.ReferencedColumns,
-		OnDelete:          core.ReferentialAction(tc.OnDelete),
-		OnUpdate:          core.ReferentialAction(tc.OnUpdate),
+		OnDelete:          schema.ReferentialAction(tc.OnDelete),
+		OnUpdate:          schema.ReferentialAction(tc.OnUpdate),
 		CheckExpression:   tc.CheckExpression,
 	}
 

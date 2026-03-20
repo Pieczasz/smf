@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 	mariadbcontainer "github.com/testcontainers/testcontainers-go/modules/mariadb"
 
-	"smf/internal/core"
 	"smf/internal/introspect"
+	"smf/internal/schema"
 )
 
 func TestMariaDBCoreIntrospectionScenarios(t *testing.T) {
@@ -21,7 +21,7 @@ func TestMariaDBCoreIntrospectionScenarios(t *testing.T) {
 	ctx := context.Background()
 	db := sharedMariaDBContainer
 
-	intr, err := introspect.NewIntrospecter(core.DialectMariaDB)
+	intr, err := introspect.NewIntrospecter(schema.DialectMariaDB)
 	require.NoError(t, err)
 
 	for _, sc := range mariaDBCoreScenarios() {
@@ -48,7 +48,7 @@ type mariaDBScenario struct {
 	name     string
 	database string
 	schema   []string
-	verify   func(*testing.T, *core.Database)
+	verify   func(*testing.T, *schema.Database)
 }
 
 func mariaDBCoreScenarios() []mariaDBScenario {
@@ -110,10 +110,10 @@ func mariaDBTableOptionsScenario() mariaDBScenario {
 	}
 }
 
-func verifyMariaDBTableOptions(t *testing.T, result *core.Database) {
+func verifyMariaDBTableOptions(t *testing.T, result *schema.Database) {
 	t.Helper()
 	require.Equal(t, "testdb", result.Name)
-	require.Equal(t, core.DialectMariaDB, result.Dialect)
+	require.Equal(t, schema.DialectMariaDB, result.Dialect)
 	require.Len(t, result.Tables, 5)
 
 	usersTable := result.FindTable("users")
@@ -178,14 +178,14 @@ func mariaDBColumnOptionsScenario() mariaDBScenario {
 			is_active BOOLEAN DEFAULT TRUE,
 			priority INT DEFAULT 0
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`},
-		verify: func(t *testing.T, result *core.Database) {
+		verify: func(t *testing.T, result *schema.Database) {
 			t.Helper()
 			eventsTable := result.FindTable("events")
 			require.NotNil(t, eventsTable)
 			idCol := eventsTable.FindColumn("id")
 			require.NotNil(t, idCol)
 			require.True(t, idCol.PrimaryKey)
-			require.Equal(t, core.DataTypeInt, idCol.Type)
+			require.Equal(t, schema.DataTypeInt, idCol.Type)
 			nameCol := eventsTable.FindColumn("name")
 			require.NotNil(t, nameCol)
 			require.Equal(t, "utf8mb4", nameCol.Charset)
@@ -200,7 +200,7 @@ func mariaDBColumnOptionsScenario() mariaDBScenario {
 			require.Contains(t, *updatedAtCol.OnUpdate, "CURRENT_TIMESTAMP")
 			isActiveCol := eventsTable.FindColumn("is_active")
 			require.NotNil(t, isActiveCol)
-			require.Equal(t, core.DataTypeBoolean, isActiveCol.Type)
+			require.Equal(t, schema.DataTypeBoolean, isActiveCol.Type)
 		},
 	}
 }
@@ -246,7 +246,7 @@ func mariaDBConstraintsAndIndexesScenario() mariaDBScenario {
 				SPATIAL INDEX sp_locations (lat, lng)
 			) ENGINE=InnoDB`,
 		},
-		verify: func(t *testing.T, result *core.Database) {
+		verify: func(t *testing.T, result *schema.Database) {
 			t.Helper()
 			usersTable := result.FindTable("users")
 			require.NotNil(t, usersTable)
@@ -254,11 +254,11 @@ func mariaDBConstraintsAndIndexesScenario() mariaDBScenario {
 			require.Equal(t, "id", usersTable.PrimaryKey().Columns[0])
 			postsTable := result.FindTable("posts")
 			require.NotNil(t, postsTable)
-			fkConstraint := findConstraintByType(postsTable, core.ConstraintForeignKey)
+			fkConstraint := findConstraintByType(postsTable, schema.ConstraintForeignKey)
 			require.NotNil(t, fkConstraint)
 			require.Equal(t, "users", fkConstraint.ReferencedTable)
-			require.Equal(t, core.RefActionCascade, fkConstraint.OnDelete)
-			require.Equal(t, core.RefActionRestrict, fkConstraint.OnUpdate)
+			require.Equal(t, schema.RefActionCascade, fkConstraint.OnDelete)
+			require.Equal(t, schema.RefActionRestrict, fkConstraint.OnUpdate)
 			productsTable := result.FindTable("products")
 			require.NotNil(t, productsTable)
 			require.Len(t, productsTable.Constraints, 2)
@@ -284,7 +284,7 @@ func mariaDBAllTableOptionsScenario() mariaDBScenario {
 			`CREATE TABLE t_hints (id INT PRIMARY KEY, data VARCHAR(255)) ENGINE=InnoDB AVG_ROW_LENGTH=128 MAX_ROWS=500000 MIN_ROWS=10`,
 			`CREATE TABLE t_checksum (id INT PRIMARY KEY, data VARCHAR(255)) ENGINE=InnoDB CHECKSUM=1`,
 		},
-		verify: func(t *testing.T, result *core.Database) {
+		verify: func(t *testing.T, result *schema.Database) {
 			t.Helper()
 			require.Equal(t, "Y", result.FindTable("t_innodb_compressed").Options.MySQL.Encryption)
 			require.Equal(t, "20", result.FindTable("t_innodb_stats").Options.MySQL.StatsSamplePages)
@@ -315,22 +315,22 @@ func mariaDBGeneratedAndEnumScenario() mariaDBScenario {
 				tier SET('free', 'basic', 'premium', 'enterprise') DEFAULT 'free'
 			) ENGINE=InnoDB`,
 		},
-		verify: func(t *testing.T, result *core.Database) {
+		verify: func(t *testing.T, result *schema.Database) {
 			t.Helper()
 			ordersTable := result.FindTable("orders")
 			require.NotNil(t, ordersTable)
 			totalPriceCol := ordersTable.FindColumn("total_price")
 			require.NotNil(t, totalPriceCol)
 			require.True(t, totalPriceCol.IsGenerated)
-			require.Equal(t, core.GenerationStored, totalPriceCol.GenerationStorage)
+			require.Equal(t, schema.GenerationStored, totalPriceCol.GenerationStorage)
 			totalPriceVirtualCol := ordersTable.FindColumn("total_price_virtual")
 			require.NotNil(t, totalPriceVirtualCol)
-			require.Equal(t, core.GenerationVirtual, totalPriceVirtualCol.GenerationStorage)
+			require.Equal(t, schema.GenerationVirtual, totalPriceVirtualCol.GenerationStorage)
 			subsTable := result.FindTable("subscriptions")
 			require.NotNil(t, subsTable)
 			statusCol := subsTable.FindColumn("status")
 			require.NotNil(t, statusCol)
-			require.Equal(t, core.DataTypeEnum, statusCol.Type)
+			require.Equal(t, schema.DataTypeEnum, statusCol.Type)
 			require.Equal(t, []string{"active", "inactive", "pending", "canceled"}, statusCol.EnumValues)
 			tierCol := subsTable.FindColumn("tier")
 			require.NotNil(t, tierCol)
@@ -373,7 +373,7 @@ func TestMariaDBVersionDetection(t *testing.T) {
 			`)
 			require.NoError(t, err)
 
-			intr, err := introspect.NewIntrospecter(core.DialectMariaDB)
+			intr, err := introspect.NewIntrospecter(schema.DialectMariaDB)
 			require.NoError(t, err)
 
 			_, err = db.Exec("USE test_version")
@@ -382,7 +382,7 @@ func TestMariaDBVersionDetection(t *testing.T) {
 			result, err := intr.Introspect(ctx, db)
 			require.NoError(t, err)
 			require.NotNil(t, result)
-			require.Equal(t, core.DialectMariaDB, result.Dialect)
+			require.Equal(t, schema.DialectMariaDB, result.Dialect)
 		})
 	}
 }
@@ -420,7 +420,7 @@ func TestMariaDBInvisibleMetadata(t *testing.T) {
 	`)
 	require.NoError(t, err)
 
-	intr, err := introspect.NewIntrospecter(core.DialectMariaDB)
+	intr, err := introspect.NewIntrospecter(schema.DialectMariaDB)
 	require.NoError(t, err)
 
 	_, err = db.Exec("USE test_invisible_meta")
@@ -447,11 +447,11 @@ func TestMariaDBInvisibleMetadata(t *testing.T) {
 
 	visibleIdx := productsTable.FindIndex("idx_sku")
 	require.NotNil(t, visibleIdx)
-	require.Equal(t, core.IndexVisible, visibleIdx.Visibility)
+	require.Equal(t, schema.IndexVisible, visibleIdx.Visibility)
 
 	invisibleIdx := productsTable.FindIndex("idx_name")
 	require.NotNil(t, invisibleIdx)
-	require.Equal(t, core.IndexInvisible, invisibleIdx.Visibility)
+	require.Equal(t, schema.IndexInvisible, invisibleIdx.Visibility)
 }
 
 func setupMariaDBSpecificOptionsDB(t *testing.T, db *sql.DB) {
@@ -479,7 +479,7 @@ func TestMariaDBSpecificOptions(t *testing.T) {
 
 	setupMariaDBSpecificOptionsDB(t, db)
 
-	intr, err := introspect.NewIntrospecter(core.DialectMariaDB)
+	intr, err := introspect.NewIntrospecter(schema.DialectMariaDB)
 	require.NoError(t, err)
 
 	_, err = db.Exec("USE test_mariadb_opts")
@@ -535,7 +535,7 @@ func TestMariaDBAriaStorageEngine(t *testing.T) {
 	`)
 	require.NoError(t, err)
 
-	intr, err := introspect.NewIntrospecter(core.DialectMariaDB)
+	intr, err := introspect.NewIntrospecter(schema.DialectMariaDB)
 	require.NoError(t, err)
 
 	_, err = db.Exec("USE test_aria")
@@ -553,7 +553,7 @@ func TestMariaDBAriaStorageEngine(t *testing.T) {
 	require.Equal(t, uint64(1), ariaLogsTable.Options.MySQL.DelayKeyWrite)
 }
 
-func runMariaDBMySQLOptionsCase(ctx context.Context, t *testing.T, db *sql.DB, intr introspect.Introspecter, name, schema string, verify func(*testing.T, *core.Database)) {
+func runMariaDBMySQLOptionsCase(ctx context.Context, t *testing.T, db *sql.DB, intr introspect.Introspecter, name, schema string, verify func(*testing.T, *schema.Database)) {
 	t.Helper()
 	dbName := "mdb_opt_" + strings.ReplaceAll(name, " ", "_")
 	_, err := db.Exec("CREATE DATABASE " + dbName)
@@ -573,7 +573,7 @@ func testMariaDBMySQLOptionsBatchOne(ctx context.Context, t *testing.T, db *sql.
 	t.Run("innodb_compression_encryption", func(t *testing.T) {
 		runMariaDBMySQLOptionsCase(ctx, t, db, intr, "innodb_compression_encryption",
 			`CREATE TABLE t_innodb_compressed (id INT PRIMARY KEY, data VARCHAR(255)) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION='ZLIB' ENCRYPTION='Y'`,
-			func(t *testing.T, result *core.Database) {
+			func(t *testing.T, result *schema.Database) {
 				t.Helper()
 				tbl := result.FindTable("t_innodb_compressed")
 				require.NotNil(t, tbl)
@@ -588,7 +588,7 @@ func testMariaDBMySQLOptionsBatchOne(ctx context.Context, t *testing.T, db *sql.
 	t.Run("innodb_statistics", func(t *testing.T) {
 		runMariaDBMySQLOptionsCase(ctx, t, db, intr, "innodb_statistics",
 			`CREATE TABLE t_innodb_stats (id INT PRIMARY KEY, data VARCHAR(255)) ENGINE=InnoDB STATS_PERSISTENT=1 STATS_AUTO_RECALC=0 STATS_SAMPLE_PAGES=20`,
-			func(t *testing.T, result *core.Database) {
+			func(t *testing.T, result *schema.Database) {
 				t.Helper()
 				tbl := result.FindTable("t_innodb_stats")
 				require.NotNil(t, tbl)
@@ -601,7 +601,7 @@ func testMariaDBMySQLOptionsBatchOne(ctx context.Context, t *testing.T, db *sql.
 	t.Run("aria_page_checksum", func(t *testing.T) {
 		runMariaDBMySQLOptionsCase(ctx, t, db, intr, "aria_page_checksum",
 			`CREATE TABLE t_aria (id INT PRIMARY KEY, data VARCHAR(255)) ENGINE=Aria PAGE_CHECKSUM=1 TRANSACTIONAL=1`,
-			func(t *testing.T, result *core.Database) {
+			func(t *testing.T, result *schema.Database) {
 				t.Helper()
 				tbl := result.FindTable("t_aria")
 				require.NotNil(t, tbl)
@@ -611,7 +611,7 @@ func testMariaDBMySQLOptionsBatchOne(ctx context.Context, t *testing.T, db *sql.
 	t.Run("innodb_charset_collation", func(t *testing.T) {
 		runMariaDBMySQLOptionsCase(ctx, t, db, intr, "innodb_charset_collation",
 			`CREATE TABLE t_charset (id INT PRIMARY KEY, data VARCHAR(255)) ENGINE=InnoDB CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
-			func(t *testing.T, result *core.Database) {
+			func(t *testing.T, result *schema.Database) {
 				t.Helper()
 				tbl := result.FindTable("t_charset")
 				require.NotNil(t, tbl)
@@ -623,7 +623,7 @@ func testMariaDBMySQLOptionsBatchOne(ctx context.Context, t *testing.T, db *sql.
 	t.Run("auto_increment", func(t *testing.T) {
 		runMariaDBMySQLOptionsCase(ctx, t, db, intr, "auto_increment",
 			`CREATE TABLE t_auto_inc (id BIGINT PRIMARY KEY, data VARCHAR(255)) ENGINE=InnoDB AUTO_INCREMENT=100000`,
-			func(t *testing.T, result *core.Database) {
+			func(t *testing.T, result *schema.Database) {
 				t.Helper()
 				tbl := result.FindTable("t_auto_inc")
 				require.NotNil(t, tbl)
@@ -637,7 +637,7 @@ func testMariaDBMySQLOptionsBatchTwo(ctx context.Context, t *testing.T, db *sql.
 	t.Run("row_format", func(t *testing.T) {
 		runMariaDBMySQLOptionsCase(ctx, t, db, intr, "row_format",
 			`CREATE TABLE t_rowfmt (id INT PRIMARY KEY, data VARCHAR(255)) ENGINE=InnoDB ROW_FORMAT=Compact`,
-			func(t *testing.T, result *core.Database) {
+			func(t *testing.T, result *schema.Database) {
 				t.Helper()
 				tbl := result.FindTable("t_rowfmt")
 				require.NotNil(t, tbl)
@@ -647,7 +647,7 @@ func testMariaDBMySQLOptionsBatchTwo(ctx context.Context, t *testing.T, db *sql.
 	t.Run("avg_row_length", func(t *testing.T) {
 		runMariaDBMySQLOptionsCase(ctx, t, db, intr, "avg_row_length",
 			`CREATE TABLE t_avg (id INT PRIMARY KEY, data VARCHAR(255)) ENGINE=InnoDB AVG_ROW_LENGTH=128 MAX_ROWS=500000 MIN_ROWS=10`,
-			func(t *testing.T, result *core.Database) {
+			func(t *testing.T, result *schema.Database) {
 				t.Helper()
 				tbl := result.FindTable("t_avg")
 				require.NotNil(t, tbl)
@@ -660,7 +660,7 @@ func testMariaDBMySQLOptionsBatchTwo(ctx context.Context, t *testing.T, db *sql.
 	t.Run("checksum", func(t *testing.T) {
 		runMariaDBMySQLOptionsCase(ctx, t, db, intr, "checksum",
 			`CREATE TABLE t_checksum (id INT PRIMARY KEY, data VARCHAR(255)) ENGINE=InnoDB CHECKSUM=1`,
-			func(t *testing.T, result *core.Database) {
+			func(t *testing.T, result *schema.Database) {
 				t.Helper()
 				tbl := result.FindTable("t_checksum")
 				require.NotNil(t, tbl)
@@ -670,7 +670,7 @@ func testMariaDBMySQLOptionsBatchTwo(ctx context.Context, t *testing.T, db *sql.
 	t.Run("myisam_pack_keys", func(t *testing.T) {
 		runMariaDBMySQLOptionsCase(ctx, t, db, intr, "myisam_pack_keys",
 			`CREATE TABLE t_myisam_pk (id INT PRIMARY KEY, data VARCHAR(255)) ENGINE=MyISAM PACK_KEYS=1`,
-			func(t *testing.T, result *core.Database) {
+			func(t *testing.T, result *schema.Database) {
 				t.Helper()
 				tbl := result.FindTable("t_myisam_pk")
 				require.NotNil(t, tbl)
@@ -682,7 +682,7 @@ func testMariaDBMySQLOptionsBatchTwo(ctx context.Context, t *testing.T, db *sql.
 	t.Run("data_directory", func(t *testing.T) {
 		runMariaDBMySQLOptionsCase(ctx, t, db, intr, "data_directory",
 			`CREATE TABLE t_datadir (id INT PRIMARY KEY, data VARCHAR(255)) ENGINE=MyISAM DATA DIRECTORY='/var/lib/mysql-data'`,
-			func(t *testing.T, result *core.Database) {
+			func(t *testing.T, result *schema.Database) {
 				t.Helper()
 				tbl := result.FindTable("t_datadir")
 				require.NotNil(t, tbl)
@@ -692,7 +692,7 @@ func testMariaDBMySQLOptionsBatchTwo(ctx context.Context, t *testing.T, db *sql.
 	t.Run("index_directory", func(t *testing.T) {
 		runMariaDBMySQLOptionsCase(ctx, t, db, intr, "index_directory",
 			`CREATE TABLE t_idxdir (id INT PRIMARY KEY, data VARCHAR(255)) ENGINE=MyISAM INDEX DIRECTORY='/var/lib/mysql-index'`,
-			func(t *testing.T, result *core.Database) {
+			func(t *testing.T, result *schema.Database) {
 				t.Helper()
 				tbl := result.FindTable("t_idxdir")
 				require.NotNil(t, tbl)
@@ -708,7 +708,7 @@ func TestMariaDBMySQLOptions(t *testing.T) {
 	ctx := context.Background()
 	db := sharedMariaDBContainer
 
-	intr, err := introspect.NewIntrospecter(core.DialectMariaDB)
+	intr, err := introspect.NewIntrospecter(schema.DialectMariaDB)
 	require.NoError(t, err)
 
 	testMariaDBMySQLOptionsBatchOne(ctx, t, db, intr)
@@ -747,7 +747,7 @@ func TestMariaDBFederatedOptions(t *testing.T) {
 	`)
 	require.NoError(t, err)
 
-	intr, err := introspect.NewIntrospecter(core.DialectMariaDB)
+	intr, err := introspect.NewIntrospecter(schema.DialectMariaDB)
 	require.NoError(t, err)
 
 	_, err = db.Exec("USE test_federated")
@@ -791,7 +791,7 @@ func TestMariaDBColumnOptions(t *testing.T) {
 	`)
 	require.NoError(t, err)
 
-	intr, err := introspect.NewIntrospecter(core.DialectMariaDB)
+	intr, err := introspect.NewIntrospecter(schema.DialectMariaDB)
 	require.NoError(t, err)
 
 	_, err = db.Exec("USE test_col_opts")
@@ -860,7 +860,7 @@ func TestMariaDBIntrospectSequence(t *testing.T) {
 	`)
 	require.NoError(t, err)
 
-	intr, err := introspect.NewIntrospecter(core.DialectMariaDB)
+	intr, err := introspect.NewIntrospecter(schema.DialectMariaDB)
 	require.NoError(t, err)
 
 	_, err = db.Exec("USE test_sequence")
@@ -893,7 +893,7 @@ func TestMariaDBIntrospectAutoextendSize(t *testing.T) {
 	_, err = db.Exec(`CREATE TABLE autoextend_table (id INT PRIMARY KEY, data VARCHAR(255)) ENGINE=InnoDB AUTOEXTEND_SIZE=134217728`)
 	require.NoError(t, err)
 
-	intr, err := introspect.NewIntrospecter(core.DialectMariaDB)
+	intr, err := introspect.NewIntrospecter(schema.DialectMariaDB)
 	require.NoError(t, err)
 
 	result, err := intr.Introspect(ctx, db)
@@ -939,7 +939,7 @@ func TestMariaDBEncryptionKeyID(t *testing.T) {
 	`)
 	require.NoError(t, err)
 
-	intr, err := introspect.NewIntrospecter(core.DialectMariaDB)
+	intr, err := introspect.NewIntrospecter(schema.DialectMariaDB)
 	require.NoError(t, err)
 
 	_, err = db.Exec("USE test_encr_key")
@@ -988,7 +988,7 @@ func TestMariaDBStorageFlags(t *testing.T) {
 	_, err = db.Exec(`CREATE TABLE plain_table (id INT PRIMARY KEY, data VARCHAR(255)) ENGINE=InnoDB`)
 	require.NoError(t, err)
 
-	intr, err := introspect.NewIntrospecter(core.DialectMariaDB)
+	intr, err := introspect.NewIntrospecter(schema.DialectMariaDB)
 	require.NoError(t, err)
 
 	result, err := intr.Introspect(ctx, db)
@@ -1057,7 +1057,7 @@ func TestMariaDBPassword(t *testing.T) {
 	`)
 	require.NoError(t, err)
 
-	intr, err := introspect.NewIntrospecter(core.DialectMariaDB)
+	intr, err := introspect.NewIntrospecter(schema.DialectMariaDB)
 	require.NoError(t, err)
 
 	_, err = db.Exec("USE test_password")
@@ -1075,7 +1075,7 @@ func TestMariaDBPassword(t *testing.T) {
 	require.Equal(t, "secretpassword", federatedTable.Options.MySQL.Password)
 }
 
-func findConstraintByType(t *core.Table, ct core.ConstraintType) *core.Constraint {
+func findConstraintByType(t *schema.Table, ct schema.ConstraintType) *schema.Constraint {
 	for _, c := range t.Constraints {
 		if c.Type == ct {
 			return c

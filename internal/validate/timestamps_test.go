@@ -6,18 +6,18 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"smf/internal/core"
+	"smf/internal/schema"
 )
 
 func TestTimestampsDisabled(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectMySQL,
-		Tables: []*core.Table{
+		Dialect: schema.DialectMySQL,
+		Tables: []*schema.Table{
 			{
 				Name:       "users",
-				Columns:    []*core.Column{{Name: "id", Type: core.DataTypeInt}},
-				Timestamps: &core.TimestampsConfig{Enabled: false},
+				Columns:    []*schema.Column{{Name: "id", Type: schema.DataTypeInt}},
+				Timestamps: &schema.TimestampsConfig{Enabled: false},
 			},
 		},
 	}
@@ -27,14 +27,14 @@ func TestTimestampsDisabled(t *testing.T) {
 }
 
 func TestTimestampsDefaultDistinctNames(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectMySQL,
-		Tables: []*core.Table{
+		Dialect: schema.DialectMySQL,
+		Tables: []*schema.Table{
 			{
 				Name:       "users",
-				Columns:    []*core.Column{{Name: "id", Type: core.DataTypeInt}},
-				Timestamps: &core.TimestampsConfig{Enabled: true},
+				Columns:    []*schema.Column{{Name: "id", Type: schema.DataTypeInt}},
+				Timestamps: &schema.TimestampsConfig{Enabled: true},
 			},
 		},
 	}
@@ -44,14 +44,14 @@ func TestTimestampsDefaultDistinctNames(t *testing.T) {
 }
 
 func TestTimestampsSameNames(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectMySQL,
-		Tables: []*core.Table{
+		Dialect: schema.DialectMySQL,
+		Tables: []*schema.Table{
 			{
 				Name:    "users",
-				Columns: []*core.Column{{Name: "id", Type: core.DataTypeInt}},
-				Timestamps: &core.TimestampsConfig{
+				Columns: []*schema.Column{{Name: "id", Type: schema.DataTypeInt}},
+				Timestamps: &schema.TimestampsConfig{
 					Enabled:       true,
 					CreatedColumn: "created_at",
 					UpdatedColumn: "created_at",
@@ -66,14 +66,14 @@ func TestTimestampsSameNames(t *testing.T) {
 }
 
 func TestTimestampsCustomColumnValid(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectMySQL,
-		Tables: []*core.Table{
+		Dialect: schema.DialectMySQL,
+		Tables: []*schema.Table{
 			{
 				Name:    "users",
-				Columns: []*core.Column{{Name: "id", Type: core.DataTypeInt}},
-				Timestamps: &core.TimestampsConfig{
+				Columns: []*schema.Column{{Name: "id", Type: schema.DataTypeInt}},
+				Timestamps: &schema.TimestampsConfig{
 					Enabled:       true,
 					CreatedColumn: "creation_date",
 					UpdatedColumn: "last_update",
@@ -87,14 +87,14 @@ func TestTimestampsCustomColumnValid(t *testing.T) {
 }
 
 func TestTimestampsCustomColumnInvalidName(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectMySQL,
-		Tables: []*core.Table{
+		Dialect: schema.DialectMySQL,
+		Tables: []*schema.Table{
 			{
 				Name:    "users",
-				Columns: []*core.Column{{Name: "id", Type: core.DataTypeInt}},
-				Timestamps: &core.TimestampsConfig{
+				Columns: []*schema.Column{{Name: "id", Type: schema.DataTypeInt}},
+				Timestamps: &schema.TimestampsConfig{
 					Enabled:       true,
 					CreatedColumn: "CreatedAt",
 				},

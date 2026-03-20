@@ -6,18 +6,18 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"smf/internal/core"
+	"smf/internal/schema"
 )
 
 func TestColumnInvalidReferencesFormat(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectMySQL,
-		Tables: []*core.Table{
+		Dialect: schema.DialectMySQL,
+		Tables: []*schema.Table{
 			{
 				Name: "users",
-				Columns: []*core.Column{
-					{Name: "role_id", Type: core.DataTypeInt, References: "roles"},
+				Columns: []*schema.Column{
+					{Name: "role_id", Type: schema.DataTypeInt, References: "roles"},
 				},
 			},
 		},
@@ -31,27 +31,27 @@ func TestColumnInvalidReferencesFormat(t *testing.T) {
 func TestColumnEmptyType(t *testing.T) {
 	tests := []struct {
 		name string
-		col  *core.Column
+		col  *schema.Column
 	}{
 		{
 			name: "empty type and rawtype",
-			col:  &core.Column{Name: "id"},
+			col:  &schema.Column{Name: "id"},
 		},
 		{
 			name: "unknown type",
-			col:  &core.Column{Name: "id", Type: core.DataTypeUnknown},
+			col:  &schema.Column{Name: "id", Type: schema.DataTypeUnknown},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			db := &core.Database{
+			db := &schema.Database{
 				Name:    "app",
-				Dialect: core.DialectMySQL,
-				Tables: []*core.Table{
+				Dialect: schema.DialectMySQL,
+				Tables: []*schema.Table{
 					{
 						Name:    "users",
-						Columns: []*core.Column{tt.col},
+						Columns: []*schema.Column{tt.col},
 					},
 				},
 			}
@@ -64,14 +64,14 @@ func TestColumnEmptyType(t *testing.T) {
 }
 
 func TestColumnValid(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectMySQL,
-		Tables: []*core.Table{
+		Dialect: schema.DialectMySQL,
+		Tables: []*schema.Table{
 			{
 				Name: "users",
-				Columns: []*core.Column{
-					{Name: "id", Type: core.DataTypeInt},
+				Columns: []*schema.Column{
+					{Name: "id", Type: schema.DataTypeInt},
 				},
 			},
 		},
@@ -82,21 +82,21 @@ func TestColumnValid(t *testing.T) {
 }
 
 func TestColumnValidReferences(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectMySQL,
-		Tables: []*core.Table{
+		Dialect: schema.DialectMySQL,
+		Tables: []*schema.Table{
 			{
 				Name: "users",
-				Columns: []*core.Column{
-					{Name: "id", Type: core.DataTypeInt, PrimaryKey: true},
-					{Name: "role_id", Type: core.DataTypeInt, References: "roles.id"},
+				Columns: []*schema.Column{
+					{Name: "id", Type: schema.DataTypeInt, PrimaryKey: true},
+					{Name: "role_id", Type: schema.DataTypeInt, References: "roles.id"},
 				},
 			},
 			{
 				Name: "roles",
-				Columns: []*core.Column{
-					{Name: "id", Type: core.DataTypeInt, PrimaryKey: true},
+				Columns: []*schema.Column{
+					{Name: "id", Type: schema.DataTypeInt, PrimaryKey: true},
 				},
 			},
 		},

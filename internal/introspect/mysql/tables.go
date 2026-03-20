@@ -10,15 +10,15 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"smf/internal/core"
 	"smf/internal/introspect"
+	"smf/internal/schema"
 )
 
 // bodyItemKind classifies a single item inside the CREATE TABLE body.
 type bodyItemKind int
 
 const (
-	bodyItemColumn     bodyItemKind = iota // Column definition (starts with identifier token).
+	bodyItemColumn     bodyItemKind = iota // Column definition (starts with an identifier token).
 	bodyItemConstraint                     // Table-level PK, UNIQUE, FK, CHECK, or named CONSTRAINT.
 	bodyItemIndex                          // Inline index: KEY, INDEX, FULLTEXT, SPATIAL.
 )
@@ -30,7 +30,7 @@ type ddlSections struct {
 	tail string // Table options after the closing ')'.
 }
 
-func introspectTables(ic *introspectCtx, db *core.Database) error {
+func introspectTables(ic *introspectCtx, db *schema.Database) error {
 	tableNames, err := queryTableNames(ic)
 	if err != nil {
 		return err
@@ -75,11 +75,11 @@ func queryTableNames(ic *introspectCtx) ([]string, error) {
 	return tableNames, nil
 }
 
-func queryTablesData(parentCtx context.Context, ic *introspectCtx, names []string) ([]*core.Table, error) {
+func queryTablesData(parentCtx context.Context, ic *introspectCtx, names []string) ([]*schema.Table, error) {
 	// errgroup.WithContext automatically cancels the ctx on the first error
 	g, ctx := errgroup.WithContext(parentCtx)
 
-	tables := make([]*core.Table, 0, len(names))
+	tables := make([]*schema.Table, 0, len(names))
 	var mu sync.Mutex
 
 	jobs := make(chan string)
@@ -130,7 +130,7 @@ func computeWorkerCount(n int) int {
 	return min(workers, 8)
 }
 
-func introspectTable(ctx context.Context, ic *introspectCtx, tableName string) (*core.Table, error) {
+func introspectTable(ctx context.Context, ic *introspectCtx, tableName string) (*schema.Table, error) {
 	ddl, err := queryShowCreateTable(ctx, ic, tableName)
 	if err != nil {
 		return nil, fmt.Errorf("show create table: %w", err)
@@ -145,7 +145,7 @@ func introspectTable(ctx context.Context, ic *introspectCtx, tableName string) (
 }
 
 func queryShowCreateTable(ctx context.Context, ic *introspectCtx, tableName string) (string, error) {
-	query := "SHOW CREATE TABLE " + core.QuoteMySQLIdentifier(tableName)
+	query := "SHOW CREATE TABLE " + schema.QuoteMySQLIdentifier(tableName)
 	var ignored string
 	var ddl string
 	if err := ic.db.QueryRowContext(ctx, query).Scan(&ignored, &ddl); err != nil {
@@ -154,12 +154,12 @@ func queryShowCreateTable(ctx context.Context, ic *introspectCtx, tableName stri
 	return ddl, nil
 }
 
-func parseCreateTable(dialect core.Dialect, tableName, ddl string) (*core.Table, error) {
-	table := &core.Table{
+func parseCreateTable(dialect schema.Dialect, tableName, ddl string) (*schema.Table, error) {
+	table := &schema.Table{
 		Name:        tableName,
-		Columns:     make([]*core.Column, 0),
-		Constraints: make([]*core.Constraint, 0),
-		Indexes:     make([]*core.Index, 0),
+		Columns:     make([]*schema.Column, 0),
+		Constraints: make([]*schema.Constraint, 0),
+		Indexes:     make([]*schema.Index, 0),
 	}
 
 	initTableOptions(dialect, table)
@@ -180,21 +180,21 @@ func parseCreateTable(dialect core.Dialect, tableName, ddl string) (*core.Table,
 }
 
 // initTableOptions initializes the dialect-specific Options fields on the table.
-func initTableOptions(dialect core.Dialect, table *core.Table) {
+func initTableOptions(dialect schema.Dialect, table *schema.Table) {
 	switch dialect {
-	case core.DialectMySQL:
-		table.Options.MySQL = &core.MySQLTableOptions{}
-	case core.DialectMariaDB:
-		table.Options.MySQL = &core.MySQLTableOptions{}
-		table.Options.MariaDB = &core.MariaDBTableOptions{}
-	case core.DialectTiDB:
-		table.Options.MySQL = &core.MySQLTableOptions{}
-		table.Options.TiDB = &core.TiDBTableOptions{}
+	case schema.DialectMySQL:
+		table.Options.MySQL = &schema.MySQLTableOptions{}
+	case schema.DialectMariaDB:
+		table.Options.MySQL = &schema.MySQLTableOptions{}
+		table.Options.MariaDB = &schema.MariaDBTableOptions{}
+	case schema.DialectTiDB:
+		table.Options.MySQL = &schema.MySQLTableOptions{}
+		table.Options.TiDB = &schema.TiDBTableOptions{}
 	}
 }
 
 // parseTableBody parses each comma-separated item inside the CREATE TABLE body.
-func parseTableBody(dialect core.Dialect, table *core.Table, body string) error {
+func parseTableBody(dialect schema.Dialect, table *schema.Table, body string) error {
 	for _, item := range introspect.SplitBy(body, ',') {
 		if err := parseBodyItem(dialect, table, item); err != nil {
 			return err
@@ -204,7 +204,7 @@ func parseTableBody(dialect core.Dialect, table *core.Table, body string) error 
 }
 
 // parseBodyItem routes a single body item to the appropriate parser.
-func parseBodyItem(dialect core.Dialect, table *core.Table, item string) error {
+func parseBodyItem(dialect schema.Dialect, table *schema.Table, item string) error {
 	switch classifyBodyItem(item) {
 	case bodyItemColumn:
 		col, err := parseColumn(dialect, item)

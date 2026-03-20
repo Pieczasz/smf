@@ -3,7 +3,7 @@ package toml
 import (
 	"fmt"
 
-	"smf/internal/core"
+	"smf/internal/schema"
 )
 
 const (
@@ -163,16 +163,16 @@ type tomlMariaDBTableOptions struct {
 	WithSystemVersioning bool   `toml:"with_system_versioning"`
 }
 
-// table method parses a toml table into core.Table struct.
-func (p *Parser) table(tt *tomlTable, idx int) (*core.Table, error) {
-	table := &core.Table{
+// table method parses a toml table into schema.Table struct.
+func (p *Parser) table(tt *tomlTable, idx int) (*schema.Table, error) {
+	table := &schema.Table{
 		Name:    tt.Name,
 		Comment: tt.Comment,
 		Options: tableOptions(&tt.Options),
 	}
 
 	if ts := tt.Timestamps; ts != nil {
-		table.Timestamps = &core.TimestampsConfig{
+		table.Timestamps = &schema.TimestampsConfig{
 			Enabled:       ts.Enabled,
 			CreatedColumn: ts.CreatedColumn,
 			UpdatedColumn: ts.UpdatedColumn,
@@ -183,13 +183,13 @@ func (p *Parser) table(tt *tomlTable, idx int) (*core.Table, error) {
 		return nil, err
 	}
 
-	table.Constraints = make([]*core.Constraint, 0, len(tt.Constraints))
+	table.Constraints = make([]*schema.Constraint, 0, len(tt.Constraints))
 	for i := range tt.Constraints {
 		con := constraint(&tt.Constraints[i])
 		table.Constraints = append(table.Constraints, con)
 	}
 
-	table.Indexes = make([]*core.Index, 0, len(tt.Indexes))
+	table.Indexes = make([]*schema.Index, 0, len(tt.Indexes))
 	for i := range tt.Indexes {
 		idx, err := index(&tt.Indexes[i])
 		if err != nil {
@@ -201,9 +201,9 @@ func (p *Parser) table(tt *tomlTable, idx int) (*core.Table, error) {
 	return table, nil
 }
 
-// tableOption parses tomlTableOptions to core.TableOptions struct.
-func tableOptions(to *tomlTableOptions) core.TableOptions {
-	opts := core.TableOptions{
+// tableOption parses tomlTableOptions to schema.TableOptions struct.
+func tableOptions(to *tomlTableOptions) schema.TableOptions {
+	opts := schema.TableOptions{
 		Tablespace: to.Tablespace,
 	}
 
@@ -238,8 +238,8 @@ func tableOptions(to *tomlTableOptions) core.TableOptions {
 	return opts
 }
 
-func mysqlTableOptions(m *tomlMySQLTableOptions) *core.MySQLTableOptions {
-	return &core.MySQLTableOptions{
+func mysqlTableOptions(m *tomlMySQLTableOptions) *schema.MySQLTableOptions {
+	return &schema.MySQLTableOptions{
 		Engine:                   m.Engine,
 		Charset:                  m.Charset,
 		Collate:                  m.Collate,
@@ -276,8 +276,8 @@ func mysqlTableOptions(m *tomlMySQLTableOptions) *core.MySQLTableOptions {
 	}
 }
 
-func tidbTableOptions(t *tomlTiDBTableOptions) *core.TiDBTableOptions {
-	return &core.TiDBTableOptions{
+func tidbTableOptions(t *tomlTiDBTableOptions) *schema.TiDBTableOptions {
+	return &schema.TiDBTableOptions{
 		AutoIDCache:     t.AutoIDCache,
 		AutoRandomBase:  t.AutoRandomBase,
 		ShardRowID:      t.ShardRowID,
@@ -296,8 +296,8 @@ func tidbTableOptions(t *tomlTiDBTableOptions) *core.TiDBTableOptions {
 	}
 }
 
-func postgreSQLTableOptions(pg *tomlPostgreSQLTableOptions) *core.PostgreSQLTableOptions {
-	return &core.PostgreSQLTableOptions{
+func postgreSQLTableOptions(pg *tomlPostgreSQLTableOptions) *schema.PostgreSQLTableOptions {
+	return &schema.PostgreSQLTableOptions{
 		Schema:      pg.Schema,
 		Unlogged:    pg.Unlogged,
 		Fillfactor:  pg.Fillfactor,
@@ -306,8 +306,8 @@ func postgreSQLTableOptions(pg *tomlPostgreSQLTableOptions) *core.PostgreSQLTabl
 	}
 }
 
-func oracleTableOptions(o *tomlOracleTableOptions) *core.OracleTableOptions {
-	return &core.OracleTableOptions{
+func oracleTableOptions(o *tomlOracleTableOptions) *schema.OracleTableOptions {
+	return &schema.OracleTableOptions{
 		Organization:    o.Organization,
 		Logging:         o.Logging,
 		Pctfree:         o.Pctfree,
@@ -317,8 +317,8 @@ func oracleTableOptions(o *tomlOracleTableOptions) *core.OracleTableOptions {
 	}
 }
 
-func sqlServerTableOptions(ss *tomlSQLServerTableOptions) *core.SQLServerTableOptions {
-	return &core.SQLServerTableOptions{
+func sqlServerTableOptions(ss *tomlSQLServerTableOptions) *schema.SQLServerTableOptions {
+	return &schema.SQLServerTableOptions{
 		FileGroup:        ss.FileGroup,
 		DataCompression:  ss.DataCompression,
 		MemoryOptimized:  ss.MemoryOptimized,
@@ -328,8 +328,8 @@ func sqlServerTableOptions(ss *tomlSQLServerTableOptions) *core.SQLServerTableOp
 	}
 }
 
-func db2TableOptions(d *tomlDB2TableOptions) *core.DB2TableOptions {
-	return &core.DB2TableOptions{
+func db2TableOptions(d *tomlDB2TableOptions) *schema.DB2TableOptions {
+	return &schema.DB2TableOptions{
 		OrganizeBy:  d.OrganizeBy,
 		Compress:    d.Compress,
 		DataCapture: d.DataCapture,
@@ -338,8 +338,8 @@ func db2TableOptions(d *tomlDB2TableOptions) *core.DB2TableOptions {
 	}
 }
 
-func snowflakeTableOptions(sf *tomlSnowflakeTableOptions) *core.SnowflakeTableOptions {
-	return &core.SnowflakeTableOptions{
+func snowflakeTableOptions(sf *tomlSnowflakeTableOptions) *schema.SnowflakeTableOptions {
+	return &schema.SnowflakeTableOptions{
 		ClusterBy:         sf.ClusterBy,
 		DataRetentionDays: sf.DataRetentionDays,
 		ChangeTracking:    sf.ChangeTracking,
@@ -348,15 +348,15 @@ func snowflakeTableOptions(sf *tomlSnowflakeTableOptions) *core.SnowflakeTableOp
 	}
 }
 
-func sqliteTableOptions(sl *tomlSQLiteTableOptions) *core.SQLiteTableOptions {
-	return &core.SQLiteTableOptions{
+func sqliteTableOptions(sl *tomlSQLiteTableOptions) *schema.SQLiteTableOptions {
+	return &schema.SQLiteTableOptions{
 		WithoutRowid: sl.WithoutRowid,
 		Strict:       sl.Strict,
 	}
 }
 
-func mariaDBTableOptions(mdb *tomlMariaDBTableOptions) *core.MariaDBTableOptions {
-	return &core.MariaDBTableOptions{
+func mariaDBTableOptions(mdb *tomlMariaDBTableOptions) *schema.MariaDBTableOptions {
+	return &schema.MariaDBTableOptions{
 		PageChecksum:         mdb.PageChecksum,
 		Transactional:        mdb.Transactional,
 		EncryptionKeyID:      mdb.EncryptionKeyID,
@@ -367,8 +367,8 @@ func mariaDBTableOptions(mdb *tomlMariaDBTableOptions) *core.MariaDBTableOptions
 
 // tableColumns populates table.Columns from the TOML column definitions
 // and injects timestamp columns when enabled.
-func (p *Parser) tableColumns(table *core.Table, tt *tomlTable, tableIdx int) error {
-	table.Columns = make([]*core.Column, 0, len(tt.Columns))
+func (p *Parser) tableColumns(table *schema.Table, tt *tomlTable, tableIdx int) error {
+	table.Columns = make([]*schema.Column, 0, len(tt.Columns))
 	for i := range tt.Columns {
 		col, err := p.column(&tt.Columns[i])
 		if err != nil {
@@ -386,7 +386,7 @@ func (p *Parser) tableColumns(table *core.Table, tt *tomlTable, tableIdx int) er
 
 // injectTimestampColumns resolves the created/updated column names and appends
 // the columns when not already present.
-func injectTimestampColumns(table *core.Table) {
+func injectTimestampColumns(table *schema.Table) {
 	createdCol := defaultCreatedColumn
 	updatedCol := defaultUpdatedColumn
 	if table.Timestamps.CreatedColumn != "" {
@@ -402,17 +402,17 @@ func injectTimestampColumns(table *core.Table) {
 	}
 
 	if !columnNames[createdCol] {
-		table.Columns = append(table.Columns, &core.Column{
+		table.Columns = append(table.Columns, &schema.Column{
 			Name:         createdCol,
-			Type:         core.DataTypeDatetime,
+			Type:         schema.DataTypeDatetime,
 			DefaultValue: new(defaultTimestampValue),
 		})
 	}
 
 	if !columnNames[updatedCol] {
-		table.Columns = append(table.Columns, &core.Column{
+		table.Columns = append(table.Columns, &schema.Column{
 			Name:         updatedCol,
-			Type:         core.DataTypeDatetime,
+			Type:         schema.DataTypeDatetime,
 			DefaultValue: new(defaultTimestampValue),
 			OnUpdate:     new(defaultTimestampValue),
 		})

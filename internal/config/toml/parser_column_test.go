@@ -7,41 +7,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"smf/internal/core"
+	"smf/internal/schema"
 )
-
-func TestParseRawTypeDialectScoped(t *testing.T) {
-	t.Parallel()
-	const schema = `
-[database]
-name = "testdb"
-dialect = "postgresql"
-
-[[tables]]
-name = "items"
-
-  [[tables.columns]]
-  name     = "data"
-  type     = "json"
-  raw_type = "JSONB"
-
-  [[tables.constraints]]
-  type    = "PRIMARY KEY"
-  columns = ["data"]
-`
-	p := NewParser()
-	db, err := p.Parse(strings.NewReader(schema))
-	require.NoError(t, err)
-
-	col := db.Tables[0].FindColumn("data")
-	require.NotNil(t, col)
-	assert.Equal(t, "JSONB", col.RawType, "RawType should be the dialect-specific override")
-	assert.Equal(t, core.DataTypeJSON, col.Type, "Type should be normalized from portable type")
-}
 
 func TestParseRawTypeAppliedForDialect(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "postgresql"
@@ -59,18 +30,18 @@ name = "items"
   columns = ["data"]
 `
 	p := NewParser()
-	db, err := p.Parse(strings.NewReader(schema))
+	db, err := p.Parse(strings.NewReader(s))
 	require.NoError(t, err)
 
 	col := db.Tables[0].FindColumn("data")
 	require.NotNil(t, col)
 	assert.Equal(t, "JSONB", col.RawType, "RawType should be the dialect-specific override")
-	assert.Equal(t, core.DataTypeJSON, col.Type, "Type should be normalized from portable type")
+	assert.Equal(t, schema.DataTypeJSON, col.Type, "Type should be normalized from portable type")
 }
 
 func TestParseNullableDefaultFalse(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -89,7 +60,7 @@ name = "items"
   nullable = true
 `
 	p := NewParser()
-	db, err := p.Parse(strings.NewReader(schema))
+	db, err := p.Parse(strings.NewReader(s))
 	require.NoError(t, err)
 
 	id := db.Tables[0].FindColumn("id")
@@ -103,7 +74,7 @@ name = "items"
 
 func TestParseOptionalFieldsNilWhenAbsent(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -117,7 +88,7 @@ name = "items"
   primary_key = true
 `
 	p := NewParser()
-	db, err := p.Parse(strings.NewReader(schema))
+	db, err := p.Parse(strings.NewReader(s))
 	require.NoError(t, err)
 
 	col := db.Tables[0].Columns[0]
@@ -132,7 +103,7 @@ name = "items"
 
 func TestParseBooleanDefaultValue(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -152,7 +123,7 @@ name = "items"
   default = false
 `
 	p := NewParser()
-	db, err := p.Parse(strings.NewReader(schema))
+	db, err := p.Parse(strings.NewReader(s))
 	require.NoError(t, err)
 
 	active := db.Tables[0].FindColumn("active")
@@ -168,7 +139,7 @@ name = "items"
 
 func TestParseIntegerDefaultValue(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -183,7 +154,7 @@ name = "items"
   default     = 42
 `
 	p := NewParser()
-	db, err := p.Parse(strings.NewReader(schema))
+	db, err := p.Parse(strings.NewReader(s))
 	require.NoError(t, err)
 
 	col := db.Tables[0].FindColumn("priority")
@@ -194,7 +165,7 @@ name = "items"
 
 func TestParseStringDefaultValue(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -209,7 +180,7 @@ name = "items"
   default     = "pending"
 `
 	p := NewParser()
-	db, err := p.Parse(strings.NewReader(schema))
+	db, err := p.Parse(strings.NewReader(s))
 	require.NoError(t, err)
 
 	col := db.Tables[0].FindColumn("status")
@@ -220,7 +191,7 @@ name = "items"
 
 func TestParseDefaultValueAndOnUpdateNoFK(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -239,7 +210,7 @@ name = "items"
   columns = ["updated_at"]
 `
 	p := NewParser()
-	db, err := p.Parse(strings.NewReader(schema))
+	db, err := p.Parse(strings.NewReader(s))
 	require.NoError(t, err)
 
 	col := db.Tables[0].Columns[0]
@@ -249,12 +220,12 @@ name = "items"
 	assert.Equal(t, "CURRENT_TIMESTAMP", *col.OnUpdate)
 	// No FK -> on_update is NOT a referential action.
 	assert.Empty(t, col.References)
-	assert.Equal(t, core.RefActionNone, col.RefOnUpdate)
+	assert.Equal(t, schema.RefActionNone, col.RefOnUpdate)
 }
 
 func TestParseEnumWithValuesArray(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -270,12 +241,12 @@ name = "items"
   primary_key = true
 `
 	p := NewParser()
-	db, err := p.Parse(strings.NewReader(schema))
+	db, err := p.Parse(strings.NewReader(s))
 	require.NoError(t, err)
 
 	col := db.Tables[0].FindColumn("status")
 	require.NotNil(t, col)
-	assert.Equal(t, core.DataTypeEnum, col.Type)
+	assert.Equal(t, schema.DataTypeEnum, col.Type)
 	assert.Empty(t, col.RawType)
 	assert.Equal(t, []string{"active", "paused", "deleted"}, col.EnumValues)
 	require.NotNil(t, col.DefaultValue)
@@ -284,7 +255,7 @@ name = "items"
 
 func TestParseEnumWithQuotesInValues(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -299,7 +270,7 @@ name = "items"
   primary_key = true
 `
 	p := NewParser()
-	db, err := p.Parse(strings.NewReader(schema))
+	db, err := p.Parse(strings.NewReader(s))
 	require.NoError(t, err)
 
 	col := db.Tables[0].FindColumn("label")
@@ -309,7 +280,7 @@ name = "items"
 
 func TestParseGeneratedColumn(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -330,46 +301,46 @@ name = "items"
   generation_storage    = "STORED"
 `
 	p := NewParser()
-	db, err := p.Parse(strings.NewReader(schema))
+	db, err := p.Parse(strings.NewReader(s))
 	require.NoError(t, err)
 
 	col := db.Tables[0].FindColumn("full_name")
 	require.NotNil(t, col)
 	assert.True(t, col.IsGenerated)
 	assert.Equal(t, "CONCAT(first_name, ' ', last_name)", col.GenerationExpression)
-	assert.Equal(t, core.GenerationStored, col.GenerationStorage)
+	assert.Equal(t, schema.GenerationStored, col.GenerationStorage)
 }
 
 func TestParseDataTypeNormalization(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		rawType  string
-		expected core.DataType
+		expected schema.DataType
 	}{
-		{"varchar(255)", core.DataTypeString},
-		{"char(10)", core.DataTypeString},
-		{"text", core.DataTypeString},
-		{"int", core.DataTypeInt},
-		{"bigint", core.DataTypeInt},
-		{"smallint", core.DataTypeInt},
-		{"boolean", core.DataTypeBoolean},
-		{"float", core.DataTypeFloat},
-		{"double", core.DataTypeFloat},
-		{"decimal(10,2)", core.DataTypeFloat},
-		{"timestamp", core.DataTypeDatetime},
-		{"datetime", core.DataTypeDatetime},
-		{"date", core.DataTypeDatetime},
-		{"json", core.DataTypeJSON},
-		{"uuid", core.DataTypeUUID},
-		{"blob", core.DataTypeBinary},
-		{"varbinary(60)", core.DataTypeBinary},
-		{"binary(16)", core.DataTypeBinary},
+		{"varchar(255)", schema.DataTypeString},
+		{"char(10)", schema.DataTypeString},
+		{"text", schema.DataTypeString},
+		{"int", schema.DataTypeInt},
+		{"bigint", schema.DataTypeInt},
+		{"smallint", schema.DataTypeInt},
+		{"boolean", schema.DataTypeBoolean},
+		{"float", schema.DataTypeFloat},
+		{"double", schema.DataTypeFloat},
+		{"decimal(10,2)", schema.DataTypeFloat},
+		{"timestamp", schema.DataTypeDatetime},
+		{"datetime", schema.DataTypeDatetime},
+		{"date", schema.DataTypeDatetime},
+		{"json", schema.DataTypeJSON},
+		{"uuid", schema.DataTypeUUID},
+		{"blob", schema.DataTypeBinary},
+		{"varbinary(60)", schema.DataTypeBinary},
+		{"binary(16)", schema.DataTypeBinary},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.rawType, func(t *testing.T) {
 			t.Parallel()
-			schema := `
+			s := `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -383,7 +354,7 @@ name = "items"
   primary_key = true
 `
 			p := NewParser()
-			db, err := p.Parse(strings.NewReader(schema))
+			db, err := p.Parse(strings.NewReader(s))
 			require.NoError(t, err)
 
 			col := db.Tables[0].Columns[0]
@@ -394,7 +365,7 @@ name = "items"
 
 func TestParseEmptyColumnName(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -411,13 +382,13 @@ name = "items"
   columns = [""]
 `
 	p := NewParser()
-	_, err := p.Parse(strings.NewReader(schema))
+	_, err := p.Parse(strings.NewReader(s))
 	assert.Error(t, err)
 }
 
 func TestParseEmptyColumnType(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -433,14 +404,14 @@ name = "items"
   columns = ["id"]
 `
 	p := NewParser()
-	_, err := p.Parse(strings.NewReader(schema))
+	_, err := p.Parse(strings.NewReader(s))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "either type or raw_type is required")
 }
 
 func TestParseColumnWithMultipleShortcuts(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -469,7 +440,7 @@ name = "other"
   primary_key = true
 `
 	p := NewParser()
-	db, err := p.Parse(strings.NewReader(schema))
+	db, err := p.Parse(strings.NewReader(s))
 	require.NoError(t, err)
 
 	tbl := db.Tables[0]
@@ -478,19 +449,19 @@ name = "other"
 	assert.True(t, col.Unique)
 	assert.Equal(t, "ref_id > 0", col.Check)
 	assert.Equal(t, "other.id", col.References)
-	assert.Equal(t, core.RefActionCascade, col.RefOnDelete)
+	assert.Equal(t, schema.RefActionCascade, col.RefOnDelete)
 
 	// Should produce PK + UNIQUE + CHECK + FK = 4 constraints.
 	pkCount, uqCount, chkCount, fkCount := 0, 0, 0, 0
 	for _, c := range tbl.Constraints {
 		switch c.Type {
-		case core.ConstraintPrimaryKey:
+		case schema.ConstraintPrimaryKey:
 			pkCount++
-		case core.ConstraintUnique:
+		case schema.ConstraintUnique:
 			uqCount++
-		case core.ConstraintCheck:
+		case schema.ConstraintCheck:
 			chkCount++
-		case core.ConstraintForeignKey:
+		case schema.ConstraintForeignKey:
 			fkCount++
 		}
 	}
@@ -502,7 +473,7 @@ name = "other"
 
 func TestParseMalformedReferencesNoDot(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -521,7 +492,7 @@ name = "items"
   references = "tenants"
 `
 	p := NewParser()
-	_, err := p.Parse(strings.NewReader(schema))
+	_, err := p.Parse(strings.NewReader(s))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid references")
 	assert.Contains(t, err.Error(), "tenants")
@@ -529,7 +500,7 @@ name = "items"
 
 func TestParseMalformedReferencesDotAtEnd(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -548,14 +519,14 @@ name = "items"
   references = "tenants."
 `
 	p := NewParser()
-	_, err := p.Parse(strings.NewReader(schema))
+	_, err := p.Parse(strings.NewReader(s))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid references")
 }
 
 func TestParseMalformedReferencesDotAtStart(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -574,14 +545,14 @@ name = "items"
   references = ".id"
 `
 	p := NewParser()
-	_, err := p.Parse(strings.NewReader(schema))
+	_, err := p.Parse(strings.NewReader(s))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid references")
 }
 
 func TestParseValidReferencesStillWorks(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -607,7 +578,7 @@ name = "tenants"
   primary_key = true
 `
 	p := NewParser()
-	db, err := p.Parse(strings.NewReader(schema))
+	db, err := p.Parse(strings.NewReader(s))
 	require.NoError(t, err)
 
 	tbl := db.Tables[0]
@@ -616,9 +587,9 @@ name = "tenants"
 	assert.Equal(t, "tenants.id", col.References)
 
 	// FK constraint should have been synthesized.
-	var fk *core.Constraint
+	var fk *schema.Constraint
 	for _, c := range tbl.Constraints {
-		if c.Type == core.ConstraintForeignKey {
+		if c.Type == schema.ConstraintForeignKey {
 			fk = c
 			break
 		}
@@ -630,7 +601,7 @@ name = "tenants"
 
 func TestParseDuplicateColumnName(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -648,7 +619,7 @@ name = "items"
   type = "varchar(255)"
 `
 	p := NewParser()
-	_, err := p.Parse(strings.NewReader(schema))
+	_, err := p.Parse(strings.NewReader(s))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "duplicate column name")
 	assert.Contains(t, err.Error(), "id")

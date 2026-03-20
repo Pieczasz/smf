@@ -3,10 +3,10 @@ package validate
 import (
 	"fmt"
 
-	"smf/internal/core"
+	"smf/internal/schema"
 )
 
-func Enums(db *core.Database) error {
+func Enums(db *schema.Database) error {
 	for _, table := range db.Tables {
 		for _, col := range table.Columns {
 			if err := ColumnEnums(col, table); err != nil {
@@ -29,7 +29,7 @@ func Enums(db *core.Database) error {
 	return nil
 }
 
-func ColumnEnums(c *core.Column, table *core.Table) error {
+func ColumnEnums(c *schema.Column, table *schema.Table) error {
 	if err := ColumnType(c, table); err != nil {
 		return err
 	}
@@ -42,7 +42,7 @@ func ColumnEnums(c *core.Column, table *core.Table) error {
 	return Identity(c, table)
 }
 
-func ColumnType(c *core.Column, table *core.Table) error {
+func ColumnType(c *schema.Column, table *schema.Table) error {
 	if c.Type == "" {
 		return nil
 	}
@@ -52,7 +52,7 @@ func ColumnType(c *core.Column, table *core.Table) error {
 	return nil
 }
 
-func RefActions(c *core.Column, table *core.Table) error {
+func RefActions(c *schema.Column, table *schema.Table) error {
 	if c.RefOnDelete != "" && !c.RefOnDelete.IsValid() {
 		return fmt.Errorf("table %q, column %q: invalid ref_on_delete %q", table.Name, c.Name, c.RefOnDelete)
 	}
@@ -62,26 +62,26 @@ func RefActions(c *core.Column, table *core.Table) error {
 	return nil
 }
 
-func Generation(c *core.Column, table *core.Table) error {
+func Generation(c *schema.Column, table *schema.Table) error {
 	if c.IsGenerated && c.GenerationStorage != "" && !c.GenerationStorage.IsValid() {
 		return fmt.Errorf("table %q, column %q: invalid generation_storage %q", table.Name, c.Name, c.GenerationStorage)
 	}
 	return nil
 }
 
-func Identity(c *core.Column, table *core.Table) error {
+func Identity(c *schema.Column, table *schema.Table) error {
 	if c.IdentityGeneration != "" && !c.IdentityGeneration.IsValid() {
 		return fmt.Errorf("table %q, column %q: invalid identity_generation %q", table.Name, c.Name, c.IdentityGeneration)
 	}
 	return nil
 }
 
-func ConstraintEnums(con *core.Constraint, table *core.Table) error {
+func ConstraintEnums(con *schema.Constraint, table *schema.Table) error {
 	if !con.Type.IsValid() {
 		return fmt.Errorf("table %q, constraint %q: invalid constraint type %q", table.Name, con.Name, con.Type)
 	}
 
-	if con.Type == core.ConstraintForeignKey {
+	if con.Type == schema.ConstraintForeignKey {
 		if con.OnDelete != "" && !con.OnDelete.IsValid() {
 			return fmt.Errorf("table %q, constraint %q: invalid on_delete %q", table.Name, con.Name, con.OnDelete)
 		}
@@ -93,7 +93,7 @@ func ConstraintEnums(con *core.Constraint, table *core.Table) error {
 	return nil
 }
 
-func IndexEnums(i *core.Index, table *core.Table) error {
+func IndexEnums(i *schema.Index, table *schema.Table) error {
 	if err := IndexType(i, table); err != nil {
 		return err
 	}
@@ -103,7 +103,7 @@ func IndexEnums(i *core.Index, table *core.Table) error {
 	return IndexColumnsOrder(i, table)
 }
 
-func IndexType(i *core.Index, table *core.Table) error {
+func IndexType(i *schema.Index, table *schema.Table) error {
 	if i.Type == "" {
 		return nil
 	}
@@ -113,7 +113,7 @@ func IndexType(i *core.Index, table *core.Table) error {
 	return nil
 }
 
-func IndexVisibility(i *core.Index, table *core.Table) error {
+func IndexVisibility(i *schema.Index, table *schema.Table) error {
 	if i.Visibility == "" {
 		return nil
 	}
@@ -123,7 +123,7 @@ func IndexVisibility(i *core.Index, table *core.Table) error {
 	return nil
 }
 
-func IndexColumnsOrder(i *core.Index, table *core.Table) error {
+func IndexColumnsOrder(i *schema.Index, table *schema.Table) error {
 	for _, ic := range i.Columns {
 		if ic.Order != "" && !ic.Order.IsValid() {
 			return fmt.Errorf("table %q, index %q, column %q: invalid sort order %q", table.Name, i.Name, ic.Name, ic.Order)

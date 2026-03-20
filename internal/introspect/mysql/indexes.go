@@ -3,7 +3,7 @@ package mysql
 import (
 	"errors"
 
-	"smf/internal/core"
+	"smf/internal/schema"
 )
 
 // parseIndex parses an inline index declaration from a CREATE TABLE body item.
@@ -12,7 +12,7 @@ import (
 //
 // Example input: "KEY `idx_name` (`name`)"
 // Example input: "FULLTEXT INDEX `ft_content` (`content`)".
-func parseIndex(_ core.Dialect, item string) (*core.Index, error) {
+func parseIndex(_ schema.Dialect, item string) (*schema.Index, error) {
 	// TODO: implement full index parsing.
 	_ = item
 	return nil, errors.New("parseIndex not yet implemented")

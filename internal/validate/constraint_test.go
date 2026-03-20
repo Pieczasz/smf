@@ -6,20 +6,20 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"smf/internal/core"
+	"smf/internal/schema"
 )
 
 func TestConstraintDuplicateNames(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectMySQL,
-		Tables: []*core.Table{
+		Dialect: schema.DialectMySQL,
+		Tables: []*schema.Table{
 			{
 				Name:    "users",
-				Columns: []*core.Column{{Name: "id", Type: core.DataTypeInt}},
-				Constraints: []*core.Constraint{
-					{Name: "uq_email", Type: core.ConstraintUnique, Columns: []string{"id"}},
-					{Name: "uq_email", Type: core.ConstraintUnique, Columns: []string{"id"}},
+				Columns: []*schema.Column{{Name: "id", Type: schema.DataTypeInt}},
+				Constraints: []*schema.Constraint{
+					{Name: "uq_email", Type: schema.ConstraintUnique, Columns: []string{"id"}},
+					{Name: "uq_email", Type: schema.ConstraintUnique, Columns: []string{"id"}},
 				},
 			},
 		},
@@ -31,15 +31,15 @@ func TestConstraintDuplicateNames(t *testing.T) {
 }
 
 func TestConstraintWithNoColumns(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectMySQL,
-		Tables: []*core.Table{
+		Dialect: schema.DialectMySQL,
+		Tables: []*schema.Table{
 			{
 				Name:    "users",
-				Columns: []*core.Column{{Name: "id", Type: core.DataTypeInt}},
-				Constraints: []*core.Constraint{
-					{Name: "uq_users_id", Type: core.ConstraintUnique, Columns: []string{}},
+				Columns: []*schema.Column{{Name: "id", Type: schema.DataTypeInt}},
+				Constraints: []*schema.Constraint{
+					{Name: "uq_users_id", Type: schema.ConstraintUnique, Columns: []string{}},
 				},
 			},
 		},
@@ -51,15 +51,15 @@ func TestConstraintWithNoColumns(t *testing.T) {
 }
 
 func TestConstraintReferencesNonexistentColumn(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectMySQL,
-		Tables: []*core.Table{
+		Dialect: schema.DialectMySQL,
+		Tables: []*schema.Table{
 			{
 				Name:    "users",
-				Columns: []*core.Column{{Name: "id", Type: core.DataTypeInt}},
-				Constraints: []*core.Constraint{
-					{Name: "uq_users_email", Type: core.ConstraintUnique, Columns: []string{"email"}},
+				Columns: []*schema.Column{{Name: "id", Type: schema.DataTypeInt}},
+				Constraints: []*schema.Constraint{
+					{Name: "uq_users_email", Type: schema.ConstraintUnique, Columns: []string{"email"}},
 				},
 			},
 		},
@@ -71,15 +71,15 @@ func TestConstraintReferencesNonexistentColumn(t *testing.T) {
 }
 
 func TestConstraintForeignKeyMissingReferencedTable(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectMySQL,
-		Tables: []*core.Table{
+		Dialect: schema.DialectMySQL,
+		Tables: []*schema.Table{
 			{
 				Name:    "users",
-				Columns: []*core.Column{{Name: "role_id", Type: core.DataTypeInt}},
-				Constraints: []*core.Constraint{
-					{Name: "fk_users_role", Type: core.ConstraintForeignKey, Columns: []string{"role_id"}},
+				Columns: []*schema.Column{{Name: "role_id", Type: schema.DataTypeInt}},
+				Constraints: []*schema.Constraint{
+					{Name: "fk_users_role", Type: schema.ConstraintForeignKey, Columns: []string{"role_id"}},
 				},
 			},
 		},
@@ -91,17 +91,17 @@ func TestConstraintForeignKeyMissingReferencedTable(t *testing.T) {
 }
 
 func TestConstraintForeignKeyMissingReferencedColumns(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectMySQL,
-		Tables: []*core.Table{
+		Dialect: schema.DialectMySQL,
+		Tables: []*schema.Table{
 			{
 				Name:    "users",
-				Columns: []*core.Column{{Name: "role_id", Type: core.DataTypeInt}},
-				Constraints: []*core.Constraint{
+				Columns: []*schema.Column{{Name: "role_id", Type: schema.DataTypeInt}},
+				Constraints: []*schema.Constraint{
 					{
 						Name:            "fk_users_role",
-						Type:            core.ConstraintForeignKey,
+						Type:            schema.ConstraintForeignKey,
 						Columns:         []string{"role_id"},
 						ReferencedTable: "roles",
 					},
@@ -116,15 +116,15 @@ func TestConstraintForeignKeyMissingReferencedColumns(t *testing.T) {
 }
 
 func TestConstraintCheckMayHaveNoColumns(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectMySQL,
-		Tables: []*core.Table{
+		Dialect: schema.DialectMySQL,
+		Tables: []*schema.Table{
 			{
 				Name:    "users",
-				Columns: []*core.Column{{Name: "age", Type: core.DataTypeInt}},
-				Constraints: []*core.Constraint{
-					{Name: "chk_age", Type: core.ConstraintCheck, CheckExpression: "age >= 0"},
+				Columns: []*schema.Column{{Name: "age", Type: schema.DataTypeInt}},
+				Constraints: []*schema.Constraint{
+					{Name: "chk_age", Type: schema.ConstraintCheck, CheckExpression: "age >= 0"},
 				},
 			},
 		},
@@ -135,21 +135,21 @@ func TestConstraintCheckMayHaveNoColumns(t *testing.T) {
 }
 
 func TestForeignKeyValidReference(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectMySQL,
-		Tables: []*core.Table{
+		Dialect: schema.DialectMySQL,
+		Tables: []*schema.Table{
 			{
 				Name:    "users",
-				Columns: []*core.Column{{Name: "id", Type: core.DataTypeInt}},
+				Columns: []*schema.Column{{Name: "id", Type: schema.DataTypeInt}},
 			},
 			{
 				Name:    "posts",
-				Columns: []*core.Column{{Name: "author_id", Type: core.DataTypeInt}},
-				Constraints: []*core.Constraint{
+				Columns: []*schema.Column{{Name: "author_id", Type: schema.DataTypeInt}},
+				Constraints: []*schema.Constraint{
 					{
 						Name:              "fk_posts_author",
-						Type:              core.ConstraintForeignKey,
+						Type:              schema.ConstraintForeignKey,
 						Columns:           []string{"author_id"},
 						ReferencedTable:   "users",
 						ReferencedColumns: []string{"id"},
@@ -164,17 +164,17 @@ func TestForeignKeyValidReference(t *testing.T) {
 }
 
 func TestForeignKeyNonExistentTable(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectMySQL,
-		Tables: []*core.Table{
+		Dialect: schema.DialectMySQL,
+		Tables: []*schema.Table{
 			{
 				Name:    "posts",
-				Columns: []*core.Column{{Name: "author_id", Type: core.DataTypeInt}},
-				Constraints: []*core.Constraint{
+				Columns: []*schema.Column{{Name: "author_id", Type: schema.DataTypeInt}},
+				Constraints: []*schema.Constraint{
 					{
 						Name:              "fk_posts_author",
-						Type:              core.ConstraintForeignKey,
+						Type:              schema.ConstraintForeignKey,
 						Columns:           []string{"author_id"},
 						ReferencedTable:   "users",
 						ReferencedColumns: []string{"id"},
@@ -190,21 +190,21 @@ func TestForeignKeyNonExistentTable(t *testing.T) {
 }
 
 func TestForeignKeyNonExistentColumn(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectMySQL,
-		Tables: []*core.Table{
+		Dialect: schema.DialectMySQL,
+		Tables: []*schema.Table{
 			{
 				Name:    "users",
-				Columns: []*core.Column{{Name: "id", Type: core.DataTypeInt}},
+				Columns: []*schema.Column{{Name: "id", Type: schema.DataTypeInt}},
 			},
 			{
 				Name:    "posts",
-				Columns: []*core.Column{{Name: "author_id", Type: core.DataTypeInt}},
-				Constraints: []*core.Constraint{
+				Columns: []*schema.Column{{Name: "author_id", Type: schema.DataTypeInt}},
+				Constraints: []*schema.Constraint{
 					{
 						Name:              "fk_posts_author",
-						Type:              core.ConstraintForeignKey,
+						Type:              schema.ConstraintForeignKey,
 						Columns:           []string{"author_id"},
 						ReferencedTable:   "users",
 						ReferencedColumns: []string{"uuid"},

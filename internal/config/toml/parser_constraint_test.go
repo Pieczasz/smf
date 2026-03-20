@@ -7,12 +7,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"smf/internal/core"
+	"smf/internal/schema"
 )
 
 func TestParseInlineFK(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -41,7 +41,7 @@ name = "children"
   on_update  = "SET NULL"
 `
 	p := NewParser()
-	db, err := p.Parse(strings.NewReader(schema))
+	db, err := p.Parse(strings.NewReader(s))
 	require.NoError(t, err)
 
 	tbl := db.FindTable("children")
@@ -50,16 +50,16 @@ name = "children"
 	col := tbl.FindColumn("parent_id")
 	require.NotNil(t, col)
 	assert.Equal(t, "parents.id", col.References)
-	assert.Equal(t, core.RefActionCascade, col.RefOnDelete)
-	assert.Equal(t, core.ReferentialAction("SET NULL"), col.RefOnUpdate)
+	assert.Equal(t, schema.RefActionCascade, col.RefOnDelete)
+	assert.Equal(t, schema.ReferentialAction("SET NULL"), col.RefOnUpdate)
 
 	// on_update is routed to RefOnUpdate, NOT to OnUpdate (timestamp).
 	assert.Nil(t, col.OnUpdate)
 
 	// Auto-synthesized FK constraint.
-	var fk *core.Constraint
+	var fk *schema.Constraint
 	for _, c := range tbl.Constraints {
-		if c.Type == core.ConstraintForeignKey {
+		if c.Type == schema.ConstraintForeignKey {
 			fk = c
 			break
 		}
@@ -69,13 +69,13 @@ name = "children"
 	assert.Equal(t, []string{"parent_id"}, fk.Columns)
 	assert.Equal(t, "parents", fk.ReferencedTable)
 	assert.Equal(t, []string{"id"}, fk.ReferencedColumns)
-	assert.Equal(t, core.RefActionCascade, fk.OnDelete)
-	assert.Equal(t, core.ReferentialAction("SET NULL"), fk.OnUpdate)
+	assert.Equal(t, schema.RefActionCascade, fk.OnDelete)
+	assert.Equal(t, schema.ReferentialAction("SET NULL"), fk.OnUpdate)
 }
 
 func TestParseInlineUnique(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -94,15 +94,15 @@ name = "items"
   unique = true
 `
 	p := NewParser()
-	db, err := p.Parse(strings.NewReader(schema))
+	db, err := p.Parse(strings.NewReader(s))
 	require.NoError(t, err)
 
 	tbl := db.Tables[0]
 
 	// Auto-synthesized UNIQUE constraint.
-	var uq *core.Constraint
+	var uq *schema.Constraint
 	for _, c := range tbl.Constraints {
-		if c.Type == core.ConstraintUnique {
+		if c.Type == schema.ConstraintUnique {
 			uq = c
 			break
 		}
@@ -114,7 +114,7 @@ name = "items"
 
 func TestParseInlineCheck(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -129,15 +129,15 @@ name = "items"
   check       = "age >= 0 AND age <= 200"
 `
 	p := NewParser()
-	db, err := p.Parse(strings.NewReader(schema))
+	db, err := p.Parse(strings.NewReader(s))
 	require.NoError(t, err)
 
 	tbl := db.Tables[0]
 
 	// Auto-synthesized CHECK constraint.
-	var chk *core.Constraint
+	var chk *schema.Constraint
 	for _, c := range tbl.Constraints {
-		if c.Type == core.ConstraintCheck {
+		if c.Type == schema.ConstraintCheck {
 			chk = c
 			break
 		}
@@ -151,7 +151,7 @@ name = "items"
 
 func TestParsePKAutoSynthesisedFromColumn(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -165,7 +165,7 @@ name = "items"
   primary_key = true
 `
 	p := NewParser()
-	db, err := p.Parse(strings.NewReader(schema))
+	db, err := p.Parse(strings.NewReader(s))
 	require.NoError(t, err)
 
 	pk := db.Tables[0].PrimaryKey()
@@ -176,7 +176,7 @@ name = "items"
 
 func TestParsePKExplicitConstraint(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -197,7 +197,7 @@ name = "items"
   columns = ["a", "b"]
 `
 	p := NewParser()
-	db, err := p.Parse(strings.NewReader(schema))
+	db, err := p.Parse(strings.NewReader(s))
 	require.NoError(t, err)
 
 	pk := db.Tables[0].PrimaryKey()
@@ -212,7 +212,7 @@ name = "items"
 
 func TestParsePKConflictErrors(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -230,14 +230,14 @@ name = "items"
   columns = ["id"]
 `
 	p := NewParser()
-	_, err := p.Parse(strings.NewReader(schema))
+	_, err := p.Parse(strings.NewReader(s))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "primary key declared on both")
 }
 
 func TestParseConstraintEnforcedDefault(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -263,7 +263,7 @@ name = "items"
   enforced         = false
 `
 	p := NewParser()
-	db, err := p.Parse(strings.NewReader(schema))
+	db, err := p.Parse(strings.NewReader(s))
 	require.NoError(t, err)
 
 	// Index 0 = PK, 1 = first CHECK, 2 = second CHECK.
@@ -276,7 +276,7 @@ name = "items"
 
 func TestParseExplicitForeignKeyConstraint(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -311,7 +311,7 @@ name = "children"
   on_update          = "SET NULL"
 `
 	p := NewParser()
-	db, err := p.Parse(strings.NewReader(schema))
+	db, err := p.Parse(strings.NewReader(s))
 	require.NoError(t, err)
 
 	tbl := db.FindTable("children")
@@ -320,17 +320,17 @@ name = "children"
 	fk := tbl.FindConstraint("fk_child_parent")
 	require.NotNil(t, fk)
 
-	assert.Equal(t, core.ConstraintForeignKey, fk.Type)
+	assert.Equal(t, schema.ConstraintForeignKey, fk.Type)
 	assert.Equal(t, []string{"parent_id"}, fk.Columns)
 	assert.Equal(t, "parents", fk.ReferencedTable)
 	assert.Equal(t, []string{"id"}, fk.ReferencedColumns)
-	assert.Equal(t, core.RefActionCascade, fk.OnDelete)
-	assert.Equal(t, core.ReferentialAction("SET NULL"), fk.OnUpdate)
+	assert.Equal(t, schema.RefActionCascade, fk.OnDelete)
+	assert.Equal(t, schema.ReferentialAction("SET NULL"), fk.OnUpdate)
 }
 
 func TestParseMultiplePKConstraints(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -355,14 +355,14 @@ name = "items"
   columns = ["code"]
 `
 	p := NewParser()
-	_, err := p.Parse(strings.NewReader(schema))
+	_, err := p.Parse(strings.NewReader(s))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "multiple PRIMARY KEY")
 }
 
 func TestParseDuplicateConstraintName(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -394,7 +394,7 @@ name = "items"
   columns = ["name"]
 `
 	p := NewParser()
-	_, err := p.Parse(strings.NewReader(schema))
+	_, err := p.Parse(strings.NewReader(s))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "duplicate constraint name")
 	assert.Contains(t, err.Error(), "uq_code")
@@ -402,7 +402,7 @@ name = "items"
 
 func TestParseConstraintReferencesNonexistentColumn(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -421,7 +421,7 @@ name = "items"
   columns = ["nonexistent"]
 `
 	p := NewParser()
-	_, err := p.Parse(strings.NewReader(schema))
+	_, err := p.Parse(strings.NewReader(s))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "nonexistent column")
 	assert.Contains(t, err.Error(), "nonexistent")
@@ -429,7 +429,7 @@ name = "items"
 
 func TestParseConstraintEmptyColumns(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -447,14 +447,14 @@ name = "items"
   type = "UNIQUE"
 `
 	p := NewParser()
-	_, err := p.Parse(strings.NewReader(schema))
+	_, err := p.Parse(strings.NewReader(s))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "has no columns")
 }
 
 func TestParseFKConstraintMissingReferencedTable(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -478,14 +478,14 @@ name = "items"
   referenced_columns = ["id"]
 `
 	p := NewParser()
-	_, err := p.Parse(strings.NewReader(schema))
+	_, err := p.Parse(strings.NewReader(s))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "missing referenced_table")
 }
 
 func TestParseFKConstraintMissingReferencedColumns(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -509,14 +509,14 @@ name = "items"
   referenced_table = "tenants"
 `
 	p := NewParser()
-	_, err := p.Parse(strings.NewReader(schema))
+	_, err := p.Parse(strings.NewReader(s))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "missing referenced_columns")
 }
 
 func TestParseConstraintColumnsExistValid(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -542,14 +542,14 @@ name = "items"
   columns = ["code"]
 `
 	p := NewParser()
-	db, err := p.Parse(strings.NewReader(schema))
+	db, err := p.Parse(strings.NewReader(s))
 	require.NoError(t, err)
 	assert.Len(t, db.Tables[0].Constraints, 2)
 }
 
 func TestParseExplicitFKConstraintValid(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -582,23 +582,23 @@ name = "tenants"
   primary_key = true
 `
 	p := NewParser()
-	db, err := p.Parse(strings.NewReader(schema))
+	db, err := p.Parse(strings.NewReader(s))
 	require.NoError(t, err)
 
 	tbl := db.Tables[0]
 	fk := tbl.FindConstraint("fk_tenant")
 	require.NotNil(t, fk)
-	assert.Equal(t, core.ConstraintForeignKey, fk.Type)
+	assert.Equal(t, schema.ConstraintForeignKey, fk.Type)
 	assert.Equal(t, "tenants", fk.ReferencedTable)
 	assert.Equal(t, []string{"id"}, fk.ReferencedColumns)
-	assert.Equal(t, core.RefActionCascade, fk.OnDelete)
+	assert.Equal(t, schema.RefActionCascade, fk.OnDelete)
 }
 
 func TestParseCheckConstraintWithoutColumnsValid(t *testing.T) {
 	t.Parallel()
 	// CHECK constraints use expressions, not column lists, so they should
 	// pass even with an empty columns list.
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -621,19 +621,19 @@ name = "items"
   check_expression = "price > 0"
 `
 	p := NewParser()
-	db, err := p.Parse(strings.NewReader(schema))
+	db, err := p.Parse(strings.NewReader(s))
 	require.NoError(t, err)
 
 	tbl := db.Tables[0]
 	chk := tbl.FindConstraint("chk_price")
 	require.NotNil(t, chk)
-	assert.Equal(t, core.ConstraintCheck, chk.Type)
+	assert.Equal(t, schema.ConstraintCheck, chk.Type)
 	assert.Equal(t, "price > 0", chk.CheckExpression)
 }
 
 func TestParsePKConstraintReferencesNonexistentColumn(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -650,7 +650,7 @@ name = "items"
   columns = ["missing_col"]
 `
 	p := NewParser()
-	_, err := p.Parse(strings.NewReader(schema))
+	_, err := p.Parse(strings.NewReader(s))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "nonexistent column")
 	assert.Contains(t, err.Error(), "missing_col")
@@ -658,7 +658,7 @@ name = "items"
 
 func TestParseCompositePKConstraintOneColumnMissing(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -679,7 +679,7 @@ name = "items"
   columns = ["tenant_id", "ghost"]
 `
 	p := NewParser()
-	_, err := p.Parse(strings.NewReader(schema))
+	_, err := p.Parse(strings.NewReader(s))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "nonexistent column")
 	assert.Contains(t, err.Error(), "ghost")

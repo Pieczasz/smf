@@ -6,14 +6,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"smf/internal/core"
+	"smf/internal/schema"
 )
 
 func TestTableNoColumns(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectMySQL,
-		Tables: []*core.Table{
+		Dialect: schema.DialectMySQL,
+		Tables: []*schema.Table{
 			{Name: "users"},
 		},
 	}
@@ -24,13 +24,13 @@ func TestTableNoColumns(t *testing.T) {
 }
 
 func TestTableDuplicateColumnNames(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectMySQL,
-		Tables: []*core.Table{
+		Dialect: schema.DialectMySQL,
+		Tables: []*schema.Table{
 			{
 				Name: "users",
-				Columns: []*core.Column{
+				Columns: []*schema.Column{
 					{Name: "email"},
 					{Name: "email"},
 				},
@@ -44,13 +44,13 @@ func TestTableDuplicateColumnNames(t *testing.T) {
 }
 
 func TestTableEmptyColumnName(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectMySQL,
-		Tables: []*core.Table{
+		Dialect: schema.DialectMySQL,
+		Tables: []*schema.Table{
 			{
 				Name: "users",
-				Columns: []*core.Column{
+				Columns: []*schema.Column{
 					{Name: "   "},
 				},
 			},
@@ -63,16 +63,16 @@ func TestTableEmptyColumnName(t *testing.T) {
 }
 
 func TestTableMaxColumnNameLength(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectMySQL,
-		Validation: &core.ValidationRules{
+		Dialect: schema.DialectMySQL,
+		Validation: &schema.ValidationRules{
 			MaxColumnNameLength: 3,
 		},
-		Tables: []*core.Table{
+		Tables: []*schema.Table{
 			{
 				Name: "users",
-				Columns: []*core.Column{
+				Columns: []*schema.Column{
 					{Name: "email"},
 				},
 			},
@@ -85,16 +85,16 @@ func TestTableMaxColumnNameLength(t *testing.T) {
 }
 
 func TestTableAllowedNamePatternForColumn(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectMySQL,
-		Validation: &core.ValidationRules{
+		Dialect: schema.DialectMySQL,
+		Validation: &schema.ValidationRules{
 			AllowedNamePattern: `^u[a-z]+$`,
 		},
-		Tables: []*core.Table{
+		Tables: []*schema.Table{
 			{
 				Name: "users",
-				Columns: []*core.Column{
+				Columns: []*schema.Column{
 					{Name: "email"},
 				},
 			},
@@ -107,18 +107,18 @@ func TestTableAllowedNamePatternForColumn(t *testing.T) {
 }
 
 func TestPrimaryKeyConflictMultipleConstraints(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectMySQL,
-		Tables: []*core.Table{
+		Dialect: schema.DialectMySQL,
+		Tables: []*schema.Table{
 			{
 				Name: "users",
-				Columns: []*core.Column{
+				Columns: []*schema.Column{
 					{Name: "id"},
 				},
-				Constraints: []*core.Constraint{
-					{Name: "pk1", Type: core.ConstraintPrimaryKey, Columns: []string{"id"}},
-					{Name: "pk2", Type: core.ConstraintPrimaryKey, Columns: []string{"id"}},
+				Constraints: []*schema.Constraint{
+					{Name: "pk1", Type: schema.ConstraintPrimaryKey, Columns: []string{"id"}},
+					{Name: "pk2", Type: schema.ConstraintPrimaryKey, Columns: []string{"id"}},
 				},
 			},
 		},
@@ -130,17 +130,17 @@ func TestPrimaryKeyConflictMultipleConstraints(t *testing.T) {
 }
 
 func TestPrimaryKeyConflictColumnAndConstraint(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectMySQL,
-		Tables: []*core.Table{
+		Dialect: schema.DialectMySQL,
+		Tables: []*schema.Table{
 			{
 				Name: "users",
-				Columns: []*core.Column{
+				Columns: []*schema.Column{
 					{Name: "id", PrimaryKey: true},
 				},
-				Constraints: []*core.Constraint{
-					{Name: "pk_users", Type: core.ConstraintPrimaryKey, Columns: []string{"id"}},
+				Constraints: []*schema.Constraint{
+					{Name: "pk_users", Type: schema.ConstraintPrimaryKey, Columns: []string{"id"}},
 				},
 			},
 		},
@@ -152,23 +152,23 @@ func TestPrimaryKeyConflictColumnAndConstraint(t *testing.T) {
 }
 
 func TestSynthesizeConstraints(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectMySQL,
-		Tables: []*core.Table{
+		Dialect: schema.DialectMySQL,
+		Tables: []*schema.Table{
 			{
 				Name: "users",
-				Columns: []*core.Column{
-					{Name: "id", Type: core.DataTypeInt, PrimaryKey: true},
-					{Name: "email", Type: core.DataTypeString, Unique: true},
-					{Name: "age", Type: core.DataTypeInt, Check: "age >= 0"},
-					{Name: "role_id", Type: core.DataTypeInt, References: "roles.id", RefOnDelete: core.RefActionCascade, RefOnUpdate: core.RefActionRestrict},
+				Columns: []*schema.Column{
+					{Name: "id", Type: schema.DataTypeInt, PrimaryKey: true},
+					{Name: "email", Type: schema.DataTypeString, Unique: true},
+					{Name: "age", Type: schema.DataTypeInt, Check: "age >= 0"},
+					{Name: "role_id", Type: schema.DataTypeInt, References: "roles.id", RefOnDelete: schema.RefActionCascade, RefOnUpdate: schema.RefActionRestrict},
 				},
 			},
 			{
 				Name: "roles",
-				Columns: []*core.Column{
-					{Name: "id", Type: core.DataTypeInt, PrimaryKey: true},
+				Columns: []*schema.Column{
+					{Name: "id", Type: schema.DataTypeInt, PrimaryKey: true},
 				},
 			},
 		},
@@ -182,16 +182,16 @@ func TestSynthesizeConstraints(t *testing.T) {
 	var uniqueCount, checkCount, fkCount int
 	for _, c := range users.Constraints {
 		switch c.Type {
-		case core.ConstraintUnique:
+		case schema.ConstraintUnique:
 			uniqueCount++
-		case core.ConstraintCheck:
+		case schema.ConstraintCheck:
 			checkCount++
-		case core.ConstraintForeignKey:
+		case schema.ConstraintForeignKey:
 			fkCount++
 			assert.Equal(t, "roles", c.ReferencedTable)
 			assert.Equal(t, []string{"id"}, c.ReferencedColumns)
-			assert.Equal(t, core.RefActionCascade, c.OnDelete)
-			assert.Equal(t, core.RefActionRestrict, c.OnUpdate)
+			assert.Equal(t, schema.RefActionCascade, c.OnDelete)
+			assert.Equal(t, schema.RefActionRestrict, c.OnUpdate)
 		}
 	}
 	assert.Equal(t, 1, uniqueCount)
