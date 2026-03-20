@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"regexp"
 
-	"smf/internal/core"
+	"smf/internal/schema"
 )
 
-func TableUniqueness(tables []*core.Table) error {
+func TableUniqueness(tables []*schema.Table) error {
 	seenTables := make(map[string]bool, len(tables))
 	for _, table := range tables {
 		if seenTables[table.Name] {
@@ -19,7 +19,7 @@ func TableUniqueness(tables []*core.Table) error {
 	return nil
 }
 
-func SynthesizeConstraints(tables []*core.Table) error {
+func SynthesizeConstraints(tables []*schema.Table) error {
 	for _, table := range tables {
 		if err := PrimaryKeyConflict(table); err != nil {
 			return fmt.Errorf("table %q: %w", table.Name, err)
@@ -29,7 +29,7 @@ func SynthesizeConstraints(tables []*core.Table) error {
 	return nil
 }
 
-func TableStructures(tables []*core.Table, rules *core.ValidationRules, nameRe *regexp.Regexp) error {
+func TableStructures(tables []*schema.Table, rules *schema.ValidationRules, nameRe *regexp.Regexp) error {
 	for _, table := range tables {
 		if err := Table(table, rules, nameRe); err != nil {
 			return err
@@ -38,7 +38,7 @@ func TableStructures(tables []*core.Table, rules *core.ValidationRules, nameRe *
 	return nil
 }
 
-func Table(t *core.Table, rules *core.ValidationRules, nameRe *regexp.Regexp) error {
+func Table(t *schema.Table, rules *schema.ValidationRules, nameRe *regexp.Regexp) error {
 	// TODO: options part
 	if err := TableNameAndOptions(t, rules, nameRe); err != nil {
 		return err
@@ -55,7 +55,7 @@ func Table(t *core.Table, rules *core.ValidationRules, nameRe *regexp.Regexp) er
 	return Indexes(t)
 }
 
-func TableNameAndOptions(t *core.Table, rules *core.ValidationRules, nameRe *regexp.Regexp) error {
+func TableNameAndOptions(t *schema.Table, rules *schema.ValidationRules, nameRe *regexp.Regexp) error {
 	if err := Name(t.Name, rules, nameRe, true); err != nil {
 		return fmt.Errorf("table %q: %w", t.Name, err)
 	}
@@ -65,7 +65,7 @@ func TableNameAndOptions(t *core.Table, rules *core.ValidationRules, nameRe *reg
 	return nil
 }
 
-func Columns(t *core.Table, rules *core.ValidationRules, nameRe *regexp.Regexp) error {
+func Columns(t *schema.Table, rules *schema.ValidationRules, nameRe *regexp.Regexp) error {
 	if len(t.Columns) == 0 {
 		return fmt.Errorf("table %q has no columns", t.Name)
 	}
@@ -85,11 +85,11 @@ func Columns(t *core.Table, rules *core.ValidationRules, nameRe *regexp.Regexp) 
 }
 
 // TODO: implement this.
-func TableOptions(_ *core.TableOptions) error {
+func TableOptions(_ *schema.TableOptions) error {
 	return nil
 }
 
-func PrimaryKeyConflict(t *core.Table) error {
+func PrimaryKeyConflict(t *schema.Table) error {
 	hasColumnPK := false
 	for _, col := range t.Columns {
 		if col.PrimaryKey {
@@ -99,7 +99,7 @@ func PrimaryKeyConflict(t *core.Table) error {
 	}
 	constraintPKCount := 0
 	for _, con := range t.Constraints {
-		if con.Type == core.ConstraintPrimaryKey {
+		if con.Type == schema.ConstraintPrimaryKey {
 			constraintPKCount++
 		}
 	}
@@ -112,12 +112,12 @@ func PrimaryKeyConflict(t *core.Table) error {
 	return nil
 }
 
-func Timestamps(t *core.Table) error {
+func Timestamps(t *schema.Table) error {
 	if t.Timestamps == nil || !t.Timestamps.Enabled {
 		return nil
 	}
-	createdCol := core.DefaultCreatedColumn
-	updatedCol := core.DefaultUpdatedColumn
+	createdCol := schema.DefaultCreatedColumn
+	updatedCol := schema.DefaultUpdatedColumn
 	if t.Timestamps.CreatedColumn != "" {
 		if err := Name(t.Timestamps.CreatedColumn, nil, nil, false); err != nil {
 			return fmt.Errorf("timestamp created_column: %w", err)

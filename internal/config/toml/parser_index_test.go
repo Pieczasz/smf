@@ -7,12 +7,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"smf/internal/core"
+	"smf/internal/schema"
 )
 
 func TestParseIndexSimpleColumns(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -38,7 +38,7 @@ name = "items"
   columns = ["a", "b"]
 `
 	p := NewParser()
-	db, err := p.Parse(strings.NewReader(schema))
+	db, err := p.Parse(strings.NewReader(s))
 	require.NoError(t, err)
 
 	idx := db.Tables[0].FindIndex("idx_composite")
@@ -46,14 +46,14 @@ name = "items"
 
 	require.Len(t, idx.Columns, 2)
 	assert.Equal(t, "a", idx.Columns[0].Name)
-	assert.Equal(t, core.SortAsc, idx.Columns[0].Order)
+	assert.Equal(t, schema.SortAsc, idx.Columns[0].Order)
 	assert.Equal(t, "b", idx.Columns[1].Name)
-	assert.Equal(t, core.SortAsc, idx.Columns[1].Order)
+	assert.Equal(t, schema.SortAsc, idx.Columns[1].Order)
 }
 
 func TestParseIndexAdvancedColumnDefs(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -83,26 +83,26 @@ name = "items"
     order  = "DESC"
 `
 	p := NewParser()
-	db, err := p.Parse(strings.NewReader(schema))
+	db, err := p.Parse(strings.NewReader(s))
 	require.NoError(t, err)
 
 	idx := db.Tables[0].FindIndex("idx_items_label")
 	require.NotNil(t, idx)
 
 	assert.True(t, idx.Unique)
-	assert.Equal(t, core.IndexTypeHash, idx.Type)
-	assert.Equal(t, core.IndexInvisible, idx.Visibility)
+	assert.Equal(t, schema.IndexTypeHash, idx.Type)
+	assert.Equal(t, schema.IndexInvisible, idx.Visibility)
 	assert.Equal(t, "fast label lookup", idx.Comment)
 
 	require.Len(t, idx.Columns, 1)
 	assert.Equal(t, "label", idx.Columns[0].Name)
 	assert.Equal(t, 20, idx.Columns[0].Length)
-	assert.Equal(t, core.SortDesc, idx.Columns[0].Order)
+	assert.Equal(t, schema.SortDesc, idx.Columns[0].Order)
 }
 
 func TestParseIndexDefaultValues(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -120,23 +120,23 @@ name = "items"
   columns = ["id"]
 `
 	p := NewParser()
-	db, err := p.Parse(strings.NewReader(schema))
+	db, err := p.Parse(strings.NewReader(s))
 	require.NoError(t, err)
 
 	require.Len(t, db.Tables[0].Indexes, 1)
 	idx := db.Tables[0].Indexes[0]
 
-	assert.Equal(t, core.IndexTypeBTree, idx.Type)
-	assert.Equal(t, core.IndexVisible, idx.Visibility)
+	assert.Equal(t, schema.IndexTypeBTree, idx.Type)
+	assert.Equal(t, schema.IndexVisible, idx.Visibility)
 	assert.False(t, idx.Unique)
 
 	require.Len(t, idx.Columns, 1)
-	assert.Equal(t, core.SortAsc, idx.Columns[0].Order)
+	assert.Equal(t, schema.SortAsc, idx.Columns[0].Order)
 }
 
 func TestParseIndexEmptyColumns(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -153,14 +153,14 @@ name = "items"
   name = "idx_empty"
 `
 	p := NewParser()
-	_, err := p.Parse(strings.NewReader(schema))
+	_, err := p.Parse(strings.NewReader(s))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no columns")
 }
 
 func TestParseIndexEmptyColumnsUnnamed(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -177,14 +177,14 @@ name = "items"
   unique = true
 `
 	p := NewParser()
-	_, err := p.Parse(strings.NewReader(schema))
+	_, err := p.Parse(strings.NewReader(s))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no columns")
 }
 
 func TestParseDuplicateIndexName(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -214,7 +214,7 @@ name = "items"
   columns = ["name"]
 `
 	p := NewParser()
-	_, err := p.Parse(strings.NewReader(schema))
+	_, err := p.Parse(strings.NewReader(s))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "duplicate index name")
 	assert.Contains(t, err.Error(), "idx_code")
@@ -222,7 +222,7 @@ name = "items"
 
 func TestParseIndexReferencesNonexistentColumn(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -240,7 +240,7 @@ name = "items"
   columns = ["nonexistent"]
 `
 	p := NewParser()
-	_, err := p.Parse(strings.NewReader(schema))
+	_, err := p.Parse(strings.NewReader(s))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "nonexistent column")
 	assert.Contains(t, err.Error(), "nonexistent")
@@ -248,7 +248,7 @@ name = "items"
 
 func TestParseIndexAdvancedColumnDefsNonexistentColumn(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -269,14 +269,14 @@ name = "items"
     order = "ASC"
 `
 	p := NewParser()
-	_, err := p.Parse(strings.NewReader(schema))
+	_, err := p.Parse(strings.NewReader(s))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "nonexistent column")
 }
 
 func TestParseIndexColumnDefWithoutOrder(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -301,7 +301,7 @@ name = "items"
     length = 10
 `
 	p := NewParser()
-	db, err := p.Parse(strings.NewReader(schema))
+	db, err := p.Parse(strings.NewReader(s))
 	require.NoError(t, err)
 
 	idx := db.Tables[0].FindIndex("idx_label")
@@ -309,12 +309,12 @@ name = "items"
 	require.Len(t, idx.Columns, 1)
 	assert.Equal(t, "label", idx.Columns[0].Name)
 	assert.Equal(t, 10, idx.Columns[0].Length)
-	assert.Equal(t, core.SortAsc, idx.Columns[0].Order, "order should default to ASC when omitted")
+	assert.Equal(t, schema.SortAsc, idx.Columns[0].Order, "order should default to ASC when omitted")
 }
 
 func TestParseUnnamedIndexValid(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -335,7 +335,7 @@ name = "items"
   columns = ["code"]
 `
 	p := NewParser()
-	db, err := p.Parse(strings.NewReader(schema))
+	db, err := p.Parse(strings.NewReader(s))
 	require.NoError(t, err)
 
 	require.Len(t, db.Tables[0].Indexes, 1)
@@ -347,7 +347,7 @@ name = "items"
 
 func TestParseMultipleIndexesOneUnnamed(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -376,7 +376,7 @@ name = "items"
   columns = ["name"]
 `
 	p := NewParser()
-	db, err := p.Parse(strings.NewReader(schema))
+	db, err := p.Parse(strings.NewReader(s))
 	require.NoError(t, err)
 
 	require.Len(t, db.Tables[0].Indexes, 2)
@@ -386,7 +386,7 @@ name = "items"
 
 func TestParseColumnIndexesExistValid(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -408,7 +408,7 @@ name = "items"
   columns = ["code"]
 `
 	p := NewParser()
-	db, err := p.Parse(strings.NewReader(schema))
+	db, err := p.Parse(strings.NewReader(s))
 	require.NoError(t, err)
 	assert.Len(t, db.Tables[0].Indexes, 1)
 	assert.Equal(t, "code", db.Tables[0].Indexes[0].Columns[0].Name)
@@ -416,7 +416,7 @@ name = "items"
 
 func TestParseIndexBothColumnsAndColumnDefsErrors(t *testing.T) {
 	t.Parallel()
-	const schema = `
+	const s = `
 [database]
 name = "testdb"
 dialect = "mysql"
@@ -442,7 +442,7 @@ name = "items"
     order = "DESC"
 `
 	p := NewParser()
-	_, err := p.Parse(strings.NewReader(schema))
+	_, err := p.Parse(strings.NewReader(s))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "specify either columns or column_defs, not both")
 }

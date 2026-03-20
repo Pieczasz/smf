@@ -1,6 +1,6 @@
 // Package toml provides a parser for the smf TOML schema format.
 // It reads a dialect-agnostic schema definition from a .toml file and
-// converts it into the canonical core.Database representation that the
+// converts it into the canonical schema.Database representation that the
 // rest of the smf toolchain operates on.
 package toml
 
@@ -12,7 +12,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 
-	"smf/internal/core"
+	"smf/internal/schema"
 	"smf/internal/validate"
 )
 
@@ -48,7 +48,7 @@ func NewParser() *Parser {
 }
 
 // ParseFile opens the file at the given path and parses it as a TOML schema.
-func (p *Parser) ParseFile(path string) (*core.Database, error) {
+func (p *Parser) ParseFile(path string) (*schema.Database, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("toml: open file %q: %w", path, err)
@@ -61,17 +61,17 @@ func (p *Parser) ParseFile(path string) (*core.Database, error) {
 // maxSchemaSize is the maximum allowed schema file size (10 MiB).
 const maxSchemaSize = 10 << 20
 
-// Parse reads TOML content from the reader and returns the corresponding core.Database.
-func (p *Parser) Parse(r io.Reader) (*core.Database, error) {
+// Parse reads TOML content from the reader and returns the corresponding schema.Database.
+func (p *Parser) Parse(r io.Reader) (*schema.Database, error) {
 	var sf schemaFile
 	if _, err := toml.NewDecoder(io.LimitReader(r, maxSchemaSize)).Decode(&sf); err != nil {
 		return nil, fmt.Errorf("toml: decode error: %w", err)
 	}
 
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    sf.Database.Name,
-		Dialect: core.Dialect(strings.ToLower(sf.Database.Dialect)),
-		Tables:  make([]*core.Table, 0, len(sf.Tables)),
+		Dialect: schema.Dialect(strings.ToLower(sf.Database.Dialect)),
+		Tables:  make([]*schema.Table, 0, len(sf.Tables)),
 	}
 	db.Validation = rules(sf.Validation)
 
@@ -90,12 +90,12 @@ func (p *Parser) Parse(r io.Reader) (*core.Database, error) {
 	return db, nil
 }
 
-// rules parses [validation] into core.ValidationRules.
-func rules(v *tomlValidation) *core.ValidationRules {
+// rules parses [validation] into schema.ValidationRules.
+func rules(v *tomlValidation) *schema.ValidationRules {
 	if v == nil {
-		return &core.ValidationRules{}
+		return &schema.ValidationRules{}
 	}
-	return &core.ValidationRules{
+	return &schema.ValidationRules{
 		MaxTableNameLength:          v.MaxTableNameLength,
 		MaxColumnNameLength:         v.MaxColumnNameLength,
 		AutoGenerateConstraintNames: v.AutoGenerateConstraintNames,

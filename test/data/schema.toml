@@ -1,7 +1,7 @@
 # smf - Dialect-Agnostic Database Schema Definition (TOML)
 #
 #   This file is the SINGLE SOURCE OF TRUTH for the database schema.
-#   It maps directly to core.Database and can be transformed to any
+#   It maps directly to schema.Database and can be transformed to any
 #   supported SQL dialect by the smf generator.
 #
 #   Supported dialects:

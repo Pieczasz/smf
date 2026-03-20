@@ -6,20 +6,20 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"smf/internal/core"
+	"smf/internal/schema"
 )
 
 func TestIndexDuplicateNames(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectMySQL,
-		Tables: []*core.Table{
+		Dialect: schema.DialectMySQL,
+		Tables: []*schema.Table{
 			{
 				Name:    "users",
-				Columns: []*core.Column{{Name: "email", Type: core.DataTypeString}},
-				Indexes: []*core.Index{
-					{Name: "idx_email", Columns: []core.ColumnIndex{{Name: "email"}}},
-					{Name: "idx_email", Columns: []core.ColumnIndex{{Name: "email"}}},
+				Columns: []*schema.Column{{Name: "email", Type: schema.DataTypeString}},
+				Indexes: []*schema.Index{
+					{Name: "idx_email", Columns: []schema.ColumnIndex{{Name: "email"}}},
+					{Name: "idx_email", Columns: []schema.ColumnIndex{{Name: "email"}}},
 				},
 			},
 		},
@@ -31,14 +31,14 @@ func TestIndexDuplicateNames(t *testing.T) {
 }
 
 func TestIndexHasNoColumns(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectMySQL,
-		Tables: []*core.Table{
+		Dialect: schema.DialectMySQL,
+		Tables: []*schema.Table{
 			{
 				Name:    "users",
-				Columns: []*core.Column{{Name: "email", Type: core.DataTypeString}},
-				Indexes: []*core.Index{
+				Columns: []*schema.Column{{Name: "email", Type: schema.DataTypeString}},
+				Indexes: []*schema.Index{
 					{Name: "idx_email"},
 				},
 			},
@@ -51,14 +51,14 @@ func TestIndexHasNoColumns(t *testing.T) {
 }
 
 func TestIndexUnnamedHasNoColumns(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectMySQL,
-		Tables: []*core.Table{
+		Dialect: schema.DialectMySQL,
+		Tables: []*schema.Table{
 			{
 				Name:    "users",
-				Columns: []*core.Column{{Name: "email", Type: core.DataTypeString}},
-				Indexes: []*core.Index{
+				Columns: []*schema.Column{{Name: "email", Type: schema.DataTypeString}},
+				Indexes: []*schema.Index{
 					{},
 				},
 			},
@@ -71,15 +71,15 @@ func TestIndexUnnamedHasNoColumns(t *testing.T) {
 }
 
 func TestIndexReferencesNonexistentColumn(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectMySQL,
-		Tables: []*core.Table{
+		Dialect: schema.DialectMySQL,
+		Tables: []*schema.Table{
 			{
 				Name:    "users",
-				Columns: []*core.Column{{Name: "email", Type: core.DataTypeString}},
-				Indexes: []*core.Index{
-					{Name: "idx_missing", Columns: []core.ColumnIndex{{Name: "missing"}}},
+				Columns: []*schema.Column{{Name: "email", Type: schema.DataTypeString}},
+				Indexes: []*schema.Index{
+					{Name: "idx_missing", Columns: []schema.ColumnIndex{{Name: "missing"}}},
 				},
 			},
 		},
@@ -91,15 +91,15 @@ func TestIndexReferencesNonexistentColumn(t *testing.T) {
 }
 
 func TestIndexValid(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectMySQL,
-		Tables: []*core.Table{
+		Dialect: schema.DialectMySQL,
+		Tables: []*schema.Table{
 			{
 				Name:    "users",
-				Columns: []*core.Column{{Name: "email", Type: core.DataTypeString}},
-				Indexes: []*core.Index{
-					{Name: "idx_email", Columns: []core.ColumnIndex{{Name: "email"}}},
+				Columns: []*schema.Column{{Name: "email", Type: schema.DataTypeString}},
+				Indexes: []*schema.Index{
+					{Name: "idx_email", Columns: []schema.ColumnIndex{{Name: "email"}}},
 				},
 			},
 		},

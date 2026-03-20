@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"smf/internal/core"
+	"smf/internal/schema"
 )
 
 // tomlColumn maps [[tables.columns]].
@@ -118,8 +118,8 @@ type tomlSQLiteColumnOptions struct {
 	StrictAutoincrement bool `toml:"strict_autoincrement"`
 }
 
-func (p *Parser) column(tc *tomlColumn) (*core.Column, error) {
-	col := &core.Column{
+func (p *Parser) column(tc *tomlColumn) (*schema.Column, error) {
+	col := &schema.Column{
 		Name:               tc.Name,
 		Nullable:           tc.Nullable,
 		PrimaryKey:         tc.PrimaryKey,
@@ -133,7 +133,7 @@ func (p *Parser) column(tc *tomlColumn) (*core.Column, error) {
 		EnumValues:         tc.EnumValues,
 		IdentitySeed:       tc.IdentitySeed,
 		IdentityIncrement:  tc.IdentityIncrement,
-		IdentityGeneration: core.IdentityGeneration(tc.IdentityGeneration),
+		IdentityGeneration: schema.IdentityGeneration(tc.IdentityGeneration),
 		SequenceName:       tc.SequenceName,
 		Invisible:          tc.Invisible,
 	}
@@ -151,7 +151,7 @@ func (p *Parser) column(tc *tomlColumn) (*core.Column, error) {
 // resolveColumnType populates col.Type and col.RawType from the TOML column.
 // At least one of type or raw_type must be provided; raw_type takes priority
 // when both are set.
-func resolveColumnType(col *core.Column, tc *tomlColumn) error {
+func resolveColumnType(col *schema.Column, tc *tomlColumn) error {
 	portableType := strings.TrimSpace(tc.Type)
 	rawType := strings.TrimSpace(tc.RawType)
 
@@ -161,9 +161,9 @@ func resolveColumnType(col *core.Column, tc *tomlColumn) error {
 
 	if portableType != "" {
 		if strings.EqualFold(portableType, "enum") && len(tc.EnumValues) > 0 {
-			portableType = core.BuildEnumTypeRaw(tc.EnumValues)
+			portableType = schema.BuildEnumTypeRaw(tc.EnumValues)
 		}
-		col.Type = core.NormalizeDataType(portableType)
+		col.Type = schema.NormalizeDataType(portableType)
 	}
 
 	if rawType != "" {
@@ -175,13 +175,13 @@ func resolveColumnType(col *core.Column, tc *tomlColumn) error {
 
 // applyColumnActions sets default values, referential actions, on-update
 // behavior, and generated-column properties on an already-initialized column.
-func applyColumnActions(col *core.Column, tc *tomlColumn) {
+func applyColumnActions(col *schema.Column, tc *tomlColumn) {
 	if tc.DefaultValue != nil {
 		col.DefaultValue = new(normalizeDefault(tc.DefaultValue))
 	}
 	if tc.References != "" {
-		col.RefOnDelete = core.ReferentialAction(tc.OnDelete)
-		col.RefOnUpdate = core.ReferentialAction(tc.OnUpdate)
+		col.RefOnDelete = schema.ReferentialAction(tc.OnDelete)
+		col.RefOnUpdate = schema.ReferentialAction(tc.OnUpdate)
 	} else if tc.OnUpdate != "" {
 		col.OnUpdate = new(tc.OnUpdate)
 	}
@@ -189,15 +189,15 @@ func applyColumnActions(col *core.Column, tc *tomlColumn) {
 	col.IsGenerated = tc.IsGenerated
 	col.GenerationExpression = tc.GenerationExpression
 	if tc.GenerationStorage != "" {
-		col.GenerationStorage = core.GenerationStorage(tc.GenerationStorage)
+		col.GenerationStorage = schema.GenerationStorage(tc.GenerationStorage)
 	}
 }
 
 // applyColumnDialectOptions converts dialect-specific column option groups
-// from the TOML representation to the core model.
-func applyColumnDialectOptions(col *core.Column, tc *tomlColumn) {
+// from the TOML representation to the schema model.
+func applyColumnDialectOptions(col *schema.Column, tc *tomlColumn) {
 	if tc.MySQL != nil {
-		col.MySQL = &core.MySQLColumnOptions{
+		col.MySQL = &schema.MySQLColumnOptions{
 			ColumnFormat:             tc.MySQL.ColumnFormat,
 			Storage:                  tc.MySQL.Storage,
 			PrimaryEngineAttribute:   tc.MySQL.PrimaryEngineAttribute,
@@ -205,13 +205,13 @@ func applyColumnDialectOptions(col *core.Column, tc *tomlColumn) {
 		}
 	}
 	if tc.TiDB != nil {
-		col.TiDB = &core.TiDBColumnOptions{
+		col.TiDB = &schema.TiDBColumnOptions{
 			ShardBits: tc.TiDB.ShardBits,
 			RangeBits: tc.TiDB.RangeBits,
 		}
 	}
 	if tc.Oracle != nil {
-		col.Oracle = &core.OracleColumnOptions{
+		col.Oracle = &schema.OracleColumnOptions{
 			Encrypt:             tc.Oracle.Encrypt,
 			EncryptionAlgorithm: tc.Oracle.EncryptionAlgorithm,
 			Salt:                tc.Oracle.Salt,
@@ -219,7 +219,7 @@ func applyColumnDialectOptions(col *core.Column, tc *tomlColumn) {
 		}
 	}
 	if tc.MSSQL != nil {
-		col.MSSQL = &core.MSSQLColumnOptions{
+		col.MSSQL = &schema.MSSQLColumnOptions{
 			FileStream:                tc.MSSQL.FileStream,
 			Sparse:                    tc.MSSQL.Sparse,
 			RowGUIDCol:                tc.MSSQL.RowGUIDCol,
@@ -227,27 +227,27 @@ func applyColumnDialectOptions(col *core.Column, tc *tomlColumn) {
 			Persisted:                 tc.MSSQL.Persisted,
 		}
 		if tc.MSSQL.AlwaysEncrypted != nil {
-			col.MSSQL.AlwaysEncrypted = &core.MSSQLAlwaysEncryptedOptions{
+			col.MSSQL.AlwaysEncrypted = &schema.MSSQLAlwaysEncryptedOptions{
 				ColumnEncryptionKey: tc.MSSQL.AlwaysEncrypted.ColumnEncryptionKey,
 				EncryptionType:      tc.MSSQL.AlwaysEncrypted.EncryptionType,
 				Algorithm:           tc.MSSQL.AlwaysEncrypted.Algorithm,
 			}
 		}
 		if tc.MSSQL.DataMasking != nil {
-			col.MSSQL.DataMasking = &core.MSSQLDataMaskingOptions{
+			col.MSSQL.DataMasking = &schema.MSSQLDataMaskingOptions{
 				Function: tc.MSSQL.DataMasking.Function,
 			}
 		}
 	}
 	if tc.DB2 != nil {
-		col.DB2 = &core.DB2ColumnOptions{
+		col.DB2 = &schema.DB2ColumnOptions{
 			InlineLength:     tc.DB2.InlineLength,
 			Compress:         tc.DB2.Compress,
 			ImplicitlyHidden: tc.DB2.ImplicitlyHidden,
 		}
 	}
 	if tc.SQLite != nil {
-		col.SQLite = &core.SQLiteColumnOptions{
+		col.SQLite = &schema.SQLiteColumnOptions{
 			StrictAutoincrement: tc.SQLite.StrictAutoincrement,
 		}
 	}

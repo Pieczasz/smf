@@ -1,5 +1,7 @@
 // Package introspect contains a main introspecter interface which let you introspect a database for
-// current state of it. It returns core.Database type with all information about current database,
+//
+//	the current state of it. It returns the schema.Database type with all information about the current database,
+//
 // or an error if connection/queries were unsuccessful.
 package introspect
 
@@ -9,25 +11,25 @@ import (
 	"fmt"
 	"sync"
 
-	"smf/internal/core"
+	"smf/internal/schema"
 )
 
 type Introspecter interface {
-	Introspect(ctx context.Context, db *sql.DB) (*core.Database, error)
+	Introspect(ctx context.Context, db *sql.DB) (*schema.Database, error)
 }
 
 var (
-	registry = make(map[core.Dialect]func() Introspecter)
+	registry = make(map[schema.Dialect]func() Introspecter)
 	mu       sync.RWMutex
 )
 
-func Register(dialect core.Dialect, fn func() Introspecter) {
+func Register(dialect schema.Dialect, fn func() Introspecter) {
 	mu.Lock()
 	defer mu.Unlock()
 	registry[dialect] = fn
 }
 
-func NewIntrospecter(dialect core.Dialect) (Introspecter, error) {
+func NewIntrospecter(dialect schema.Dialect) (Introspecter, error) {
 	mu.RLock()
 	fn, ok := registry[dialect]
 	mu.RUnlock()

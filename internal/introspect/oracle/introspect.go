@@ -4,12 +4,12 @@ import (
 	"context"
 	"database/sql"
 
-	"smf/internal/core"
 	"smf/internal/introspect"
+	"smf/internal/schema"
 )
 
 func init() {
-	introspect.Register(core.DialectOracle, New)
+	introspect.Register(schema.DialectOracle, New)
 }
 
 type introspecter struct{}
@@ -18,6 +18,6 @@ func New() introspect.Introspecter {
 	return &introspecter{}
 }
 
-func (i *introspecter) Introspect(_ context.Context, _ *sql.DB) (*core.Database, error) {
+func (i *introspecter) Introspect(_ context.Context, _ *sql.DB) (*schema.Database, error) {
 	return nil, nil
 }

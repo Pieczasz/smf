@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strings"
 
-	"smf/internal/core"
+	"smf/internal/schema"
 )
 
 // Database runs the full preparation-then-validation pipeline.
@@ -18,7 +18,7 @@ import (
 //
 // TODO: consider using errors.Join to report all validation
 // errors at once instead of failing on the first one.
-func Database(db *core.Database) error {
+func Database(db *schema.Database) error {
 	if err := Prepare(db); err != nil {
 		return err
 	}
@@ -28,7 +28,7 @@ func Database(db *core.Database) error {
 // Prepare runs pre-validation transformations that mutate the schema.
 // Currently this synthesizes implicit constraints from column-level
 // shorthand (primary_key, unique, check, references).
-func Prepare(db *core.Database) error {
+func Prepare(db *schema.Database) error {
 	if err := RequiredFields(db); err != nil {
 		return err
 	}
@@ -37,7 +37,7 @@ func Prepare(db *core.Database) error {
 
 // Validate checks a fully-prepared database schema for structural
 // correctness without mutating it.
-func Validate(db *core.Database) error {
+func Validate(db *schema.Database) error {
 	nameRe, err := AllowedNamePattern(db.Validation)
 	if err != nil {
 		return err
@@ -62,15 +62,15 @@ func Validate(db *core.Database) error {
 	return Enums(db)
 }
 
-func RequiredFields(db *core.Database) error {
+func RequiredFields(db *schema.Database) error {
 	if db == nil {
 		return errors.New("database is nil")
 	}
 	if db.Dialect == "" {
-		return fmt.Errorf("dialect is required; supported dialects: %v", core.SupportedDialects())
+		return fmt.Errorf("dialect is required; supported dialects: %v", schema.SupportedDialects())
 	}
-	if !core.ValidDialect(string(db.Dialect)) {
-		return fmt.Errorf("unsupported dialect %q; supported dialects: %v", db.Dialect, core.SupportedDialects())
+	if !schema.ValidDialect(string(db.Dialect)) {
+		return fmt.Errorf("unsupported dialect %q; supported dialects: %v", db.Dialect, schema.SupportedDialects())
 	}
 	if strings.TrimSpace(db.Name) == "" {
 		return errors.New("database name is required")
@@ -81,7 +81,7 @@ func RequiredFields(db *core.Database) error {
 	return nil
 }
 
-func AllowedNamePattern(rules *core.ValidationRules) (*regexp.Regexp, error) {
+func AllowedNamePattern(rules *schema.ValidationRules) (*regexp.Regexp, error) {
 	if rules == nil || rules.AllowedNamePattern == "" {
 		return nil, nil
 	}
@@ -98,7 +98,7 @@ func SnakeCase(s string) bool {
 	return snakeCaseRe.MatchString(s)
 }
 
-func Name(name string, rules *core.ValidationRules, nameRe *regexp.Regexp, useTableLength bool) error {
+func Name(name string, rules *schema.ValidationRules, nameRe *regexp.Regexp, useTableLength bool) error {
 	if strings.TrimSpace(name) == "" {
 		return errors.New("name is empty")
 	}

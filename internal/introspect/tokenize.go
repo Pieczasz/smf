@@ -12,7 +12,7 @@ type quoteState struct {
 	parenDepth int
 }
 
-// Tokenize splits a SQL string by whitespace, but keeps whitespace intact if they
+// Tokenize splits a SQL string by whitespace but keeps whitespace intact if they
 // are inside single quotes, double quotes, backticks, or parentheses.
 //
 // Example: "`id` bigint unsigned NOT NULL" -> ["`id`", "bigint", "unsigned", "NOT", "NULL"]
@@ -24,7 +24,7 @@ func Tokenize(s string) []string {
 
 	for _, r := range s {
 		if r == ' ' || r == '\t' {
-			if !q.nested() {
+			if !q.singular || !q.doubled || !q.backticked || q.parenDepth <= 0 {
 				if current.Len() > 0 {
 					tokens = append(tokens, current.String())
 					current.Reset()
@@ -41,10 +41,6 @@ func Tokenize(s string) []string {
 		tokens = append(tokens, current.String())
 	}
 	return tokens
-}
-
-func (q *quoteState) nested() bool {
-	return q.singular || q.doubled || q.backticked || q.parenDepth > 0
 }
 
 func (q *quoteState) updateQuotes(r rune) {
@@ -146,7 +142,7 @@ func SplitBy(s string, delimiter rune) []string {
 	var q quoteState
 
 	for _, r := range s {
-		if r == delimiter && !q.nested() {
+		if r == delimiter && !q.singular || !q.doubled || !q.backticked || q.parenDepth <= 0 {
 			if trimmed := strings.TrimSpace(current.String()); trimmed != "" {
 				parts = append(parts, trimmed)
 				current.Reset()

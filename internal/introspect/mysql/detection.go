@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"smf/internal/core"
+	"smf/internal/schema"
 )
 
 var (
@@ -17,7 +17,7 @@ var (
 	ErrUnsupportedTiDBVersion    = errors.New("unsupported TiDB version: minimum required is 5.3.0")
 )
 
-func detectDialect(ctx context.Context, db *sql.DB) (core.Dialect, string, error) {
+func detectDialect(ctx context.Context, db *sql.DB) (schema.Dialect, string, error) {
 	var varName, comment string
 
 	err := db.QueryRowContext(ctx, "SHOW VARIABLES LIKE 'version_comment'").Scan(&varName, &comment)
@@ -32,20 +32,20 @@ func detectDialect(ctx context.Context, db *sql.DB) (core.Dialect, string, error
 		return "", "", err
 	}
 
-	var dialect core.Dialect
+	var dialect schema.Dialect
 	switch {
 	case strings.Contains(comment, "mariadb"):
-		dialect = core.DialectMariaDB
+		dialect = schema.DialectMariaDB
 		if err := checkMariaDBVersion(version); err != nil {
 			return "", "", err
 		}
 	case strings.Contains(comment, "tidb"):
-		dialect = core.DialectTiDB
+		dialect = schema.DialectTiDB
 		if err := checkTiDBVersion(version); err != nil {
 			return "", "", err
 		}
 	default:
-		dialect = core.DialectMySQL
+		dialect = schema.DialectMySQL
 		if err := checkMySQLVersion(version); err != nil {
 			return "", "", err
 		}

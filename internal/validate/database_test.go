@@ -6,13 +6,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"smf/internal/core"
+	"smf/internal/schema"
 )
 
 func TestDatabaseRequiredFields(t *testing.T) {
 	tests := []struct {
 		name    string
-		db      *core.Database
+		db      *schema.Database
 		wantErr string
 	}{
 		{
@@ -22,34 +22,34 @@ func TestDatabaseRequiredFields(t *testing.T) {
 		},
 		{
 			name: "missing dialect",
-			db: &core.Database{
+			db: &schema.Database{
 				Name:    "app",
-				Dialect: core.Dialect(""),
+				Dialect: schema.Dialect(""),
 			},
 			wantErr: "dialect is required",
 		},
 		{
 			name: "invalid dialect",
-			db: &core.Database{
+			db: &schema.Database{
 				Name:    "app",
-				Dialect: core.Dialect("mongo"),
+				Dialect: schema.Dialect("mongo"),
 			},
 			wantErr: "unsupported dialect",
 		},
 		{
 			name: "missing database name",
-			db: &core.Database{
+			db: &schema.Database{
 				Name:    "",
-				Dialect: core.DialectMySQL,
+				Dialect: schema.DialectMySQL,
 			},
 			wantErr: "database name is required",
 		},
 		{
 			name: "empty tables",
-			db: &core.Database{
+			db: &schema.Database{
 				Name:    "app",
-				Dialect: core.DialectMySQL,
-				Tables:  []*core.Table{},
+				Dialect: schema.DialectMySQL,
+				Tables:  []*schema.Table{},
 			},
 			wantErr: "schema is empty",
 		},
@@ -65,14 +65,14 @@ func TestDatabaseRequiredFields(t *testing.T) {
 }
 
 func TestDatabaseValid(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectMySQL,
-		Tables: []*core.Table{
+		Dialect: schema.DialectMySQL,
+		Tables: []*schema.Table{
 			{
 				Name: "users",
-				Columns: []*core.Column{
-					{Name: "id", Type: core.DataTypeInt, PrimaryKey: true},
+				Columns: []*schema.Column{
+					{Name: "id", Type: schema.DataTypeInt, PrimaryKey: true},
 				},
 			},
 		},
@@ -83,12 +83,12 @@ func TestDatabaseValid(t *testing.T) {
 }
 
 func TestDatabaseDuplicateTableNames(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectMySQL,
-		Tables: []*core.Table{
-			{Name: "users", Columns: []*core.Column{{Name: "id", Type: core.DataTypeInt}}},
-			{Name: "users", Columns: []*core.Column{{Name: "id", Type: core.DataTypeInt}}},
+		Dialect: schema.DialectMySQL,
+		Tables: []*schema.Table{
+			{Name: "users", Columns: []*schema.Column{{Name: "id", Type: schema.DataTypeInt}}},
+			{Name: "users", Columns: []*schema.Column{{Name: "id", Type: schema.DataTypeInt}}},
 		},
 	}
 
@@ -98,14 +98,14 @@ func TestDatabaseDuplicateTableNames(t *testing.T) {
 }
 
 func TestDatabaseInvalidAllowedNamePattern(t *testing.T) {
-	db := &core.Database{
+	db := &schema.Database{
 		Name:    "app",
-		Dialect: core.DialectMySQL,
-		Validation: &core.ValidationRules{
+		Dialect: schema.DialectMySQL,
+		Validation: &schema.ValidationRules{
 			AllowedNamePattern: "(",
 		},
-		Tables: []*core.Table{
-			{Name: "users", Columns: []*core.Column{{Name: "id", Type: core.DataTypeInt}}},
+		Tables: []*schema.Table{
+			{Name: "users", Columns: []*schema.Column{{Name: "id", Type: schema.DataTypeInt}}},
 		},
 	}
 
@@ -117,44 +117,44 @@ func TestDatabaseInvalidAllowedNamePattern(t *testing.T) {
 func TestTableName(t *testing.T) {
 	tests := []struct {
 		name    string
-		db      *core.Database
+		db      *schema.Database
 		wantErr string
 	}{
 		{
 			name: "invalid table name - not snake_case",
-			db: &core.Database{
+			db: &schema.Database{
 				Name:    "app",
-				Dialect: core.DialectMySQL,
-				Tables: []*core.Table{
-					{Name: "Users", Columns: []*core.Column{{Name: "id", Type: core.DataTypeInt}}},
+				Dialect: schema.DialectMySQL,
+				Tables: []*schema.Table{
+					{Name: "Users", Columns: []*schema.Column{{Name: "id", Type: schema.DataTypeInt}}},
 				},
 			},
 			wantErr: "must be in snake_case",
 		},
 		{
 			name: "table name exceeds max length",
-			db: &core.Database{
+			db: &schema.Database{
 				Name:    "app",
-				Dialect: core.DialectMySQL,
-				Validation: &core.ValidationRules{
+				Dialect: schema.DialectMySQL,
+				Validation: &schema.ValidationRules{
 					MaxTableNameLength: 3,
 				},
-				Tables: []*core.Table{
-					{Name: "users", Columns: []*core.Column{{Name: "id", Type: core.DataTypeInt}}},
+				Tables: []*schema.Table{
+					{Name: "users", Columns: []*schema.Column{{Name: "id", Type: schema.DataTypeInt}}},
 				},
 			},
 			wantErr: "exceeds maximum length",
 		},
 		{
 			name: "table name does not match allowed pattern",
-			db: &core.Database{
+			db: &schema.Database{
 				Name:    "app",
-				Dialect: core.DialectMySQL,
-				Validation: &core.ValidationRules{
+				Dialect: schema.DialectMySQL,
+				Validation: &schema.ValidationRules{
 					AllowedNamePattern: "^u[a-z]+$",
 				},
-				Tables: []*core.Table{
-					{Name: "users", Columns: []*core.Column{{Name: "id", Type: core.DataTypeInt}}},
+				Tables: []*schema.Table{
+					{Name: "users", Columns: []*schema.Column{{Name: "id", Type: schema.DataTypeInt}}},
 				},
 			},
 			wantErr: "does not match allowed pattern",

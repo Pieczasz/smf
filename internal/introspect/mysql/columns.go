@@ -4,8 +4,8 @@ import (
 	"slices"
 	"strings"
 
-	"smf/internal/core"
 	"smf/internal/introspect"
+	"smf/internal/schema"
 )
 
 var terminators = []string{"NOT", "NULL", "DEFAULT", "AUTO_INCREMENT", "PRIMARY",
@@ -14,14 +14,14 @@ var terminators = []string{"NOT", "NULL", "DEFAULT", "AUTO_INCREMENT", "PRIMARY"
 
 // parseColumn parses a single column definition from a CREATE TABLE body item.
 // Example input: "`id` bigint unsigned NOT NULL AUTO_INCREMENT".
-func parseColumn(_ core.Dialect, item string) (*core.Column, error) {
+func parseColumn(_ schema.Dialect, item string) (*schema.Column, error) {
 	tokens := introspect.Tokenize(item)
 	if len(tokens) == 0 {
 		return nil, nil
 	}
 
-	name := core.QuoteMySQLIdentifier(tokens[0])
-	col := &core.Column{
+	name := schema.QuoteMySQLIdentifier(tokens[0])
+	col := &schema.Column{
 		Name:     name,
 		Nullable: true,
 	}
@@ -38,7 +38,7 @@ func parseColumn(_ core.Dialect, item string) (*core.Column, error) {
 
 	rawType := strings.Join(typeTokens, " ")
 	col.RawType = rawType
-	col.Type = core.NormalizeDataType(rawType)
+	col.Type = schema.NormalizeDataType(rawType)
 	for ; i < len(tokens); i++ {
 		upperToken := strings.ToUpper(tokens[i])
 		i = applyColumnAttribute(col, tokens, i, upperToken)
@@ -47,7 +47,7 @@ func parseColumn(_ core.Dialect, item string) (*core.Column, error) {
 }
 
 // applyColumnAttribute processes a single column attribute keyword at position i and returns the new index.
-func applyColumnAttribute(col *core.Column, tokens []string, i int, upperToken string) int {
+func applyColumnAttribute(col *schema.Column, tokens []string, i int, upperToken string) int {
 	if j := applyColumnNullability(col, tokens, i, upperToken); j != i {
 		return j
 	}
@@ -61,7 +61,7 @@ func applyColumnAttribute(col *core.Column, tokens []string, i int, upperToken s
 }
 
 // applyColumnNullability handles NOT NULL / NULL / AUTO_INCREMENT.
-func applyColumnNullability(col *core.Column, tokens []string, i int, upperToken string) int {
+func applyColumnNullability(col *schema.Column, tokens []string, i int, upperToken string) int {
 	switch upperToken {
 	case "NOT":
 		if i+1 < len(tokens) && strings.ToUpper(tokens[i+1]) == "NULL" {
@@ -79,7 +79,7 @@ func applyColumnNullability(col *core.Column, tokens []string, i int, upperToken
 }
 
 // applyColumnKeyAttr handles PRIMARY KEY / UNIQUE / DEFAULT / ON clauses.
-func applyColumnKeyAttr(col *core.Column, tokens []string, i int, upperToken string) int {
+func applyColumnKeyAttr(col *schema.Column, tokens []string, i int, upperToken string) int {
 	switch upperToken {
 	case "PRIMARY":
 		if i+1 < len(tokens) && strings.ToUpper(tokens[i+1]) == "KEY" {
@@ -94,8 +94,7 @@ func applyColumnKeyAttr(col *core.Column, tokens []string, i int, upperToken str
 		return i
 	case "DEFAULT":
 		if i+1 < len(tokens) {
-			val := tokens[i+1]
-			col.DefaultValue = &val
+			col.DefaultValue = new(tokens[i+1])
 			return i + 1
 		}
 	case "ON":
@@ -105,7 +104,7 @@ func applyColumnKeyAttr(col *core.Column, tokens []string, i int, upperToken str
 }
 
 // applyColumnTextAttr handles COMMENT / COLLATE / CHARSET text options.
-func applyColumnTextAttr(col *core.Column, tokens []string, i int, upperToken string) int {
+func applyColumnTextAttr(col *schema.Column, tokens []string, i int, upperToken string) int {
 	switch upperToken {
 	case "COMMENT":
 		if i+1 < len(tokens) {
@@ -127,7 +126,7 @@ func applyColumnTextAttr(col *core.Column, tokens []string, i int, upperToken st
 }
 
 // applyColumnCheckAttr handles CHARACTER SET / CHECK / REFERENCES.
-func applyColumnCheckAttr(col *core.Column, tokens []string, i int, upperToken string) int {
+func applyColumnCheckAttr(col *schema.Column, tokens []string, i int, upperToken string) int {
 	switch upperToken {
 	case "CHARACTER":
 		if i+2 < len(tokens) && strings.ToUpper(tokens[i+1]) == "SET" {
@@ -154,7 +153,7 @@ func resolveMultiWordAction(tokens []string, i int, action1 string) (string, int
 }
 
 // applyColumnOnClause handles ON DELETE / ON UPDATE clauses and returns the new index.
-func applyColumnOnClause(col *core.Column, tokens []string, i int) int {
+func applyColumnOnClause(col *schema.Column, tokens []string, i int) int {
 	if i+2 >= len(tokens) {
 		return i
 	}
@@ -164,7 +163,7 @@ func applyColumnOnClause(col *core.Column, tokens []string, i int) int {
 
 	switch nextUpper {
 	case "DELETE":
-		col.RefOnDelete = core.ReferentialAction(action)
+		col.RefOnDelete = schema.ReferentialAction(action)
 		return i + skip
 	case "UPDATE":
 		return applyOnUpdate(col, tokens, i, action, skip)
@@ -173,19 +172,18 @@ func applyColumnOnClause(col *core.Column, tokens []string, i int) int {
 }
 
 // applyOnUpdate sets the ON UPDATE referential action or timestamp expression.
-func applyOnUpdate(col *core.Column, tokens []string, i int, action string, skip int) int {
+func applyOnUpdate(col *schema.Column, tokens []string, i int, action string, skip int) int {
 	switch action {
 	case "CASCADE", "RESTRICT", "SET NULL", "NO ACTION", "SET DEFAULT":
-		col.RefOnUpdate = core.ReferentialAction(action)
+		col.RefOnUpdate = schema.ReferentialAction(action)
 		return i + skip
 	}
-	val := tokens[i+2]
-	col.OnUpdate = &val
+	col.OnUpdate = new(tokens[i+2])
 	return i + 2
 }
 
-// applyColumnReferences handles REFERENCES clause and returns the new index.
-func applyColumnReferences(col *core.Column, tokens []string, i int) int {
+// applyColumnReferences handles the REFERENCES clause and returns the new index.
+func applyColumnReferences(col *schema.Column, tokens []string, i int) int {
 	if i+1 >= len(tokens) {
 		return i
 	}

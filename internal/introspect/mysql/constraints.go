@@ -3,7 +3,7 @@ package mysql
 import (
 	"errors"
 
-	"smf/internal/core"
+	"smf/internal/schema"
 )
 
 // parseConstraint parses a table-level constraint from a CREATE TABLE body item.
@@ -12,7 +12,7 @@ import (
 //
 // Example input: "PRIMARY KEY (`id`)"
 // Example input: "CONSTRAINT `fk_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)".
-func parseConstraint(_ core.Dialect, item string) (*core.Constraint, error) {
+func parseConstraint(_ schema.Dialect, item string) (*schema.Constraint, error) {
 	// TODO: implement full constraint parsing.
 	_ = item
 	return nil, errors.New("parseConstraint not yet implemented")

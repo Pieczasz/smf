@@ -1,4 +1,4 @@
-// Package core contains the single source of truth from the database schema.
+// Package schema contains the single source of truth from the database schema.
 // It provides a structured representation of data for tables, columns, constraints, and so on
 // for all databases that we support.
 //
@@ -6,7 +6,7 @@
 //   - MySQL: 8.0.23
 //   - MariaDB: 10.3.4
 //   - TiDB: 5.3.0
-package core
+package schema
 
 import (
 	"fmt"

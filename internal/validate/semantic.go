@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"slices"
 
-	"smf/internal/core"
+	"smf/internal/schema"
 )
 
-func LogicalRules(tables []*core.Table, dialect core.Dialect) error {
+func LogicalRules(tables []*schema.Table, dialect schema.Dialect) error {
 	for _, table := range tables {
 		for _, col := range table.Columns {
 			if err := ColumnLogicalRules(col, table, dialect); err != nil {
@@ -21,9 +21,9 @@ func LogicalRules(tables []*core.Table, dialect core.Dialect) error {
 	return nil
 }
 
-func ColumnLogicalRules(c *core.Column, table *core.Table, dialect core.Dialect) error {
+func ColumnLogicalRules(c *schema.Column, table *schema.Table, dialect schema.Dialect) error {
 	if c.RawType != "" {
-		if err := core.ValidateRawType(c.RawType, dialect); err != nil {
+		if err := schema.ValidateRawType(c.RawType, dialect); err != nil {
 			return fmt.Errorf("table %q, column %q: %w", table.Name, c.Name, err)
 		}
 	}
@@ -42,42 +42,42 @@ func ColumnLogicalRules(c *core.Column, table *core.Table, dialect core.Dialect)
 	return DialectSpecificSemantic(c, table, dialect)
 }
 
-func AutoIncrement(c *core.Column, table *core.Table, dialect core.Dialect) error {
-	if c.AutoIncrement && c.Type != core.DataTypeInt {
+func AutoIncrement(c *schema.Column, table *schema.Table, dialect schema.Dialect) error {
+	if c.AutoIncrement && c.Type != schema.DataTypeInt {
 		return fmt.Errorf("table %q, column %q: auto_increment is only allowed on integer columns", table.Name, c.Name)
 	}
-	if dialect == core.DialectSQLite && c.AutoIncrement && !c.PrimaryKey {
+	if dialect == schema.DialectSQLite && c.AutoIncrement && !c.PrimaryKey {
 		return fmt.Errorf("table %q, column %q: SQLite AUTOINCREMENT is only allowed on PRIMARY KEY columns", table.Name, c.Name)
 	}
 
 	return nil
 }
 
-func PrimaryKeyNullable(c *core.Column, table *core.Table) error {
+func PrimaryKeyNullable(c *schema.Column, table *schema.Table) error {
 	if (c.PrimaryKey || PartOfPrimaryKey(table, c.Name)) && c.Nullable {
 		return fmt.Errorf("table %q, column %q: primary key columns cannot be nullable", table.Name, c.Name)
 	}
 	return nil
 }
 
-func GenerationSemantic(c *core.Column, table *core.Table) error {
+func GenerationSemantic(c *schema.Column, table *schema.Table) error {
 	if c.IsGenerated && c.GenerationExpression == "" {
 		return fmt.Errorf("table %q, column %q: generated column must have an expression", table.Name, c.Name)
 	}
 	return nil
 }
 
-func IdentitySemantic(c *core.Column, table *core.Table) error {
+func IdentitySemantic(c *schema.Column, table *schema.Table) error {
 	if (c.IdentitySeed != 0 || c.IdentityIncrement != 0) && !c.AutoIncrement {
 		return fmt.Errorf("table %q, column %q: identity_seed and identity_increment can only be set for auto_increment columns", table.Name, c.Name)
 	}
 	return nil
 }
 
-func DialectSpecificSemantic(c *core.Column, table *core.Table, dialect core.Dialect) error {
-	if dialect == core.DialectTiDB {
+func DialectSpecificSemantic(c *schema.Column, table *schema.Table, dialect schema.Dialect) error {
+	if dialect == schema.DialectTiDB {
 		if c.TiDB != nil && c.TiDB.ShardBits > 0 {
-			if !c.PrimaryKey || c.Type != core.DataTypeInt {
+			if !c.PrimaryKey || c.Type != schema.DataTypeInt {
 				return fmt.Errorf("table %q, column %q: TiDB AUTO_RANDOM can only be applied to BIGINT PRIMARY KEY columns", table.Name, c.Name)
 			}
 		}
@@ -85,9 +85,9 @@ func DialectSpecificSemantic(c *core.Column, table *core.Table, dialect core.Dia
 	return nil
 }
 
-func ForeignKeyTypeCompatibility(t *core.Table, tables []*core.Table) error {
+func ForeignKeyTypeCompatibility(t *schema.Table, tables []*schema.Table) error {
 	for _, con := range t.Constraints {
-		if con.Type != core.ConstraintForeignKey {
+		if con.Type != schema.ConstraintForeignKey {
 			continue
 		}
 		refTable := FindTable(tables, con.ReferencedTable)
@@ -110,9 +110,9 @@ func ForeignKeyTypeCompatibility(t *core.Table, tables []*core.Table) error {
 	return nil
 }
 
-func PartOfPrimaryKey(t *core.Table, colName string) bool {
+func PartOfPrimaryKey(t *schema.Table, colName string) bool {
 	for _, con := range t.Constraints {
-		if con.Type == core.ConstraintPrimaryKey {
+		if con.Type == schema.ConstraintPrimaryKey {
 			if slices.Contains(con.Columns, colName) {
 				return true
 			}

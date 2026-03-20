@@ -3,17 +3,17 @@ package validate
 import (
 	"fmt"
 
-	"smf/internal/core"
+	"smf/internal/schema"
 )
 
-func Constraints(t *core.Table) error {
+func Constraints(t *schema.Table) error {
 	if err := ConstraintNames(t); err != nil {
 		return err
 	}
 	return ConstraintColumns(t)
 }
 
-func ConstraintNames(t *core.Table) error {
+func ConstraintNames(t *schema.Table) error {
 	seen := make(map[string]bool, len(t.Constraints))
 	for _, con := range t.Constraints {
 		if con.Name == "" {
@@ -30,7 +30,7 @@ func ConstraintNames(t *core.Table) error {
 	return nil
 }
 
-func ConstraintColumns(t *core.Table) error {
+func ConstraintColumns(t *schema.Table) error {
 	for _, con := range t.Constraints {
 		if err := SingleConstraintColumns(t, con); err != nil {
 			return err
@@ -39,8 +39,8 @@ func ConstraintColumns(t *core.Table) error {
 	return nil
 }
 
-func SingleConstraintColumns(t *core.Table, con *core.Constraint) error {
-	if con.Type == core.ConstraintCheck {
+func SingleConstraintColumns(t *schema.Table, con *schema.Constraint) error {
+	if con.Type == schema.ConstraintCheck {
 		return nil
 	}
 	if len(con.Columns) == 0 {
@@ -51,7 +51,7 @@ func SingleConstraintColumns(t *core.Table, con *core.Constraint) error {
 			return fmt.Errorf("constraint %q references nonexistent column %q", con.Name, colName)
 		}
 	}
-	if con.Type == core.ConstraintForeignKey {
+	if con.Type == schema.ConstraintForeignKey {
 		if con.ReferencedTable == "" {
 			return fmt.Errorf("foreign key constraint %q is missing referenced_table", con.Name)
 		}
@@ -62,10 +62,10 @@ func SingleConstraintColumns(t *core.Table, con *core.Constraint) error {
 	return nil
 }
 
-func ForeignKeys(tables []*core.Table) error {
+func ForeignKeys(tables []*schema.Table) error {
 	for _, t := range tables {
 		for _, con := range t.Constraints {
-			if con.Type != core.ConstraintForeignKey {
+			if con.Type != schema.ConstraintForeignKey {
 				continue
 			}
 			refTable := FindTable(tables, con.ReferencedTable)
@@ -90,7 +90,7 @@ func ForeignKeys(tables []*core.Table) error {
 	return nil
 }
 
-func FindTable(tables []*core.Table, name string) *core.Table {
+func FindTable(tables []*schema.Table, name string) *schema.Table {
 	for _, t := range tables {
 		if t.Name == name {
 			return t
@@ -99,16 +99,16 @@ func FindTable(tables []*core.Table, name string) *core.Table {
 	return nil
 }
 
-func Synthesize(t *core.Table) {
+func Synthesize(t *schema.Table) {
 	SynthesizePrimaryKey(t)
 	SynthesizeUniqueConstraints(t)
 	SynthesizeCheckConstraints(t)
 	SynthesizeForeignKeyConstraints(t)
 }
 
-func SynthesizePrimaryKey(t *core.Table) {
+func SynthesizePrimaryKey(t *schema.Table) {
 	for _, con := range t.Constraints {
-		if con.Type == core.ConstraintPrimaryKey {
+		if con.Type == schema.ConstraintPrimaryKey {
 			return
 		}
 	}
@@ -123,61 +123,61 @@ func SynthesizePrimaryKey(t *core.Table) {
 		return
 	}
 
-	name := core.AutoGenerateConstraintName(core.ConstraintPrimaryKey, t.Name, pkCols, "")
-	t.Constraints = append(t.Constraints, &core.Constraint{
+	name := schema.AutoGenerateConstraintName(schema.ConstraintPrimaryKey, t.Name, pkCols, "")
+	t.Constraints = append(t.Constraints, &schema.Constraint{
 		Name:    name,
-		Type:    core.ConstraintPrimaryKey,
+		Type:    schema.ConstraintPrimaryKey,
 		Columns: pkCols,
 	})
 }
 
-func SynthesizeUniqueConstraints(t *core.Table) {
+func SynthesizeUniqueConstraints(t *schema.Table) {
 	for _, col := range t.Columns {
 		if !col.Unique {
 			continue
 		}
 		cols := []string{col.Name}
-		name := core.AutoGenerateConstraintName(core.ConstraintUnique, t.Name, cols, "")
-		t.Constraints = append(t.Constraints, &core.Constraint{
+		name := schema.AutoGenerateConstraintName(schema.ConstraintUnique, t.Name, cols, "")
+		t.Constraints = append(t.Constraints, &schema.Constraint{
 			Name:    name,
-			Type:    core.ConstraintUnique,
+			Type:    schema.ConstraintUnique,
 			Columns: cols,
 		})
 	}
 }
 
-func SynthesizeCheckConstraints(t *core.Table) {
+func SynthesizeCheckConstraints(t *schema.Table) {
 	for _, col := range t.Columns {
 		if col.Check == "" {
 			continue
 		}
 		cols := []string{col.Name}
-		name := core.AutoGenerateConstraintName(core.ConstraintCheck, t.Name, cols, "")
+		name := schema.AutoGenerateConstraintName(schema.ConstraintCheck, t.Name, cols, "")
 		enforced := true
-		t.Constraints = append(t.Constraints, &core.Constraint{
+		t.Constraints = append(t.Constraints, &schema.Constraint{
 			Name:            name,
-			Type:            core.ConstraintCheck,
+			Type:            schema.ConstraintCheck,
 			CheckExpression: col.Check,
 			Enforced:        &enforced,
 		})
 	}
 }
 
-func SynthesizeForeignKeyConstraints(t *core.Table) {
+func SynthesizeForeignKeyConstraints(t *schema.Table) {
 	for _, col := range t.Columns {
 		if col.References == "" {
 			continue
 		}
-		refTable, refCol, ok := core.ParseReferences(col.References)
+		refTable, refCol, ok := schema.ParseReferences(col.References)
 		if !ok {
 			continue
 		}
 		cols := []string{col.Name}
-		name := core.AutoGenerateConstraintName(core.ConstraintForeignKey, t.Name, cols, refTable)
+		name := schema.AutoGenerateConstraintName(schema.ConstraintForeignKey, t.Name, cols, refTable)
 		enforced := true
-		t.Constraints = append(t.Constraints, &core.Constraint{
+		t.Constraints = append(t.Constraints, &schema.Constraint{
 			Name:              name,
-			Type:              core.ConstraintForeignKey,
+			Type:              schema.ConstraintForeignKey,
 			Columns:           cols,
 			ReferencedTable:   refTable,
 			ReferencedColumns: []string{refCol},
