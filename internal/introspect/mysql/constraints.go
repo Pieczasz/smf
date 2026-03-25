@@ -3,6 +3,10 @@ package mysql
 import (
 	"errors"
 
+	"slices"
+	"strings"
+
+	"smf/internal/introspect"
 	"smf/internal/schema"
 )
 
@@ -13,7 +17,12 @@ import (
 // Example input: "PRIMARY KEY (`id`)"
 // Example input: "CONSTRAINT `fk_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)".
 func parseConstraint(_ schema.Dialect, item string) (*schema.Constraint, error) {
-	// TODO: implement full constraint parsing.
+	tokens := introspect.Tokenize(item)
+
+	if len(tokens) == 0 {
+		return nil, nil
+	}
+
 	_ = item
 	return nil, errors.New("parseConstraint not yet implemented")
 }

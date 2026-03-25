@@ -32,8 +32,7 @@ func constraint(tc *tomlConstraint) *schema.Constraint {
 	if tc.Enforced != nil {
 		c.Enforced = tc.Enforced
 	} else {
-		enforced := true
-		c.Enforced = &enforced
+		c.Enforced = new(true)
 	}
 
 	return c
