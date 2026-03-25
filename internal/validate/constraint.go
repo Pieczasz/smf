@@ -153,12 +153,11 @@ func SynthesizeCheckConstraints(t *schema.Table) {
 		}
 		cols := []string{col.Name}
 		name := schema.AutoGenerateConstraintName(schema.ConstraintCheck, t.Name, cols, "")
-		enforced := true
 		t.Constraints = append(t.Constraints, &schema.Constraint{
 			Name:            name,
 			Type:            schema.ConstraintCheck,
 			CheckExpression: col.Check,
-			Enforced:        &enforced,
+			Enforced:        new(true),
 		})
 	}
 }
@@ -174,7 +173,6 @@ func SynthesizeForeignKeyConstraints(t *schema.Table) {
 		}
 		cols := []string{col.Name}
 		name := schema.AutoGenerateConstraintName(schema.ConstraintForeignKey, t.Name, cols, refTable)
-		enforced := true
 		t.Constraints = append(t.Constraints, &schema.Constraint{
 			Name:              name,
 			Type:              schema.ConstraintForeignKey,
@@ -183,7 +181,7 @@ func SynthesizeForeignKeyConstraints(t *schema.Table) {
 			ReferencedColumns: []string{refCol},
 			OnDelete:          col.RefOnDelete,
 			OnUpdate:          col.RefOnUpdate,
-			Enforced:          &enforced,
+			Enforced:          new(true),
 		})
 	}
 }
