@@ -3,9 +3,6 @@ package mysql
 import (
 	"errors"
 
-	"slices"
-	"strings"
-
 	"smf/internal/introspect"
 	"smf/internal/schema"
 )

@@ -1,4 +1,4 @@
-// Package toml provides a parser for the smf TOML schema format.
+// Package config/toml provides a parser for the smf TOML schema format.
 // It reads a dialect-agnostic schema definition from a .toml file and
 // converts it into the canonical schema.Database representation that the
 // rest of the smf toolchain operates on.
@@ -17,7 +17,7 @@ import (
 )
 
 // schemaFile is the top-level TOML document.
-// In the new schema format, [database], [validation], and [[tables]]
+// In the schema format, [database], [validation], and [[tables]]
 // are all top-level keys (tables and validation are NOT nested under a database).
 type schemaFile struct {
 	Database   tomlDatabase    `toml:"database"`
@@ -32,6 +32,7 @@ type tomlDatabase struct {
 }
 
 // tomlValidation maps [validation].
+// NOTE: config requires table and column names to be in snake_case .
 type tomlValidation struct {
 	MaxTableNameLength          int    `toml:"max_table_name_length"`
 	MaxColumnNameLength         int    `toml:"max_column_name_length"`
@@ -51,7 +52,7 @@ func NewParser() *Parser {
 func (p *Parser) ParseFile(path string) (*schema.Database, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, fmt.Errorf("toml: open file %q: %w", path, err)
+		return nil, fmt.Errorf("toml: couldn't open file %q: %w", path, err)
 	}
 	defer f.Close()
 
@@ -59,6 +60,7 @@ func (p *Parser) ParseFile(path string) (*schema.Database, error) {
 }
 
 // maxSchemaSize is the maximum allowed schema file size (10 MiB).
+// TODO: maybe we can improve this limit somehow to read bigger files too.
 const maxSchemaSize = 10 << 20
 
 // Parse reads TOML content from the reader and returns the corresponding schema.Database.

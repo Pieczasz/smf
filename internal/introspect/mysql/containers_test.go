@@ -3,6 +3,7 @@ package mysql
 import (
 	"context"
 	"database/sql"
+	"flag"
 	"log"
 	"os"
 	"testing"
@@ -21,6 +22,7 @@ func TestMain(m *testing.M) {
 }
 
 func runTests(m *testing.M) int {
+	flag.Parse()
 	if testing.Short() {
 		return m.Run()
 	}
