@@ -24,7 +24,7 @@ func Tokenize(s string) []string {
 
 	for _, r := range s {
 		if r == ' ' || r == '\t' {
-			if !q.singular || !q.doubled || !q.backticked || q.parenDepth <= 0 {
+			if !q.singular && !q.doubled && !q.backticked && q.parenDepth <= 0 {
 				if current.Len() > 0 {
 					tokens = append(tokens, current.String())
 					current.Reset()
@@ -142,14 +142,18 @@ func SplitBy(s string, delimiter rune) []string {
 	var q quoteState
 
 	for _, r := range s {
-		if r == delimiter && !q.singular || !q.doubled || !q.backticked || q.parenDepth <= 0 {
-			if trimmed := strings.TrimSpace(current.String()); trimmed != "" {
-				parts = append(parts, trimmed)
-				current.Reset()
+		if r == delimiter {
+			if !q.singular && !q.doubled && !q.backticked && q.parenDepth <= 0 {
+				if trimmed := strings.TrimSpace(current.String()); trimmed != "" {
+					parts = append(parts, trimmed)
+					current.Reset()
+				}
+				continue
 			}
-		} else {
-			current.WriteRune(r)
 		}
+		q.updateQuotes(r)
+		q.updateParens(r)
+		current.WriteRune(r)
 	}
 
 	if last := strings.TrimSpace(current.String()); last != "" {
@@ -157,4 +161,15 @@ func SplitBy(s string, delimiter rune) []string {
 	}
 
 	return parts
+}
+
+// StripQuotes removes surrounding quotes (backticks, single, or double quotes) from a string.
+func StripQuotes(s string) string {
+	if len(s) >= 2 {
+		c := s[0]
+		if (c == '`' || c == '\'' || c == '"') && s[len(s)-1] == c {
+			return s[1 : len(s)-1]
+		}
+	}
+	return s
 }
