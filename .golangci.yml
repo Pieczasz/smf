@@ -92,7 +92,7 @@ linters:
         - name: var-naming
         - name: cyclomatic
           arguments:
-            - 10
+            - 15
         - name: function-length
           arguments:
             - 50

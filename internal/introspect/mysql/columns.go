@@ -10,7 +10,9 @@ import (
 
 var terminators = []string{"NOT", "NULL", "DEFAULT", "AUTO_INCREMENT", "PRIMARY",
 	"KEY", "UNIQUE", "COMMENT", "COLLATE", "CHARSET", "REFERENCES",
-	"CHECK", "ON", "CONSTRAINT", "INDEX", "KEY"}
+	"CHECK", "ON", "CONSTRAINT", "INDEX", "GENERATED", "AS",
+	"VISIBLE", "INVISIBLE", "COLUMN_FORMAT", "ENGINE_ATTRIBUTE",
+	"SECONDARY_ENGINE_ATTRIBUTE", "STORAGE"}
 
 // parseColumn parses a single column definition from a CREATE TABLE body item.
 // Example input: "`id` bigint unsigned NOT NULL AUTO_INCREMENT".
@@ -30,7 +32,16 @@ func parseColumn(_ schema.Dialect, item string) (*schema.Column, error) {
 	var i int
 	for i = 1; i < len(tokens); i++ {
 		upperToken := strings.ToUpper(tokens[i])
-		if slices.Contains(terminators, upperToken) {
+		isTerm := slices.Contains(terminators, upperToken)
+		if !isTerm {
+			for _, term := range terminators {
+				if strings.HasPrefix(upperToken, term+"=") {
+					isTerm = true
+					break
+				}
+			}
+		}
+		if isTerm {
 			break
 		}
 		typeTokens = append(typeTokens, tokens[i])
@@ -57,7 +68,117 @@ func applyColumnAttribute(col *schema.Column, tokens []string, i int, upperToken
 	if j := applyColumnTextAttr(col, tokens, i, upperToken); j != i {
 		return j
 	}
-	return applyColumnCheckAttr(col, tokens, i, upperToken)
+	if j := applyColumnCheckAttr(col, tokens, i, upperToken); j != i {
+		return j
+	}
+	if j := applyColumnGeneratedAttr(col, tokens, i, upperToken); j != i {
+		return j
+	}
+	return applyColumnStorageAttr(col, tokens, i, upperToken)
+}
+
+func applyColumnGeneratedAttr(col *schema.Column, tokens []string, i int, upperToken string) int {
+	switch upperToken {
+	case "GENERATED":
+		if i+1 < len(tokens) && strings.ToUpper(tokens[i+1]) == "ALWAYS" {
+			i += 2
+		} else {
+			i++
+		}
+		if i < len(tokens) && strings.ToUpper(tokens[i]) == "AS" && i+1 < len(tokens) {
+			col.IsGenerated = true
+			col.GenerationExpression = strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(tokens[i+1], "("), ")"))
+			return i + 2
+		}
+		return i
+	case "AS":
+		if i+1 < len(tokens) {
+			col.IsGenerated = true
+			col.GenerationExpression = strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(tokens[i+1], "("), ")"))
+			return i + 2
+		}
+	case "VIRTUAL":
+		col.GenerationStorage = schema.GenerationVirtual
+		return i + 1
+	case "STORED":
+		col.GenerationStorage = schema.GenerationStored
+		return i + 1
+	case "VISIBLE":
+		col.Invisible = false
+		return i + 1
+	case "INVISIBLE":
+		col.Invisible = true
+		return i + 1
+	}
+	return i
+}
+
+func applyColumnStorageAttr(col *schema.Column, tokens []string, i int, upperToken string) int {
+	switch {
+	case upperToken == "COLUMN_FORMAT":
+		if i+1 < len(tokens) {
+			if col.MySQL == nil {
+				col.MySQL = &schema.MySQLColumnOptions{}
+			}
+			col.MySQL.ColumnFormat = strings.ToUpper(tokens[i+1])
+			return i + 2
+		}
+	case upperToken == "ENGINE_ATTRIBUTE" || strings.HasPrefix(upperToken, "ENGINE_ATTRIBUTE="):
+		if col.MySQL == nil {
+			col.MySQL = &schema.MySQLColumnOptions{}
+		}
+		if upperToken == "ENGINE_ATTRIBUTE" {
+			if i+1 < len(tokens) {
+				idx := i + 1
+				if tokens[idx] == "=" && idx+1 < len(tokens) {
+					idx++
+				} else if after, ok := strings.CutPrefix(tokens[idx], "="); ok {
+					col.MySQL.PrimaryEngineAttribute = introspect.StripQuotes(after)
+					return idx + 1
+				}
+				col.MySQL.PrimaryEngineAttribute = introspect.StripQuotes(tokens[idx])
+				return idx + 1
+			}
+		} else {
+			parts := strings.SplitN(tokens[i], "=", 2)
+			if len(parts) == 2 {
+				col.MySQL.PrimaryEngineAttribute = introspect.StripQuotes(parts[1])
+			}
+			return i + 1
+		}
+	case upperToken == "SECONDARY_ENGINE_ATTRIBUTE" || strings.HasPrefix(upperToken, "SECONDARY_ENGINE_ATTRIBUTE="):
+		if col.MySQL == nil {
+			col.MySQL = &schema.MySQLColumnOptions{}
+		}
+		if upperToken == "SECONDARY_ENGINE_ATTRIBUTE" {
+			if i+1 < len(tokens) {
+				idx := i + 1
+				if tokens[idx] == "=" && idx+1 < len(tokens) {
+					idx++
+				} else if after, ok := strings.CutPrefix(tokens[idx], "="); ok {
+					col.MySQL.SecondaryEngineAttribute = introspect.StripQuotes(after)
+					return idx + 1
+				}
+				col.MySQL.SecondaryEngineAttribute = introspect.StripQuotes(tokens[idx])
+				return idx + 1
+			}
+		} else {
+			parts := strings.SplitN(tokens[i], "=", 2)
+			if len(parts) == 2 {
+				col.MySQL.SecondaryEngineAttribute = introspect.StripQuotes(parts[1])
+			}
+			return i + 1
+		}
+	case upperToken == "STORAGE":
+		if i+1 < len(tokens) {
+			if col.MySQL == nil {
+				col.MySQL = &schema.MySQLColumnOptions{}
+			}
+			col.MySQL.Storage = strings.ToUpper(tokens[i+1])
+			return i + 2
+		}
+	}
+	return i
 }
 
 // applyColumnNullability handles NOT NULL / NULL / AUTO_INCREMENT.
