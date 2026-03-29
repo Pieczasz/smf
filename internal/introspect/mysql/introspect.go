@@ -1,6 +1,7 @@
 // Package mysql contains introspect implementation for MySQL, MariaDB, and TiDB dialects,
 // since they support the same binary, it detects which dialect it is and uses SQL pool connection
 // to get all desired databases for schema.Database struct.
+// NOTE: refer to https://dev.mysql.com/doc/refman/8.4/en/create-table.html
 package mysql
 
 import (
