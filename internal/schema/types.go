@@ -726,6 +726,10 @@ type Constraint struct {
 	ReferencedTable string `json:"referenced_table,omitempty" toml:"referenced_table,omitempty"`
 	// ReferencedColumns lists the target columns in ReferencedTable for a FOREIGN KEY.
 	ReferencedColumns []string `json:"referenced_columns,omitempty" toml:"referenced_columns,omitempty"`
+	// Match is the match type for a FOREIGN KEY constraint (FULL, PARTIAL, SIMPLE).
+	// TODO: extract MATCH type from possible options or remove this functionality,
+	// since it's not recommended to use it by MySQL docs.
+	Match string `json:"match,omitempty" toml:"match,omitempty"`
 	// OnDelete is the referential action executed when a referenced row is deleted.
 	OnDelete ReferentialAction `json:"on_delete,omitempty" toml:"on_delete,omitempty"`
 	// OnUpdate is the referential action executed when a referenced row is updated.
@@ -794,12 +798,18 @@ type Index struct {
 	Comment string `json:"comment,omitempty" toml:"comment,omitempty"`
 	// Visibility controls whether the optimizer considers this index (VISIBLE or INVISIBLE).
 	Visibility IndexVisibility `json:"visibility,omitempty" toml:"visibility,omitempty"`
+	// KeyBlockSize sets the index block size (MySQL).
+	KeyBlockSize int `json:"key_block_size,omitempty" toml:"key_block_size,omitempty"`
+	// Parser specifies a custom parser (e.g. ngram) for FULLTEXT indexes (MySQL).
+	Parser string `json:"parser,omitempty" toml:"parser,omitempty"`
 }
 
 // ColumnIndex describes a single column reference within an index definition.
 type ColumnIndex struct {
-	// Name is the column name included in the index.
-	Name string `json:"name" toml:"name"`
+	// Name is the column name included in the index. Empty if Expression is set.
+	Name string `json:"name,omitempty" toml:"name,omitempty"`
+	// Expression is the functional index expression (e.g. "ABS(col)").
+	Expression string `json:"expression,omitempty" toml:"expression,omitempty"`
 	// Length is the prefix length in characters/bytes for partial-index support (0 = full column).
 	Length int `json:"length,omitempty" toml:"length,omitempty"`
 	// Order is the sort direction for this column in the index (ASC or DESC).
