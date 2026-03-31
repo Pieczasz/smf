@@ -1054,9 +1054,3 @@ func BuildEnumTypeRaw(values []string) string {
 	sb.WriteByte(')')
 	return sb.String()
 }
-
-// QuoteMySQLIdentifier formats and escapes a string for safe use as a MySQL identifier.
-func QuoteMySQLIdentifier(name string) string {
-	escaped := strings.ReplaceAll(name, "`", "``")
-	return "`" + escaped + "`"
-}
