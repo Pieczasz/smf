@@ -194,6 +194,7 @@ func applyReferences(c *schema.Constraint, tokens []string, i int) int {
 	return i
 }
 
+// TODO: maybe remove this?
 func applyMatch(c *schema.Constraint, tokens []string, i int) int {
 	if i+1 < len(tokens) {
 		matchType := strings.ToUpper(tokens[i+1])

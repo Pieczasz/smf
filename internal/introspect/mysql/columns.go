@@ -9,7 +9,7 @@ import (
 )
 
 var terminators = []string{"NOT", "NULL", "DEFAULT", "AUTO_INCREMENT", "PRIMARY",
-	"KEY", "UNIQUE", "COMMENT", "COLLATE", "CHARSET", "REFERENCES",
+	"KEY", "UNIQUE", "COMMENT", "COLLATE", "CHARSET", "CHARACTER", "REFERENCES",
 	"CHECK", "ON", "CONSTRAINT", "INDEX", "GENERATED", "AS",
 	"VISIBLE", "INVISIBLE", "COLUMN_FORMAT", "ENGINE_ATTRIBUTE",
 	"SECONDARY_ENGINE_ATTRIBUTE", "STORAGE"}
@@ -22,7 +22,7 @@ func parseColumn(_ schema.Dialect, item string) (*schema.Column, error) {
 		return nil, nil
 	}
 
-	name := schema.QuoteMySQLIdentifier(tokens[0])
+	name := introspect.StripQuotes(tokens[0])
 	col := &schema.Column{
 		Name:     name,
 		Nullable: true,
@@ -80,34 +80,41 @@ func applyColumnAttribute(col *schema.Column, tokens []string, i int, upperToken
 func applyColumnGeneratedAttr(col *schema.Column, tokens []string, i int, upperToken string) int {
 	switch upperToken {
 	case "GENERATED":
-		if i+1 < len(tokens) && strings.ToUpper(tokens[i+1]) == "ALWAYS" {
-			i += 2
-		} else {
-			i++
-		}
-		if i < len(tokens) && strings.ToUpper(tokens[i]) == "AS" && i+1 < len(tokens) {
-			col.IsGenerated = true
-			col.GenerationExpression = strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(tokens[i+1], "("), ")"))
-			return i + 2
-		}
-		return i
+		return parseGenerated(col, tokens, i)
 	case "AS":
-		if i+1 < len(tokens) {
-			col.IsGenerated = true
-			col.GenerationExpression = strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(tokens[i+1], "("), ")"))
-			return i + 2
-		}
+		return parseGeneratedAs(col, tokens, i)
 	case "VIRTUAL":
 		col.GenerationStorage = schema.GenerationVirtual
-		return i + 1
+		return i
 	case "STORED":
 		col.GenerationStorage = schema.GenerationStored
-		return i + 1
+		return i
 	case "VISIBLE":
 		col.Invisible = false
-		return i + 1
+		return i
 	case "INVISIBLE":
 		col.Invisible = true
+		return i
+	}
+	return i
+}
+
+func parseGenerated(col *schema.Column, tokens []string, i int) int {
+	if i+1 < len(tokens) && strings.ToUpper(tokens[i+1]) == "ALWAYS" {
+		i++
+	}
+	if i+1 < len(tokens) && strings.ToUpper(tokens[i+1]) == "AS" && i+2 < len(tokens) {
+		col.IsGenerated = true
+		col.GenerationExpression = strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(tokens[i+2], "("), ")"))
+		return i + 2
+	}
+	return i
+}
+
+func parseGeneratedAs(col *schema.Column, tokens []string, i int) int {
+	if i+1 < len(tokens) {
+		col.IsGenerated = true
+		col.GenerationExpression = strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(tokens[i+1], "("), ")"))
 		return i + 1
 	}
 	return i
@@ -117,68 +124,65 @@ func applyColumnStorageAttr(col *schema.Column, tokens []string, i int, upperTok
 	switch {
 	case upperToken == "COLUMN_FORMAT":
 		if i+1 < len(tokens) {
-			if col.MySQL == nil {
-				col.MySQL = &schema.MySQLColumnOptions{}
-			}
+			ensureMySQLOptions(col)
 			col.MySQL.ColumnFormat = strings.ToUpper(tokens[i+1])
-			return i + 2
+			return i + 1
 		}
 	case upperToken == "ENGINE_ATTRIBUTE" || strings.HasPrefix(upperToken, "ENGINE_ATTRIBUTE="):
-		if col.MySQL == nil {
-			col.MySQL = &schema.MySQLColumnOptions{}
-		}
-		if upperToken == "ENGINE_ATTRIBUTE" {
-			if i+1 < len(tokens) {
-				idx := i + 1
-				if tokens[idx] == "=" && idx+1 < len(tokens) {
-					idx++
-				} else if after, ok := strings.CutPrefix(tokens[idx], "="); ok {
-					col.MySQL.PrimaryEngineAttribute = introspect.StripQuotes(after)
-					return idx + 1
-				}
-				col.MySQL.PrimaryEngineAttribute = introspect.StripQuotes(tokens[idx])
-				return idx + 1
-			}
-		} else {
-			parts := strings.SplitN(tokens[i], "=", 2)
-			if len(parts) == 2 {
-				col.MySQL.PrimaryEngineAttribute = introspect.StripQuotes(parts[1])
-			}
-			return i + 1
-		}
+		return parseEngineAttribute(col, tokens, i, upperToken, true)
 	case upperToken == "SECONDARY_ENGINE_ATTRIBUTE" || strings.HasPrefix(upperToken, "SECONDARY_ENGINE_ATTRIBUTE="):
-		if col.MySQL == nil {
-			col.MySQL = &schema.MySQLColumnOptions{}
-		}
-		if upperToken == "SECONDARY_ENGINE_ATTRIBUTE" {
-			if i+1 < len(tokens) {
-				idx := i + 1
-				if tokens[idx] == "=" && idx+1 < len(tokens) {
-					idx++
-				} else if after, ok := strings.CutPrefix(tokens[idx], "="); ok {
-					col.MySQL.SecondaryEngineAttribute = introspect.StripQuotes(after)
-					return idx + 1
-				}
-				col.MySQL.SecondaryEngineAttribute = introspect.StripQuotes(tokens[idx])
-				return idx + 1
-			}
-		} else {
-			parts := strings.SplitN(tokens[i], "=", 2)
-			if len(parts) == 2 {
-				col.MySQL.SecondaryEngineAttribute = introspect.StripQuotes(parts[1])
-			}
-			return i + 1
-		}
+		return parseEngineAttribute(col, tokens, i, upperToken, false)
 	case upperToken == "STORAGE":
 		if i+1 < len(tokens) {
-			if col.MySQL == nil {
-				col.MySQL = &schema.MySQLColumnOptions{}
-			}
+			ensureMySQLOptions(col)
 			col.MySQL.Storage = strings.ToUpper(tokens[i+1])
-			return i + 2
+			return i + 1
 		}
 	}
 	return i
+}
+
+func ensureMySQLOptions(col *schema.Column) {
+	if col.MySQL == nil {
+		col.MySQL = &schema.MySQLColumnOptions{}
+	}
+}
+
+func parseEngineAttribute(col *schema.Column, tokens []string, i int, upperToken string, primary bool) int {
+	ensureMySQLOptions(col)
+	attrName := "ENGINE_ATTRIBUTE"
+	if !primary {
+		attrName = "SECONDARY_ENGINE_ATTRIBUTE"
+	}
+
+	if upperToken == attrName {
+		if i+1 < len(tokens) {
+			idx := i + 1
+			if tokens[idx] == "=" && idx+1 < len(tokens) {
+				idx++
+			} else if after, ok := strings.CutPrefix(tokens[idx], "="); ok {
+				setEngineAttribute(col, introspect.StripQuotes(after), primary)
+				return idx
+			}
+			setEngineAttribute(col, introspect.StripQuotes(tokens[idx]), primary)
+			return idx
+		}
+	} else {
+		parts := strings.SplitN(tokens[i], "=", 2)
+		if len(parts) == 2 {
+			setEngineAttribute(col, introspect.StripQuotes(parts[1]), primary)
+		}
+		return i
+	}
+	return i
+}
+
+func setEngineAttribute(col *schema.Column, val string, primary bool) {
+	if primary {
+		col.MySQL.PrimaryEngineAttribute = val
+	} else {
+		col.MySQL.SecondaryEngineAttribute = val
+	}
 }
 
 // applyColumnNullability handles NOT NULL / NULL / AUTO_INCREMENT.

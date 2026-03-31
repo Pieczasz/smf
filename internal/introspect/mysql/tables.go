@@ -145,7 +145,7 @@ func introspectTable(ctx context.Context, ic *introspectCtx, tableName string) (
 }
 
 func queryShowCreateTable(ctx context.Context, ic *introspectCtx, tableName string) (string, error) {
-	query := "SHOW CREATE TABLE " + schema.QuoteMySQLIdentifier(tableName)
+	query := "SHOW CREATE TABLE " + introspect.StripQuotes(tableName)
 	var ignored string
 	var ddl string
 	if err := ic.db.QueryRowContext(ctx, query).Scan(&ignored, &ddl); err != nil {
