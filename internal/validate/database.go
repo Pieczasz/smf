@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"smf/internal/prepare"
 	"strings"
 
 	"smf/internal/schema"
@@ -19,20 +20,14 @@ import (
 // TODO: consider using errors.Join to report all validation
 // errors at once instead of failing on the first one.
 func Database(db *schema.Database) error {
-	if err := Prepare(db); err != nil {
-		return err
-	}
-	return Validate(db)
-}
-
-// Prepare runs pre-validation transformations that mutate the schema.
-// Currently this synthesizes implicit constraints from column-level
-// shorthand (primary_key, unique, check, references).
-func Prepare(db *schema.Database) error {
 	if err := RequiredFields(db); err != nil {
 		return err
 	}
-	return SynthesizeConstraints(db.Tables)
+
+	if err := prepare.Database(db); err != nil {
+		return err
+	}
+	return Validate(db)
 }
 
 // Validate checks a fully-prepared database schema for structural
@@ -69,7 +64,7 @@ func RequiredFields(db *schema.Database) error {
 	if db.Dialect == "" {
 		return fmt.Errorf("dialect is required; supported dialects: %v", schema.SupportedDialects())
 	}
-	if !schema.ValidDialect(string(db.Dialect)) {
+	if !Dialect(string(db.Dialect)) {
 		return fmt.Errorf("unsupported dialect %q; supported dialects: %v", db.Dialect, schema.SupportedDialects())
 	}
 	if strings.TrimSpace(db.Name) == "" {
@@ -79,6 +74,16 @@ func RequiredFields(db *schema.Database) error {
 		return errors.New("schema is empty, declare some tables first")
 	}
 	return nil
+}
+
+// Dialect reports whether d is a recognized dialect string.
+func Dialect(d string) bool {
+	for _, supported := range schema.SupportedDialects() {
+		if strings.EqualFold(string(supported), d) {
+			return true
+		}
+	}
+	return false
 }
 
 func AllowedNamePattern(rules *schema.ValidationRules) (*regexp.Regexp, error) {

@@ -19,15 +19,6 @@ func TableUniqueness(tables []*schema.Table) error {
 	return nil
 }
 
-func SynthesizeConstraints(tables []*schema.Table) error {
-	for _, table := range tables {
-		if err := PrimaryKeyConflict(table); err != nil {
-			return fmt.Errorf("table %q: %w", table.Name, err)
-		}
-		Synthesize(table)
-	}
-	return nil
-}
 
 func TableStructures(tables []*schema.Table, rules *schema.ValidationRules, nameRe *regexp.Regexp) error {
 	for _, table := range tables {
