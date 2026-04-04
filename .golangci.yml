@@ -1,1 +1,61 @@
 version: "2"
+
+formatters:
+  enable:
+    - gofmt
+
+linters:
+  exclusions:
+    presets:
+      - comments
+      - common-false-positives
+      - std-error-handling
+
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - revive
+    - thelper
+    - exptostd
+
+  settings:
+    revive:
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+          arguments:
+            - allowTypesBefore: "*testing.T"
+
+        - name: context-keys-type
+        - name: dot-imports
+        - name: empty-block
+        - name: error-naming
+        - name: error-return
+        - name: error-strings
+        - name: errorf
+
+        - name: exported
+          arguments:
+            - "sayRepetitiveInsteadOfStutters"
+
+        - name: increment-decrement
+        - name: indent-error-flow
+        - name: range
+        - name: receiver-naming
+        - name: redefines-builtin-id
+        - name: superfluous-else
+        - name: time-naming
+        - name: unexported-return
+        - name: unreachable-code
+        - name: unused-parameter
+        - name: var-declaration
+        - name: var-naming
+
+output:
+  sort-order:
+    - linter
+    - severity
+    - file
