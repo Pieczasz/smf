@@ -1,21 +1,10 @@
 [database]
 name = "ecommerce"
-dialect = "mysql"
-
-[validation]
-max_table_name_length = 64
-max_column_name_length = 64
-auto_generate_constraint_names = true
-allowed_name_pattern = "^[a-z][a-z0-9_]*$"
+dialect = "psql"
 
 [[tables]]
 name = "tenants"
 comment = "Tenant / account"
-
-  [tables.options.mysql]
-  engine = "InnoDB"
-  charset = "utf8mb4"
-  collate = "utf8mb4_unicode_ci"
 
   [tables.timestamps]
   enabled = true
@@ -49,11 +38,6 @@ comment = "Tenant / account"
 [[tables]]
 name = "users"
 comment = "Application user"
-
-  [tables.options.mysql]
-  engine = "InnoDB"
-  charset = "utf8mb4"
-  collate = "utf8mb4_unicode_ci"
 
   [tables.timestamps]
   enabled = true
@@ -99,11 +83,6 @@ comment = "Application user"
 name = "roles"
 comment = "RBAC role"
 
-  [tables.options.mysql]
-  engine = "InnoDB"
-  charset = "utf8mb4"
-  collate = "utf8mb4_unicode_ci"
-
   [[tables.columns]]
   name = "id"
   type = "bigint"
@@ -140,10 +119,6 @@ comment = "RBAC role"
 name = "user_roles"
 comment = "RBAC role assignments (many-to-many)"
 
-  [tables.options.mysql]
-  engine = "InnoDB"
-  charset = "utf8mb4"
-  collate = "utf8mb4_unicode_ci"
 
   [[tables.columns]]
   name = "user_id"

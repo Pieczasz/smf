@@ -5,15 +5,11 @@
 #   supported SQL dialect by the smf generator.
 #
 #   Supported dialects:
-#   MySQL 8.x               MariaDB 10.x / 11.x
-#   PostgreSQL 14+          SQLite 3.x
-#   Oracle 19c / 21c        IBM DB2 11.5+
-#   Snowflake               Microsoft SQL Server 2019+ / Azure SQL
+#   PostgreSQL 14+
 #
 #   Design
-#
 #   1.  ONE `type` field per column.
-#       Write a human-friendly, portable type string.  The generator maps it
+#       The generator maps `type` field
 #       to the correct dialect-specific DDL automatically.
 #
 #   2.  Sensible defaults - you only declare what deviates from the norm:
@@ -25,12 +21,12 @@
 #
 #   3.  Optional dialect-scoped type overrides.
 #       When you *must* use a dialect-specific type the portable mapping
-#       cannot express, use:
+#       cannot express, use `raw_type field, example:
 #       raw_type = "JSONB"
 #       then the raw type will be applied for the dialect specified inside
 #       [database], for all other dialects the type value will be used.
 #
-#   Type mapping (portable -> dialect-specific)
+#   Type mapping plan (portable -> dialect-specific)
 #
 #   Portable            MySQL / MariaDB        PostgreSQL         SQLite     Oracle               DB2                  Snowflake            MSSQL / Azure SQL
 #   ------------------  ---------------------  -----------------  ---------  -------------------  -------------------  -------------------  ---------------------
@@ -114,7 +110,7 @@
 #
 #   Auto increment:
 #       MySQL / MariaDB : AUTO_INCREMENT
-#       PostgreSQL      : GENERATED { ALWAYS | BY DEFAULT } AS IDENTITY
+#       PostgreSQL      : GENERATED { ALWAYS | BY DEFAULT } AS IDENTITY / SERIAL
 #       SQLite          : INTEGER PRIMARY KEY  (implicit rowid alias)
 #       Oracle          : GENERATED ALWAYS AS IDENTITY
 #       DB2             : GENERATED ALWAYS AS IDENTITY
@@ -134,23 +130,12 @@
 
 [database]
 name = "ecommerce"
-dialect = "mysql"
-
-# Optional
-[validation]
-max_table_name_length = 64
-max_column_name_length = 64
-auto_generate_constraint_names = true
-allowed_name_pattern = "^[a-z][a-z0-9_]*$"
+dialect = "psql"
 
 [[tables]]
 name = "tenants"
 comment = "Tenant / account"
 
-[tables.options.mysql]
-engine = "InnoDB"
-charset = "utf8mb4"
-collate = "utf8mb4_unicode_ci"
 
 [tables.timestamps]
 enabled = true  # Automatically adds created_at/updated_at
@@ -181,17 +166,10 @@ default = "free"
 name = "settings"
 type = "json"
 nullable = true
-# MySQL/MariaDB -> JSON; PostgreSQL -> JSONB; Oracle -> CLOB;
-# DB2 -> CLOB; Snowflake -> VARIANT; MSSQL -> NVARCHAR(MAX); SQLite -> TEXT
 
 [[tables]]
 name = "users"
 comment = "Application user"
-
-[tables.options.mysql]
-engine = "InnoDB"
-charset = "utf8mb4"
-collate = "utf8mb4_unicode_ci"
 
 [tables.timestamps]
 enabled = true
@@ -220,9 +198,6 @@ check = "email LIKE '%@%'"
 [[tables.columns]]
 name = "password_hash"
 type = "varbinary(60)"
-# MySQL/MariaDB -> VARBINARY(60); PostgreSQL -> BYTEA;
-# Oracle -> RAW(60); DB2 -> VARCHAR(60) FOR BIT DATA;
-# MSSQL -> VARBINARY(60); Snowflake -> BINARY; SQLite -> BLOB
 
 [[tables.columns]]
 name = "display_name"
@@ -244,11 +219,6 @@ columns = ["tenant_id"]
 [[tables]]
 name = "roles"
 comment = "RBAC role"
-
-[tables.options.mysql]
-engine = "InnoDB"
-charset = "utf8mb4"
-collate = "utf8mb4_unicode_ci"
 
 [[tables.columns]]
 name = "id"
@@ -277,9 +247,6 @@ name = "created_at"
 type = "timestamp"
 default = "CURRENT_TIMESTAMP"
 
-# Composite UNIQUE requires the constraints section - column-level
-# `unique = true` only works for single-columns uniqueness.
-
 [[tables.constraints]]
 name = "uq_roles_tenant_name"
 type = "UNIQUE"
@@ -288,11 +255,6 @@ columns = ["tenant_id", "name"]
 [[tables]]
 name = "user_roles"
 comment = "RBAC role assignments (many-to-many)"
-
-[tables.options.mysql]
-engine = "InnoDB"
-charset = "utf8mb4"
-collate = "utf8mb4_unicode_ci"
 
 [[tables.columns]]
 name = "user_id"
